@@ -1,0 +1,108 @@
+import { createSlice } from "@reduxjs/toolkit";
+import { service } from "../../services";
+
+const INITIAL_STATE = {
+  products: [],
+  isLoading: true,
+  displayCheckoutModal: false,
+  displaySuccessMessage: false,
+};
+
+const cartSlice = createSlice({
+  name: "cart",
+  initialState: INITIAL_STATE,
+  reducers: {
+    loadProductsStart: (state) => {
+      state.isLoading = true;
+    },
+    loadProductsSuccess: (state, action) => {
+      state.isLoading = false;
+      state.products = action.payload.products;
+    },
+    loadProductsFail: (state) => {
+      state.isLoading = false;
+    },
+    removeProductFromCart: (state, action) => {
+      let products = state.products.filter(
+        (p) => p.id !== action.payload.productID
+      );
+      state.products = products;
+    },
+    checkoutStart: (state, action) => {},
+    checkoutSuccess: (state) => {
+      state.displaySuccessMessage = true;
+      state.displayCheckoutModal = false;
+      state.products = [];
+    },
+    checkoutFail: (state) => {
+      state.displaySuccessMessage = false;
+      state.displayCheckoutModal = false;
+    },
+    openCheckouModal: (state) => {
+      state.displayCheckoutModal = true;
+    },
+    closeCheckouModal: (state) => {
+      state.displayCheckoutModal = false;
+    },
+    closeSuccessMessage: (state) => {
+      state.displaySuccessMessage = false;
+    },
+    updateQty: (state, action) => {
+      state.products = updateProductsQty(
+        state.products,
+        action.payload.productID
+      );
+    },
+    resetState: (state) => INITIAL_STATE,
+  },
+});
+
+const updateProductsQty = (products, productId, qty) => {
+  products.map((item) => {
+    if (item.id !== productId) {
+      return item;
+    } else {
+      return { ...item, qty };
+    }
+  });
+
+  return products;
+};
+
+export const loadProducts = () => {
+  return (dispatch) => {
+    dispatch(cartSlice.actions.loadProductsStart());
+    service
+      .loadProductsFormLocalStorage()
+      .then((products) => {
+        let cart = JSON.parse(localStorage.getItem("CART"));
+        let productsWithQty = products.map((product) => {
+          let productWithQty = {
+            ...product,
+            qty: cart[product.id],
+          };
+
+          return productWithQty;
+        });
+
+        dispatch(cartSlice.actions.loadProductsSuccess(productsWithQty));
+      })
+      .catch((error) => {
+        dispatch(cartSlice.actions.loadProductsFail(error));
+      });
+  };
+};
+
+export const removeProductFromCart = (productID) => {
+  service.removeProductFromLocalStorage(productID);
+  cartSlice.actions.removeProductFromCart();
+};
+
+export default cartSlice.reducer;
+export const {
+  resetState,
+  openCheckouModal,
+  updateQty,
+  closeCheckouModal,
+  closeSuccessMessage,
+} = cartSlice.actions;

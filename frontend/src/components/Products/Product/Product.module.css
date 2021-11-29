@@ -1,0 +1,10 @@
+.Product {
+  display: inline-block;
+  color: rgba(0, 0, 0, 0.9);
+  width: 18rem;
+}
+
+.image {
+  max-height: 200px;
+  min-height: 200px;
+}

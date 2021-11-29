@@ -1,0 +1,135 @@
+version: "3.7"
+
+services:
+  ecommerce-front:
+    build:
+      context: ./frontend/
+    ports:
+      - 80:80
+    networks:
+      - frontend
+
+  discovery-server:
+    image: ecommerce/ecommerce-eureka-server
+    entrypoint:
+      [
+        "./dockerize",
+        "--",
+        "java",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseCGroupMemoryLimitForHeap",
+        "-Djava.security.egd=file:/dev/./urandom",
+        "-jar",
+        "/app.jar",
+      ]
+    ports:
+      - 8761:8761
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  api-gateway:
+    image: ecommerce/ecommerce-api-gateway
+    depends_on:
+      - discovery-server
+    entrypoint:
+      [
+        "./dockerize",
+        "-wait=tcp://discovery-server:8761",
+        "-timeout=60s",
+        "--",
+        "java",
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseCGroupMemoryLimitForHeap",
+        "-Djava.security.egd=file:/dev/./urandom",
+        "-jar",
+        "/app.jar",
+      ]
+    ports:
+      - 8080:8080
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  products-service:
+    build:
+      context: ./backend/products-service/
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8081:8081
+    depends_on:
+      - mongodb
+      - discovery-server
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  orders-service:
+    build:
+      context: ./backend/orders-service/
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8083:8083
+    depends_on:
+      - mongodb
+      - discovery-server
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  authenticate-service:
+    build:
+      context: ./backend/authenticate-service/
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8082:8082
+    depends_on:
+      - mongodb
+      - discovery-server
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  mongodb:
+    image: mongo:4.2.6
+    ports:
+      - 27017:27017
+    networks:
+      - backend
+    volumes:
+      - mongodb:/data/db
+
+  postgres:
+    image: postgres:10.5
+    ports:
+      - 5432:5432
+    # environment:
+    #   - POSTGRES_USER=sonar
+    #   - POSTGRES_PASSWORD=sonar
+    networks:
+      - backend
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  mongodb:
+  postgres:

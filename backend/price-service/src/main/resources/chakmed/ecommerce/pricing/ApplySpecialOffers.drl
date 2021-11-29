@@ -1,0 +1,25 @@
+package chakmed.ecommerce.pricing;
+import chakmed.ecommerce.orders.entity.OrderDTO;
+import chakmed.ecommerce.orders.entity.ProductVO
+import java.util.List
+
+
+rule "If products qty is above 5 apply 5% reduction"
+ruleflow-group "ApplySpecialOffers"
+	when
+		$order: OrderDTO()
+        $product: ProductVO(qty > 5, $price: price) from $order.products
+    then
+        System.out.println("================> Product : " + $product);
+        Double newPrice = 0d;
+        for (ProductVO productVO: $order.getProducts()) {
+            if (productVO.getQty() > 5) {
+                productVO.setPrice(productVO.getPrice() * 0.95);
+            }
+            newPrice += productVO.getPrice();
+        }
+        System.out.println("================> Price : " + newPrice);
+		modify($order) {
+			setPrice(newPrice)
+		};
+end
