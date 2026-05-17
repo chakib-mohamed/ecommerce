@@ -5,7 +5,7 @@ import lombok.Data;
 
 @AllArgsConstructor
 @Data
-public class Tuple <X, Y> {
+public class Tuple<X, Y> {
 
     private final X x;
     private final Y y;

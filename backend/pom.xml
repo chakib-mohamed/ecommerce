@@ -8,12 +8,106 @@
   <packaging>pom</packaging>
 
   <modules>
-    <module>ecommerce-eureka-server</module>
     <module>ecommerce-api-gateway</module>
+    <module>products-api</module>
+    <module>orders-api</module>
     <module>products-service</module>
     <module>orders-service</module>
     <module>authenticate-service</module>
     <module>price-service</module>
+    <module>featured-products-service</module>
   </modules>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <maven-checkstyle-plugin.version>3.3.1</maven-checkstyle-plugin.version>
+    <checkstyle.version>10.14.2</checkstyle.version>
+    <spotbugs-maven-plugin.version>4.8.3.1</spotbugs-maven-plugin.version>
+    <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
+  </properties>
+
+  <build>
+    <plugins>
+
+      <!-- UTF-8 encoding verification -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven-enforcer-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce-utf8</id>
+            <phase>validate</phase>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <requireProperty>
+                  <property>project.build.sourceEncoding</property>
+                  <message>project.build.sourceEncoding must be UTF-8</message>
+                  <regex>UTF-8</regex>
+                </requireProperty>
+                <requireProperty>
+                  <property>project.reporting.outputEncoding</property>
+                  <message>project.reporting.outputEncoding must be UTF-8</message>
+                  <regex>UTF-8</regex>
+                </requireProperty>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Checkstyle linter -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>${maven-checkstyle-plugin.version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>${checkstyle.version}</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <id>checkstyle</id>
+            <phase>verify</phase>
+            <goals><goal>check</goal></goals>
+          </execution>
+        </executions>
+        <configuration>
+          <configLocation>${session.executionRootDirectory}/checkstyle.xml</configLocation>
+          <suppressionsLocation>${session.executionRootDirectory}/checkstyle-suppressions.xml</suppressionsLocation>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          <failOnViolation>true</failOnViolation>
+          <violationSeverity>error</violationSeverity>
+          <consoleOutput>true</consoleOutput>
+        </configuration>
+      </plugin>
+
+      <!-- SpotBugs static analysis -->
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>${spotbugs-maven-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>spotbugs</id>
+            <phase>verify</phase>
+            <goals><goal>check</goal></goals>
+          </execution>
+        </executions>
+        <configuration>
+          <effort>Max</effort>
+          <threshold>High</threshold>
+          <excludeFilterFile>../spotbugs-exclude.xml</excludeFilterFile>
+          <failOnError>true</failOnError>
+        </configuration>
+      </plugin>
+
+    </plugins>
+  </build>
 
 </project>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+
+    <!--
+      Lombok @Data / @Value generate getters that return mutable field
+      references — flagged as EI_EXPOSE_REP / EI_EXPOSE_REP2.
+      These are intentional in DTO classes.
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!--
+      Quarkus CDI creates uninitialized proxy subclasses; SpotBugs flags
+      fields annotated with @Inject as potentially null.
+    -->
+    <Match>
+        <Bug pattern="NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR"/>
+    </Match>
+
+    <!--
+      Panache active-record entities extend PanacheMongoEntity / PanacheEntity.
+      SpotBugs flags the public id field as SE_BAD_FIELD or similar.
+    -->
+    <Match>
+        <Bug pattern="SE_BAD_FIELD,URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD"/>
+    </Match>
+
+</FindBugsFilter>

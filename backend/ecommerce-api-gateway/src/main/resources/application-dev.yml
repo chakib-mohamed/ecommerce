@@ -1,2 +1,74 @@
-cors:
-  allowedOrigins: http://localhost:3000
+spring:
+  cloud:
+    gateway:
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+      httpserver:
+        wiretap: true
+      httpclient:
+        wiretap: true
+      routes:
+        - id: authentication-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
+            
+        - id: products-featured-service
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/products/featured
+          filters:
+            - StripPrefix=1
+            
+        - id: products-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/products/**,/api/categories/**,/api/promotions/**
+          filters:
+            - StripPrefix=1
+            
+        - id: orders-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+
+        - id: cart-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/cart/**
+          filters:
+            - StripPrefix=1
+            
+        - id: payments-service
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=1
+
+
+security:
+  jwt:
+    public-key: ${JWT_PUBLIC_KEY}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.http.server.reactive: DEBUG
+    org.springframework.web.reactive: DEBUG
+    reactor.netty.http.client: DEBUG

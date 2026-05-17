@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<!--
+  Suppress checkstyle violations in pre-existing files that have not been
+  migrated yet.  Remove entries here as each file is cleaned up.
+-->
+<suppressions>
+    <!-- Legacy star imports in products-service and shared API modules -->
+    <suppress checks="AvoidStarImport"
+              files="Product\.java|PromotionsApi\.java|ValidImage\.java"/>
+</suppressions>
