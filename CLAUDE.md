@@ -49,6 +49,10 @@ Feature specs live in `docs/specs/` — one file per feature or cross-service co
 
 See `docs/specs/cart.md` for an example of the spec format (OpenAPI-first + TDD).
 
+## Package Conventions
+
+All DTOs (request/response objects, value objects, commands) live in `boundary/dto/` within each service or shared-api module. The `entity/` package is reserved exclusively for persistence-annotated domain objects (Panache entities and their embedded value objects).
+
 ## Branch Naming
 
 Use `feature/`, `fix/`, or `chore/` prefixes — e.g., `feature/add-cart`, `fix/auth-token-refresh`, `chore/update-deps`.

@@ -1,0 +1,19 @@
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+security:
+  jwt:
+    uri: /api/users/authenticate/**
+    header: Authorization
+    prefix: "Bearer "
+    expiration: 15
+    public-key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3sXsmB7Ag8WAPzSy35c/tA41BM+FYr4aODa49bIBZPtqm7ULrfMmX1ept8ddYrMYYjhXeOR1KAmCNO4WQXDuuIVADX4MnGlKEsUwPFKiIDrWOjT7ImZAL0fmsoS9a8wxZVYGyR/bRjMHjaT0Ee3a+y2Lo9aUBCtlBxbQVjNeeEdlAKAjei7P/aW4eofiJXfkXxQjObg80/H93WqPHOAx1nsPRSaN2SCzMQ3wXc1Ft0h+oNBclRQWBIaQ7pP10hLDMtmzkKR8nqEaVe/jDx36EYbN6Yr2T/YTi/DnkRiA5B9RZwB/UA0eJuEB32yPttemjtBoXhaYsZ77b1xdBaoJCwIDAQAB
+
+logging:
+  level:
+    org.springframework.security: debug
+    the.chak: debug
+

@@ -1,0 +1,25 @@
+####
+# This Dockerfile is used in order to build a container that runs the Quarkus application in JVM mode
+#
+# Build the image with (from the service directory):
+#
+# docker build -f src/main/docker/Dockerfile.jvm -t quarkus/featured-products-service-jvm .
+#
+# NOTE: This build requires that project dependencies (e.g. products-api, parent pom)
+# are available in the configured Maven repository (local or remote).
+#
+####
+# Run stage
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /deployments
+
+COPY target/quarkus-app/lib/ /deployments/lib/
+COPY target/quarkus-app/*.jar /deployments/
+COPY target/quarkus-app/app/ /deployments/app/
+COPY target/quarkus-app/quarkus/ /deployments/quarkus/
+
+EXPOSE 8082
+ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
+
+ENTRYPOINT ["java", "-Dquarkus.http.host=0.0.0.0", "-Djava.util.logging.manager=org.jboss.logmanager.LogManager", "-jar", "/deployments/quarkus-run.jar"]

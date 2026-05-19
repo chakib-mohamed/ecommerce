@@ -1,0 +1,875 @@
+{
+  "openapi" : "3.0.3",
+  "info" : {
+    "title" : "Cart API",
+    "description" : "Cart module inside orders-service. All endpoints require a valid JWT enforced by the gateway.",
+    "version" : "1.0.0"
+  },
+  "servers" : [ {
+    "url" : "/cart"
+  } ],
+  "paths" : {
+    "/" : {
+      "get" : {
+        "operationId" : "getCart",
+        "summary" : "Get current user's cart with live prices",
+        "responses" : {
+          "200" : {
+            "description" : "Cart retrieved successfully",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CartResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No cart exists for this user",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "operationId" : "clearCart",
+        "summary" : "Clear the entire cart",
+        "responses" : {
+          "204" : {
+            "description" : "Cart cleared successfully"
+          },
+          "404" : {
+            "description" : "No cart exists for this user",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items" : {
+      "post" : {
+        "operationId" : "addItem",
+        "summary" : "Add a product to the cart",
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddItemRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Item added, cart returned",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CartResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid request (missing productId or quantity < 1)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/{productId}" : {
+      "put" : {
+        "operationId" : "updateItem",
+        "summary" : "Update quantity of an item in the cart",
+        "parameters" : [ {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "required" : true,
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateItemRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Item updated, cart returned",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CartResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid quantity (< 1)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Product not found in cart",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "operationId" : "removeItem",
+        "summary" : "Remove a single item from the cart",
+        "parameters" : [ {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Item removed successfully"
+          },
+          "404" : {
+            "description" : "Product not found in cart",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/checkout" : {
+      "post" : {
+        "operationId" : "checkout",
+        "summary" : "Create an order from the cart and clear it",
+        "responses" : {
+          "201" : {
+            "description" : "Order created successfully",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Cart is empty",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "Price service unavailable",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders" : {
+      "put" : {
+        "operationId" : "updateOrder",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrderRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      },
+      "post" : {
+        "operationId" : "createOrder",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrderRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/orders/search" : {
+      "post" : {
+        "operationId" : "searchOrders",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SearchOrdersCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TupleIntegerListOrderDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderID}" : {
+      "delete" : {
+        "operationId" : "deleteOrder",
+        "parameters" : [ {
+          "name" : "orderID",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/orders/{orderID}/confirm" : {
+      "post" : {
+        "operationId" : "confirmOrder",
+        "parameters" : [ {
+          "name" : "orderID",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/cart" : {
+      "get" : {
+        "operationId" : "getCart",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
+          }
+        },
+        "summary" : "Get Cart",
+        "tags" : [ "Cart Resource" ],
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
+      },
+      "delete" : {
+        "operationId" : "clearCart",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
+          }
+        },
+        "summary" : "Clear Cart",
+        "tags" : [ "Cart Resource" ],
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/cart/items" : {
+      "post" : {
+        "operationId" : "addItem",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddItemRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
+          }
+        },
+        "summary" : "Add Item",
+        "tags" : [ "Cart Resource" ],
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/cart/items/{productId}" : {
+      "put" : {
+        "operationId" : "updateItem",
+        "parameters" : [ {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateItemRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
+          }
+        },
+        "summary" : "Update Item",
+        "tags" : [ "Cart Resource" ],
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
+      },
+      "delete" : {
+        "operationId" : "removeItem",
+        "parameters" : [ {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
+          }
+        },
+        "summary" : "Remove Item",
+        "tags" : [ "Cart Resource" ],
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/cart/checkout" : {
+      "post" : {
+        "operationId" : "checkout",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
+          }
+        },
+        "summary" : "Checkout",
+        "tags" : [ "Cart Resource" ],
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "AddItemRequest" : {
+        "required" : [ "productId", "quantity" ],
+        "type" : "object",
+        "properties" : {
+          "productId" : {
+            "description" : "ID of the product to add",
+            "pattern" : "\\S",
+            "type" : "string"
+          },
+          "quantity" : {
+            "format" : "int32",
+            "description" : "Quantity to add",
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        }
+      },
+      "UpdateItemRequest" : {
+        "required" : [ "quantity" ],
+        "type" : "object",
+        "properties" : {
+          "quantity" : {
+            "format" : "int32",
+            "description" : "New quantity for the item",
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        }
+      },
+      "CartItemResponse" : {
+        "type" : "object",
+        "properties" : {
+          "productId" : {
+            "type" : "string"
+          },
+          "quantity" : {
+            "type" : "integer"
+          },
+          "unitPrice" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "totalPrice" : {
+            "format" : "double",
+            "type" : "number"
+          }
+        }
+      },
+      "CartResponse" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "string"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CartItemResponse"
+            }
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        }
+      },
+      "CheckoutResponse" : {
+        "type" : "object",
+        "properties" : {
+          "orderId" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "price" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        }
+      },
+      "ErrorResponse" : {
+        "type" : "object",
+        "properties" : {
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LocalDateTime" : {
+        "format" : "date-time",
+        "type" : "string",
+        "example" : "2022-03-10T12:15:50"
+      },
+      "OrderDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "cardNumber" : {
+            "type" : "string"
+          },
+          "creationDate" : {
+            "$ref" : "#/components/schemas/LocalDateTime"
+          },
+          "expirationDate" : {
+            "type" : "string"
+          },
+          "price" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "products" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProductVO"
+            }
+          },
+          "userID" : {
+            "type" : "string"
+          },
+          "validationNumber" : {
+            "type" : "string"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/OrderStatus"
+          }
+        }
+      },
+      "OrderRequest" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "products" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProductVO"
+            }
+          }
+        }
+      },
+      "OrderStatus" : {
+        "enum" : [ "INITIATED", "CONFIRMED" ],
+        "type" : "string"
+      },
+      "ProductVO" : {
+        "type" : "object",
+        "properties" : {
+          "productID" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "qty" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "price" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "percentageOff" : {
+            "format" : "double",
+            "type" : "number"
+          }
+        }
+      },
+      "SearchOrdersCommand" : {
+        "type" : "object",
+        "properties" : {
+          "userID" : {
+            "type" : "string"
+          },
+          "offset" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "limit" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sortBy" : {
+            "type" : "string"
+          }
+        }
+      },
+      "TupleIntegerListOrderDTO" : {
+        "type" : "object",
+        "properties" : {
+          "x" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "y" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrderDTO"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "bearerAuth" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT"
+      },
+      "SecurityScheme" : {
+        "type" : "http",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT",
+        "description" : "Authentication"
+      }
+    }
+  },
+  "security" : [ {
+    "bearerAuth" : [ ]
+  } ]
+}

@@ -1,0 +1,65 @@
+package the.chak.ecommerce.apigateway.util;
+
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
+import java.util.Date;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+
+public class TestJwtTokenGenerator {
+
+    // Fixed RSA 2048-bit test key pair - matches the public key in application-test.yml
+    private static final String TEST_PRIVATE_KEY_B64 =
+            "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDexeyYHsCDxYA/NLLflz+0DjUEz4Vivho4Nrj1sgFk+2qbtQut8yZfV6m3x11isxhiOFd45HUoCYI07hZBcO64hUANfgycaUoSxTA8UqIgOtY6NPsiZkAvR+ayhL1rzDFlVgbJH9tGMweNpPQR7dr7LYuj1pQEK2UHFtBWM154R2UAoCN6Ls/9pbh6h+Ild+RfFCM5uDzT8f3dao8c4DHWew9FJo3ZILMxDfBdzUW3SH6g0FyVFBYEhpDuk/XSEsMy2bOQpHyeoRpV7+MPHfoRhs3pivZP9hOL8OeRGIDkH1FnAH9QDR4m4QHfbI+216aO0GheFpixnvtvXF0FqgkLAgMBAAECggEABivWd4pWi+/zMw0LLX17osnH9zemestIX6lIa2oAduMuG10jEzEKrZZ4maI4uIy8jq//4FX31uGYjU3RKQPvYQYz9Yu53rVd+3Ih+XHSkvD+UUN5d4T8nzKvNd/OfYd9ENEWxAiRYvrz6R0aM8ryh4XF+gZuOEVZeZ5MrC6lHdDTQ//+3EVVipeCWBvoQt7KPArYvUiq6QY6fVvLK9XmeV5cCOad5SFhSaQz2vNSsp2/xgkIjI+6/B9skl0izz+tgDi3cKHbz8M/Yx4bBHz+LNENy5scS4axapIfrQWlQX7kqokRaC71bGbNzQvjOVXmO6q9373G3x/Cqi67PZCo4QKBgQD0BGeM8kLQhNvQ2f3WLDLJ6hAVxOghJSy16d0hy8UoClEIz4aYU/ksFWrjAtwjDPhlWUDwbg+J+2NCJC9d3A55TnlkoaSg1ZxtRsNTNVAoZ99YioFimuBMs9vJc863pWU5JQKDA0Xv2cAVzFJ96TVHUgTGjKDlOnxgzdOgRp+goQKBgQDptnStVjBpzWLoUMOGnIzKh3n3TLWSPkwVLR1APx30rcznMIJyWQz1la5DROtnWED0t+Z7pmEKrnuNJWJiLsY1vf3KnnEYiuVZ4jGMdBC0ShbEvHfuAPL0tHjqoD1EiV6g1YYjCqoMMnIvSTjpg5ZyecjyeieREsoUrnN0uElOKwKBgQDAgxkO4bJEwAyL4O+aIJSRJ9A43HgmbiWv/ykumIya4ki8Ir2VP+q9FMiXAJKcNIdjrd7F0I8B1QqiC9oyuoHQwlCTS9ON7/jRXZqL8uuidRCH0f3xxS5gVSV48ZyM1jfdtY0dv19Vsv0QNXp/S5V1BwgtfJUTQ+kMllX3hMA7AQKBgQC1DxkNQHx5OxipCgiwPJAGRzaCE/eGuKSQs0a6Ayvd5tebM8WbeMnFaJR8oOQOSBzqeZ4hpSAA+nPVQWUa00nTUMFRO7Y6YUCVhdsFCNX4Fn3VJH108V9HnJkgi8trUVDyIPmuJBDhKiOz5nIk1kCzpw26bFBC39+WbiAcCLkhyQKBgE8rilCpcVldtEm2kzNTo7+x33CpE3bDTwXaWtIRUAZ719zTvmwn9XQ55R+/k5Y/5fekYOLY3Ib6cbmWxATtq+nQwTroABbqBvHwfDRwB6NCR7I1ocaXPxLNS4fwgtbp72tOkQm4SOS2HKmxaK1zA5V83u/YAus5C2IlNkSIwU0P";
+
+    private static final String TEST_PUBLIC_KEY_B64 =
+            "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3sXsmB7Ag8WAPzSy35c/tA41BM+FYr4aODa49bIBZPtqm7ULrfMmX1ept8ddYrMYYjhXeOR1KAmCNO4WQXDuuIVADX4MnGlKEsUwPFKiIDrWOjT7ImZAL0fmsoS9a8wxZVYGyR/bRjMHjaT0Ee3a+y2Lo9aUBCtlBxbQVjNeeEdlAKAjei7P/aW4eofiJXfkXxQjObg80/H93WqPHOAx1nsPRSaN2SCzMQ3wXc1Ft0h+oNBclRQWBIaQ7pP10hLDMtmzkKR8nqEaVe/jDx36EYbN6Yr2T/YTi/DnkRiA5B9RZwB/UA0eJuEB32yPttemjtBoXhaYsZ77b1xdBaoJCwIDAQAB";
+
+    private static final PrivateKey PRIVATE_KEY;
+    private static final PublicKey PUBLIC_KEY;
+
+    static {
+        try {
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            PRIVATE_KEY = kf.generatePrivate(
+                    new PKCS8EncodedKeySpec(Base64.getDecoder().decode(TEST_PRIVATE_KEY_B64)));
+            PUBLIC_KEY = kf.generatePublic(
+                    new X509EncodedKeySpec(Base64.getDecoder().decode(TEST_PUBLIC_KEY_B64)));
+        } catch (Exception e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    public static String generateValidToken(String username) {
+        return generateToken(username, System.currentTimeMillis() + 900000); // 15 minutes
+    }
+
+    public static String generateExpiredToken(String username) {
+        return generateToken(username, System.currentTimeMillis() - 10000); // expired 10 seconds ago
+    }
+
+    public static String generateToken(String username, long expirationTime) {
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(expirationTime))
+                .signWith(PRIVATE_KEY, SignatureAlgorithm.RS256)
+                .compact();
+    }
+
+    public static String generateInvalidToken() {
+        return "invalid.jwt.token";
+    }
+
+    public static PublicKey getTestPublicKey() {
+        return PUBLIC_KEY;
+    }
+
+    public static String getTestPublicKeyBase64() {
+        return TEST_PUBLIC_KEY_B64;
+    }
+}
