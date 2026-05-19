@@ -30,7 +30,7 @@ All Quarkus services use a two-tier exception model. **Never use try-catch in re
 - `@ServerExceptionMapper` on `FunctionalException` → `{ type: "FUNCTIONAL", message }` + correct status
 - `@ServerExceptionMapper` on `Exception` → `{ type: "TECHNICAL", message: "An unexpected error occurred" }` + logs
 
-**`ErrorResponse`** DTO lives in `boundary/`: `{ String type, String message }`.
+**`ErrorResponse`** DTO lives in `boundary/dto/`: `{ String type, String message }`.
 
 ## Reactive Stack Policy
 
