@@ -1,4 +1,4 @@
-package the.chak.ecommerce.orders.control;
+package the.chak.ecommerce.orders.control.exceptions;
 
 import jakarta.ws.rs.core.Response;
 

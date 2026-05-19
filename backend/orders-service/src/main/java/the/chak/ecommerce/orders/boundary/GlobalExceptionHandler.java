@@ -1,7 +1,7 @@
 package the.chak.ecommerce.orders.boundary;
 
 import the.chak.ecommerce.orders.boundary.dto.ErrorResponse;
-import the.chak.ecommerce.orders.control.FunctionalException;
+import the.chak.ecommerce.orders.control.exceptions.FunctionalException;
 import io.quarkus.logging.Log;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;

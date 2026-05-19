@@ -5,6 +5,8 @@ import the.chak.ecommerce.orders.boundary.dto.UpdateItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.CartItemResponse;
 import the.chak.ecommerce.orders.boundary.dto.CartResponse;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
+import the.chak.ecommerce.orders.control.exceptions.CartEmptyException;
+import the.chak.ecommerce.orders.control.exceptions.CartNotFoundException;
 import the.chak.ecommerce.orders.entity.Cart;
 import the.chak.ecommerce.orders.entity.CartItem;
 import the.chak.ecommerce.orders.entity.Order;
