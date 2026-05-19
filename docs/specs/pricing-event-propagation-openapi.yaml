@@ -1,0 +1,213 @@
+openapi: 3.0.3
+info:
+  title: price-service API
+  description: |
+    Manages base product prices and computes effective order prices via a BPMN process
+    (Apply Promotions service task → Apply Special Offers Drools rule task).
+
+    **Event emitted:** when a base price is updated, a `PriceChangedEvent` is published
+    to the `price-changed` Kafka topic. `products-service` consumes this event and
+    updates `Product.price` in PostgreSQL.
+  version: 1.0.0
+
+paths:
+
+  /prices/{productId}:
+    put:
+      summary: Set the base price for a product
+      description: |
+        Stores the new base price in price-service's MongoDB and publishes a
+        `PriceChangedEvent` to the `price-changed` Kafka topic.
+        `products-service` will update its own `Product.price` asynchronously.
+      operationId: updatePrice
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          description: UUID of the product whose price is being set
+          schema:
+            type: string
+            format: uuid
+            example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePriceRequest'
+            example:
+              price: 49.99
+      responses:
+        '200':
+          description: Price stored and event published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceResponse'
+              example:
+                productId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                price: 49.99
+        '400':
+          description: Invalid price value (e.g. negative or null)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                type: FUNCTIONAL
+                message: "Price must be a positive value"
+        '404':
+          description: Product not found in products-service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                type: FUNCTIONAL
+                message: "Product not found"
+
+  /pricing/calculate:
+    post:
+      summary: Calculate the effective order price
+      description: |
+        Runs the BPMN pricing process on the provided order:
+        1. **Apply Promotions** (service task) — applies `percentageOff` from each product's active promotions.
+        2. **Apply Special Offers** (Drools rule task) — applies quantity-based discounts
+           (e.g. qty > 5 → 5% reduction).
+
+        Returns the order with `price` set to the computed total and `id` set to the BPMN process ID.
+        Called synchronously by `orders-service` at order creation time.
+      operationId: calculatePrice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceRequest'
+            example:
+              order:
+                products:
+                  - productID: "abc123"
+                    title: "Laptop"
+                    qty: 2
+                    price: 999.99
+                    percentageOff: 10.0
+                  - productID: "def456"
+                    title: "Mouse"
+                    qty: 6
+                    price: 29.99
+                    percentageOff: null
+      responses:
+        '200':
+          description: Effective price computed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceRequest'
+              example:
+                id: "process-7f3a1b2c"
+                order:
+                  price: 1979.90
+                  products:
+                    - productID: "abc123"
+                      title: "Laptop"
+                      qty: 2
+                      price: 1799.98
+                      percentageOff: 10.0
+                    - productID: "def456"
+                      title: "Mouse"
+                      qty: 6
+                      price: 170.94
+                      percentageOff: null
+        '400':
+          description: Invalid or empty order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                type: FUNCTIONAL
+                message: "Order must contain at least one product"
+
+components:
+  schemas:
+
+    UpdatePriceRequest:
+      type: object
+      required:
+        - price
+      properties:
+        price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: New base price; must be strictly positive
+          example: 49.99
+
+    PriceResponse:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        price:
+          type: number
+          format: double
+
+    PriceRequest:
+      type: object
+      description: Wrapper used by orders-service to send an order for pricing and receive back the computed result
+      properties:
+        id:
+          type: string
+          description: BPMN process instance ID; null on request, populated on response
+          nullable: true
+        order:
+          $ref: '#/components/schemas/OrderDTO'
+
+    OrderDTO:
+      type: object
+      properties:
+        price:
+          type: number
+          format: double
+          description: Computed effective total; null on request, populated on response
+          nullable: true
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVO'
+
+    ProductVO:
+      type: object
+      required:
+        - productID
+        - qty
+        - price
+      properties:
+        productID:
+          type: string
+        title:
+          type: string
+        qty:
+          type: integer
+          minimum: 1
+        price:
+          type: number
+          format: double
+          description: Unit price (base price, already fetched from products-service)
+        percentageOff:
+          type: number
+          format: double
+          nullable: true
+          description: Active promotion discount percentage (e.g. 10.0 = 10% off); null if no active promotion
+
+    ErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FUNCTIONAL, TECHNICAL]
+        message:
+          type: string

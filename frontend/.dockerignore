@@ -1,0 +1,7 @@
+node_modules
+build
+.git
+.vscode
+Dockerfile
+README.md
+nginx.conf.old
