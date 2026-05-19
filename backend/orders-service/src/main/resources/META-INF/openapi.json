@@ -362,6 +362,18 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       },
       "delete" : {
@@ -380,6 +392,18 @@
         "summary" : "Clear Cart",
         "tags" : [ "Cart Resource" ],
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -439,6 +463,18 @@
         "summary" : "Add Item",
         "tags" : [ "Cart Resource" ],
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -535,6 +571,18 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       },
       "delete" : {
@@ -590,6 +638,18 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       }
     },
@@ -610,6 +670,18 @@
         "summary" : "Checkout",
         "tags" : [ "Cart Resource" ],
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]

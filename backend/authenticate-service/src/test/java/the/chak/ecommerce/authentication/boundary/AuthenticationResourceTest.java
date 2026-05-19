@@ -5,12 +5,15 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import the.chak.ecommerce.authentication.MongoDbTestResource;
 import the.chak.ecommerce.authentication.boundary.dto.AuthenticateRequest;
 import the.chak.ecommerce.authentication.boundary.dto.SignUpRequest;
 
 @QuarkusTest
+@QuarkusTestResource(MongoDbTestResource.class)
 public class AuthenticationResourceTest {
 
     @Test

@@ -4,12 +4,15 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import the.chak.ecommerce.authentication.MongoDbTestResource;
 import the.chak.ecommerce.authentication.boundary.dto.AuthenticateRequest;
 import the.chak.ecommerce.authentication.entity.User;
 
 @QuarkusTest
+@QuarkusTestResource(MongoDbTestResource.class)
 public class UserServiceTest {
 
     @Inject

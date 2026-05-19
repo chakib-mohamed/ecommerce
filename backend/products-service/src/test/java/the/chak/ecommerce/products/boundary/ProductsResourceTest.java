@@ -11,6 +11,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import the.chak.ecommerce.products.KafkaTestResource;
 import the.chak.ecommerce.products.MinioTestResource;
 
 import java.util.Map;
@@ -22,6 +23,7 @@ import static org.hamcrest.Matchers.is;
 
 @QuarkusTest
 @QuarkusTestResource(MinioTestResource.class)
+@QuarkusTestResource(KafkaTestResource.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ProductsResourceTest {
 

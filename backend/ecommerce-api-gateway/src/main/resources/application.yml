@@ -43,6 +43,13 @@ spring:
           filters:
             - StripPrefix=1
             
+        - id: price-service
+          uri: http://price-service:8080
+          predicates:
+            - Path=/api/prices/**
+          filters:
+            - StripPrefix=1
+
         - id: payments-service
           uri: http://price-service:8080
           predicates:

@@ -1,135 +1,194 @@
-version: "3.7"
+version: "3.8"
 
 services:
   ecommerce-front:
     build:
-      context: ./frontend/
+      context: ./frontend
     ports:
-      - 80:80
+      - 81:80
     networks:
       - frontend
-
-  discovery-server:
-    image: ecommerce/ecommerce-eureka-server
-    entrypoint:
-      [
-        "./dockerize",
-        "--",
-        "java",
-        "-XX:+UnlockExperimentalVMOptions",
-        "-XX:+UseCGroupMemoryLimitForHeap",
-        "-Djava.security.egd=file:/dev/./urandom",
-        "-jar",
-        "/app.jar",
-      ]
-    ports:
-      - 8761:8761
-    networks:
       - backend
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+
 
   api-gateway:
-    image: ecommerce/ecommerce-api-gateway
-    depends_on:
-      - discovery-server
-    entrypoint:
-      [
-        "./dockerize",
-        "-wait=tcp://discovery-server:8761",
-        "-timeout=60s",
-        "--",
-        "java",
-        "-XX:+UnlockExperimentalVMOptions",
-        "-XX:+UseCGroupMemoryLimitForHeap",
-        "-Djava.security.egd=file:/dev/./urandom",
-        "-jar",
-        "/app.jar",
-      ]
+    build:
+      context: ./backend
+      dockerfile: ecommerce-api-gateway/src/main/docker/Dockerfile
     ports:
       - 8080:8080
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-
-  products-service:
-    build:
-      context: ./backend/products-service/
-      dockerfile: src/main/docker/Dockerfile.jvm
-    ports:
-      - 8081:8081
     depends_on:
-      - mongodb
-      - discovery-server
+      - redis
     networks:
       - backend
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
-  orders-service:
-    build:
-      context: ./backend/orders-service/
-      dockerfile: src/main/docker/Dockerfile.jvm
-    ports:
-      - 8083:8083
-    depends_on:
-      - mongodb
-      - discovery-server
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   authenticate-service:
     build:
-      context: ./backend/authenticate-service/
+      context: ./backend/authenticate-service
       dockerfile: src/main/docker/Dockerfile.jvm
     ports:
-      - 8082:8082
+      - 8081:8080
+    environment:
+      - QUARKUS_PROFILE=prod
     depends_on:
-      - mongodb
-      - discovery-server
+      mongodb:
+        condition: service_healthy
     networks:
       - backend
-    deploy:
-      resources:
-        limits:
-          memory: 256M
+
+  products-service:
+    build:
+      context: ./backend/products-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8082:8080
+    environment:
+      - QUARKUS_PROFILE=prod
+      - QUARKUS_DATASOURCE_USERNAME=postgres
+      - QUARKUS_DATASOURCE_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    networks:
+      - backend
+
+  featured-products-service:
+    build:
+      context: ./backend/featured-products-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8083:8080
+    environment:
+      - QUARKUS_PROFILE=prod
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - backend
+
+  orders-service:
+    build:
+      context: ./backend/orders-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8084:8080
+    environment:
+      - QUARKUS_PROFILE=prod
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - backend
+
+  price-service:
+    build:
+      context: ./backend/price-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8085:8080
+    environment:
+      - QUARKUS_PROFILE=prod
+    networks:
+      - backend
 
   mongodb:
-    image: mongo:4.2.6
+    image: mongo:6.0
     ports:
       - 27017:27017
     networks:
       - backend
     volumes:
-      - mongodb:/data/db
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
   postgres:
-    image: postgres:10.5
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=products
     ports:
       - 5432:5432
-    # environment:
-    #   - POSTGRES_USER=sonar
-    #   - POSTGRES_PASSWORD=sonar
     networks:
       - backend
     volumes:
-      - postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - 9000:9000
+      - 9001:9001
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - backend
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - 9092:9092
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - backend
+
+  redis:
+    image: redis:7.0-alpine
+    ports:
+      - 6379:6379
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   frontend:
   backend:
 
 volumes:
-  mongodb:
-  postgres:
+  mongodb_data:
+  postgres_data:

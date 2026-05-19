@@ -14,6 +14,10 @@ Passwords are hashed with **jBCrypt** (`org.mindrot.jbcrypt`). Never store or lo
 
 Tokens are generated with `io.jsonwebtoken` (JJWT 0.11.5). Expiration is controlled by `security.jwt.expiration` in `application.properties` (value in minutes; default: `60`). The secret key must be set as an env var or in properties before running — check `application.properties` for the property name.
 
+## Testing
+
+Tests use `@QuarkusTestResource(MongoDbTestResource.class)` — Testcontainers starts a real `mongo:7.0` container and injects its connection string. Quarkus Dev Services is disabled (`%test.quarkus.devservices.enabled=false`). Docker must be running.
+
 ## Dev Profile
 
 MongoDB connection in dev (`%dev`): `localhost:27017`.

@@ -1,4 +1,11 @@
+export type Category = {
+  value: string;
+  name: string;
+};
+
 export type PromotionType = {
+  label: string;
+  product: string;
   percentageOff: number;
   activeFrom: string;
   activeTo: string;
@@ -16,9 +23,9 @@ export type Product = {
 };
 
 export type OrderCommand = {
-  cardNumber: number;
+  cardNumber: string;
   expirationDate: string;
-  validationNumber: number;
-  products: { productID: number; qty: number }[];
+  validationNumber: string;
+  products: { productID: string; qty: number }[];
   userID: string;
 };

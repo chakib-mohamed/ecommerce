@@ -6,7 +6,7 @@
 <module name="Checker">
     <property name="charset" value="UTF-8"/>
     <property name="severity" value="error"/>
-    <property name="fileExtensions" value="java"/>
+    <property name="fileExtensions" value="java, properties, sql, yml, yaml, xml"/>
 
     <!-- Skip Maven wrapper auto-generated files -->
     <module name="BeforeExecutionExclusionFileFilter">
@@ -23,7 +23,17 @@
         <property name="message" value="Line has trailing whitespace."/>
     </module>
 
+    <!-- No non-ASCII characters (catches em dashes, smart quotes, etc.) -->
+    <module name="RegexpSingleline">
+        <property name="format" value="[^\x00-\x7F]"/>
+        <property name="minimum" value="0"/>
+        <property name="maximum" value="0"/>
+        <property name="message" value="Non-ASCII character found. Use plain ASCII only."/>
+    </module>
+
     <module name="TreeWalker">
+        <!-- Restrict Java AST rules to .java files only -->
+        <property name="fileExtensions" value="java"/>
         <module name="SuppressWarningsHolder"/>
 
         <!-- ── Imports ────────────────────────────────────── -->

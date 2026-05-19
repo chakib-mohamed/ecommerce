@@ -222,6 +222,18 @@ paths:
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
     delete:
       operationId: clearCart
       responses:
@@ -235,6 +247,18 @@ paths:
       tags:
       - Cart Resource
       security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
@@ -264,6 +288,18 @@ paths:
       tags:
       - Cart Resource
       security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
@@ -308,6 +344,18 @@ paths:
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
     delete:
       operationId: removeItem
       parameters:
@@ -336,6 +384,18 @@ paths:
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
   /cart/checkout:
     post:
       operationId: checkout
@@ -350,6 +410,18 @@ paths:
       tags:
       - Cart Resource
       security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []

@@ -1,4 +1,3 @@
-import React from "react";
 import { Product } from "../../types/types";
 import ProductComponent from "./Product/Product";
 
@@ -6,18 +5,14 @@ type Props = {
   products: Product[];
 };
 
-const productsComponent = ({ products }: Props) => {
-  const productsList = products.map((product) => (
-    <div key={product.id} className="col text-center mb-5">
-      <ProductComponent product={product}></ProductComponent>
-    </div>
-  ));
-
+const ProductsComponent = ({ products }: Props) => {
   return (
-    <React.Fragment>
-      <div className="row">{productsList}</div>
-    </React.Fragment>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-y-12 gap-x-8 pb-20">
+      {products.map((product) => (
+        <ProductComponent key={product.id} product={product} />
+      ))}
+    </div>
   );
 };
 
-export default productsComponent;
+export default ProductsComponent;

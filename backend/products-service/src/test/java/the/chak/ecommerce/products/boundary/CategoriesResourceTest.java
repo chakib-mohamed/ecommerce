@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.boundary;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.filter.log.LogDetail;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import the.chak.ecommerce.products.KafkaTestResource;
 
 import java.util.Map;
 
@@ -18,6 +20,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 @QuarkusTest
+@QuarkusTestResource(KafkaTestResource.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class CategoriesResourceTest {
 

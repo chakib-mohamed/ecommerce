@@ -4,8 +4,8 @@
 buildFront ()
 {
  # Build front end
- npm --prefix ./frontend  run build
- docker-compose build ecommerce-front
+ npm --prefix ./frontend install &&  npm --prefix ./frontend  run build
+ docker compose build ecommerce-front
 }
 
 buildApi ()

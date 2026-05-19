@@ -1,7 +1,7 @@
 package the.chak.pricing;
-import the.chak.orders.entity.OrderDTO;
-import the.chak.orders.entity.ProductVO
-import java.util.List
+import the.chak.ecommerce.orders.entity.OrderDTO;
+import the.chak.ecommerce.orders.entity.ProductVO;
+import java.util.List;
 
 
 rule "If products qty is above 5 apply 5% reduction"

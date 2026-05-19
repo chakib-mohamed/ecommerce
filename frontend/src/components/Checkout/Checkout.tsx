@@ -1,4 +1,3 @@
-import React from "react";
 import { useForm } from "react-hook-form";
 import { OrderCommand } from "../../types/types";
 
@@ -7,8 +6,12 @@ type Props = {
 };
 
 const Checkout = ({ onCheckout }: Props) => {
-  const { register, handleSubmit, errors, formState } = useForm({
-    mode: "all",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<OrderCommand>({
+    mode: "onBlur",
   });
 
   const onSubmitForm = (orderCommand: OrderCommand) => {
@@ -16,294 +19,138 @@ const Checkout = ({ onCheckout }: Props) => {
   };
 
   return (
-    <React.Fragment>
-      <form onSubmit={handleSubmit(onSubmitForm)} className="container">
-        <div className="form-group">
-          <label htmlFor="cardNumber">Card number</label>
-          <input
-            className={
-              "form-control col-5" + (errors.cardNumber ? " error" : "")
-            }
-            name="cardNumber"
-            ref={register({
-              required: true,
-              minLength: 16,
-              maxLength: 16,
-              pattern: /^\[0-9]+$/,
-            })}
-          />
-          {errors.cardNumber && errors.cardNumber.type === "required" && (
-            <small className="error form-text">This field is required</small>
+    <div className="space-y-8">
+      <div className="text-center sm:text-left space-y-2">
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Payment Details</h2>
+        <p className="text-slate-500 font-medium text-sm italic">Complete your purchase securely</p>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6">
+        {/* Card Number */}
+        <div className="space-y-1">
+          <label htmlFor="cardNumber" className="block text-sm font-bold text-slate-700 ml-1">
+            Card Number
+          </label>
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+              <i className="fa fa-credit-card"></i>
+            </div>
+            <input
+              id="cardNumber"
+              placeholder="0000 0000 0000 0000"
+              className={`block w-full pl-11 pr-4 py-4 bg-slate-50 border-2 rounded-2xl text-slate-900 placeholder-slate-400 transition-all duration-300 outline-none
+                ${errors.cardNumber ? 'border-red-100 focus:border-red-500 bg-red-50/30' : 'border-transparent focus:border-blue-500 focus:bg-white shadow-sm focus:shadow-blue-100'}`}
+              {...register("cardNumber", {
+                required: "Card number is required",
+                minLength: { value: 16, message: "Must be 16 digits" },
+                maxLength: { value: 16, message: "Must be 16 digits" },
+                pattern: { value: /^[0-9]+$/, message: "Only digits allowed" },
+              })}
+            />
+          </div>
+          {errors.cardNumber && (
+            <p className="mt-1 text-xs font-bold text-red-500 ml-1 italic animate-in fade-in slide-in-from-left-1">
+              {errors.cardNumber.message}
+            </p>
           )}
-          {errors.cardNumber &&
-            (errors.cardNumber.type === "pattern" ||
-              errors.cardNumber.type === "minLength" ||
-              errors.cardNumber.type === "maxLength") && (
-              <small className="error form-text">
-                Must be numeric with 16 digits
-              </small>
-            )}
         </div>
 
-        <div className="form-group">
-          <label htmlFor="expirationDate">Expiration Date</label>
-          <input
-            className={
-              "form-control col-5" + (errors.expirationDate ? " error" : "")
-            }
-            name="expirationDate"
-            ref={register({
-              required: true,
-              minLength: 5,
-              maxLength: 7,
-              pattern: /^(0[1-9]|1[0-2])\/?([0-9]{4}|[0-9]{2})$/,
-            })}
-          />
-          {errors.expirationDate &&
-            errors.expirationDate.type === "required" && (
-              <small className="error form-text">This field is required</small>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Expiration Date */}
+          <div className="space-y-1">
+            <label htmlFor="expirationDate" className="block text-sm font-bold text-slate-700 ml-1">
+              Expiry Date
+            </label>
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                <i className="fa fa-calendar"></i>
+              </div>
+              <input
+                id="expirationDate"
+                placeholder="MM/YY"
+                className={`block w-full pl-11 pr-4 py-4 bg-slate-50 border-2 rounded-2xl text-slate-900 placeholder-slate-400 transition-all duration-300 outline-none
+                  ${errors.expirationDate ? 'border-red-100 focus:border-red-500 bg-red-50/30' : 'border-transparent focus:border-blue-500 focus:bg-white shadow-sm focus:shadow-blue-100'}`}
+                {...register("expirationDate", {
+                  required: "Required",
+                  pattern: {
+                    value: /^(0[1-9]|1[0-2])\/?([0-9]{4}|[0-9]{2})$/,
+                    message: "Use MM/YY",
+                  },
+                })}
+              />
+            </div>
+            {errors.expirationDate && (
+              <p className="mt-1 text-xs font-bold text-red-500 ml-1 italic animate-in fade-in slide-in-from-left-1">
+                {errors.expirationDate.message}
+              </p>
             )}
-          {errors.expirationDate &&
-            (errors.expirationDate.type === "pattern" ||
-              errors.expirationDate.type === "minLength" ||
-              errors.expirationDate.type === "maxLength") && (
-              <small className="error form-text">
-                Must be of format mm/yy or mm/yyyy
-              </small>
+          </div>
+
+          {/* Validation Number */}
+          <div className="space-y-1">
+            <label htmlFor="validationNumber" className="block text-sm font-bold text-slate-700 ml-1">
+              CVC / CVV
+            </label>
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                <i className="fa fa-lock"></i>
+              </div>
+              <input
+                id="validationNumber"
+                placeholder="123"
+                className={`block w-full pl-11 pr-4 py-4 bg-slate-50 border-2 rounded-2xl text-slate-900 placeholder-slate-400 transition-all duration-300 outline-none
+                  ${errors.validationNumber ? 'border-red-100 focus:border-red-500 bg-red-50/30' : 'border-transparent focus:border-blue-500 focus:bg-white shadow-sm focus:shadow-blue-100'}`}
+                {...register("validationNumber", {
+                  required: "Required",
+                  minLength: { value: 3, message: "3 digits" },
+                  maxLength: { value: 3, message: "3 digits" },
+                  pattern: { value: /^[0-9]+$/, message: "Digits only" },
+                })}
+              />
+            </div>
+            {errors.validationNumber && (
+              <p className="mt-1 text-xs font-bold text-red-500 ml-1 italic animate-in fade-in slide-in-from-left-1">
+                {errors.validationNumber.message}
+              </p>
             )}
+          </div>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="validationNumber">Validation Number</label>
-          <input
-            className={
-              "form-control col-5" + (errors.validationNumber ? " error" : "")
-            }
-            name="validationNumber"
-            ref={register({
-              required: true,
-              minLength: 3,
-              maxLength: 3,
-              pattern: /^\[0-9]+$/,
-            })}
-          />
-          {errors.validationNumber &&
-            errors.validationNumber.type === "required" && (
-              <small className="error form-text">This field is required</small>
+        <div className="pt-4">
+          <button
+            type="submit"
+            disabled={!isValid || isSubmitting}
+            className={`w-full py-5 rounded-2xl text-white font-bold text-lg shadow-lg transform transition-all duration-300 flex items-center justify-center space-x-3
+              ${!isValid || isSubmitting 
+                ? 'bg-slate-300 cursor-not-allowed border-0' 
+                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/25 active:scale-[0.98] border-0 cursor-pointer shadow-blue-500/20'}`}
+          >
+            {isSubmitting ? (
+              <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <i className="fa fa-shield"></i>
+                <span>Complete Purchase</span>
+              </>
             )}
-          {errors.validationNumber &&
-            (errors.validationNumber.type === "pattern" ||
-              errors.validationNumber.type === "minLength" ||
-              errors.validationNumber.type === "maxLength") && (
-              <small className="error form-text">
-                Must be numeric with 3 digits
-              </small>
-            )}
+          </button>
         </div>
-
-        <button
-          type="submit"
-          className={
-            "btn " +
-            (formState.isDirty && formState.isValid
-              ? "btn-primary"
-              : "btn-secondary")
-          }
-          disabled={!formState.isDirty || !formState.isValid}
-        >
-          Submit
-        </button>
       </form>
-    </React.Fragment>
+      
+      <div className="flex flex-col items-center justify-center space-y-4 pt-4">
+        <div className="flex items-center space-x-6 grayscale opacity-40">
+          <i className="fa fa-cc-visa text-2xl"></i>
+          <i className="fa fa-cc-mastercard text-2xl"></i>
+          <i className="fa fa-cc-paypal text-2xl"></i>
+          <i className="fa fa-cc-amex text-2xl"></i>
+        </div>
+        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold flex items-center">
+          <i className="fa fa-lock mr-2 text-blue-500"></i>
+          Secure 256-bit SSL Encrypted Payment
+        </p>
+      </div>
+    </div>
   );
 };
 
 export default Checkout;
-
-// class CheckoutOld extends Component {
-//   state = {
-//     formModel: {
-//       cardNumber: {
-//         isValid: false,
-//         isTouched: false,
-//         value: "",
-//         validators: {
-//           isRequired: { isValid: false, message: "PAN is required" },
-//           isNumeric: { isValid: false, message: "PAN must be numeric" },
-//           minLength: {
-//             isValid: false,
-//             minLength: 16,
-//             message: "Validation number is of length 16",
-//           },
-//           maxLength: {
-//             isValid: false,
-//             maxLength: 16,
-//             message: "Validation number is of length 16",
-//           },
-//         },
-//       },
-//       expirationDate: {
-//         isValid: false,
-//         isTouched: false,
-//         value: "",
-//         validators: {
-//           isRequired: {
-//             isValid: false,
-//             message: "expiration date is required",
-//           },
-//           patternMatch: {
-//             pattern: /^((0?[1-9]|1[012])[/]?[0-9]{2})*$/,
-//             isValid: false,
-//             message: "expiration date must respect format MM/yy",
-//           },
-//         },
-//       },
-//       validationNumber: {
-//         isValid: false,
-//         isTouched: false,
-//         value: "",
-//         validators: {
-//           isRequired: {
-//             isValid: false,
-//             message: "Validation number is required",
-//           },
-//           isNumeric: {
-//             isValid: false,
-//             message: "Validation number must be numeric",
-//           },
-//           minLength: {
-//             minLength: 3,
-//             isValid: false,
-//             message: "Validation number must be of length 3",
-//           },
-//           maxLength: {
-//             maxLength: 3,
-//             isValid: false,
-//             message: "Validation number must be of length 3",
-//           },
-//         },
-//       },
-//     },
-//   };
-
-//   handleChange = (e) => {
-//     let { formModel, formIsValid } = onInputChange(e, {
-//       ...this.state.formModel,
-//     });
-//     this.setState({ formModel, formIsValid });
-//   };
-
-//   onCheckout = (e) => {
-//     e.preventDefault();
-//     const orderCommand = {};
-//     for (let element in this.state.formModel) {
-//       orderCommand[element] = this.state.formModel[element].value;
-//     }
-
-//     let products = this.props.products.map((p) => {
-//       return { productID: p.id, qty: p.qty };
-//     });
-//     orderCommand.products = products;
-//     orderCommand.userID = this.props.user.uid;
-
-//     this.props.onCheckout(orderCommand);
-//   };
-
-//   render() {
-//     return (
-//       <React.Fragment>
-//         <form className="container">
-//           <div className="form-group">
-//             <label htmlFor="cardNumber">Card number</label>
-//             <TextInput
-//               name="cardNumber"
-//               value={this.state.formModel.cardNumber.value}
-//               onChangeHandler={this.handleChange}
-//               isValid={
-//                 !this.state.formModel.cardNumber.isTouched ||
-//                 (this.state.formModel.cardNumber.validators.isRequired
-//                   .isValid &&
-//                   this.state.formModel.cardNumber.validators.isNumeric
-//                     .isValid &&
-//                   this.state.formModel.cardNumber.validators.minLength
-//                     .isValid &&
-//                   this.state.formModel.cardNumber.validators.maxLength.isValid)
-//               }
-//             ></TextInput>
-//             <ValidationMessages element={this.state.formModel.cardNumber} />
-//           </div>
-
-//           <div className="form-group">
-//             <label htmlFor="expirationDate">Expiration Date</label>
-//             <TextInput
-//               name="expirationDate"
-//               value={this.state.formModel.expirationDate.value}
-//               onChangeHandler={this.handleChange}
-//               isValid={
-//                 !this.state.formModel.expirationDate.isTouched ||
-//                 (this.state.formModel.expirationDate.validators.isRequired
-//                   .isValid &&
-//                   this.state.formModel.expirationDate.validators.patternMatch
-//                     .isValid)
-//               }
-//             ></TextInput>
-//             <ValidationMessages element={this.state.formModel.expirationDate} />
-//           </div>
-
-//           <div className="form-group">
-//             <label htmlFor="validationNumber">Validation Number</label>
-//             <TextInput
-//               name="validationNumber"
-//               value={this.state.formModel.validationNumber.value}
-//               onChangeHandler={this.handleChange}
-//               isValid={
-//                 !this.state.formModel.validationNumber.isTouched ||
-//                 (this.state.formModel.validationNumber.validators.isRequired
-//                   .isValid &&
-//                   this.state.formModel.validationNumber.validators.isNumeric
-//                     .isValid &&
-//                   this.state.formModel.validationNumber.validators.minLength
-//                     .isValid &&
-//                   this.state.formModel.validationNumber.validators.maxLength
-//                     .isValid)
-//               }
-//             ></TextInput>
-//             <ValidationMessages
-//               element={this.state.formModel.validationNumber}
-//             />
-//           </div>
-
-//           <button
-//             type="submit"
-//             className={
-//               "btn f-right " +
-//               (this.state.formIsValid ? "btn-primary" : "btn-secondary")
-//             }
-//             disabled={!this.state.formIsValid}
-//             onClick={this.onCheckout}
-//           >
-//             Submit
-//           </button>
-//         </form>
-//       </React.Fragment>
-//     );
-//   }
-// }
-
-// const mapStateToProps = (state) => {
-//   return {
-//     products: state.cart.products,
-//     isLoading: state.cart.isLoading,
-//     displayCheckoutModal: state.cart.displayCheckoutModal,
-//     displaySuccessMessage: state.cart.displaySuccessMessage,
-//     user: state.login.user,
-//   };
-// };
-
-// const mapDispatchToProps = (dispatch) => {
-//   return {
-//     onCheckout: (orderCommand) => dispatch(actions.checkout(orderCommand)),
-//   };
-// };
-
-// export default connect(mapStateToProps, mapDispatchToProps)(Checkout);

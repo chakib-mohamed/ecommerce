@@ -79,6 +79,14 @@ public class ProductService {
         }
     }
 
+    @Transactional
+    public void updatePrice(String productId, Double newPrice) {
+        Product product = Product.<Product>find("uuid", UUID.fromString(productId)).firstResult();
+        if (product != null) {
+            product.setPrice(newPrice);
+        }
+    }
+
     public List<Product> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {
         var query = new StringBuilder("1=1");
         params.forEach((key, criteria) -> query.append(" and ").append(key)
