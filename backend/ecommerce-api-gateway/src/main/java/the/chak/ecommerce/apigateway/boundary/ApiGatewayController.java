@@ -25,7 +25,7 @@ public class ApiGatewayController {
     @PostMapping("/revoke-token")
     public Mono<Void> revokeToken(@Valid @RequestBody RevokeTokenRequest revokeTokenRequest) {
 
-        log.info("Revoking token: {}", revokeTokenRequest.getToken());
+        log.info("Revoking token [{}...]", revokeTokenRequest.getToken().substring(0, Math.min(8, revokeTokenRequest.getToken().length())));
         return tokenUtils.revokeToken(revokeTokenRequest.getToken());
     }
 

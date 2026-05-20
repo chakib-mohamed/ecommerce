@@ -3,9 +3,6 @@ server:
 
 spring:
   cloud:
-    loadbalancer:
-      ribbon:
-        enabled: false
     gateway:
       routes:
         - id: authentication-service
@@ -50,7 +47,7 @@ spring:
           filters:
             - StripPrefix=1
 
-        - id: payments-service
+        - id: price-service-payments
           uri: http://price-service:8080
           predicates:
             - Path=/api/payments/**
@@ -64,4 +61,18 @@ spring:
 security:
   jwt:
     public-key: ${JWT_PUBLIC_KEY}
+
+cors:
+  allowed-origins: []
+  allowed-methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+    - HEAD
+  allowed-headers:
+    - Authorization
+    - Content-Type
+  allow-credentials: false
 

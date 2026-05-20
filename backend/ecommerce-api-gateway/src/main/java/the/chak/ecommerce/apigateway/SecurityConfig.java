@@ -20,13 +20,15 @@ import reactor.core.publisher.Mono;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 	private final JwtConfig jwtConfig;
-
 	private final ServerSecurityContextRepository securityContextRepository;
+	private final CorsProperties corsProperties;
 
 	public SecurityConfig(JwtConfig jwtConfig,
-			ServerSecurityContextRepository securityContextRepository) {
+			ServerSecurityContextRepository securityContextRepository,
+			CorsProperties corsProperties) {
 		this.jwtConfig = jwtConfig;
 		this.securityContextRepository = securityContextRepository;
+		this.corsProperties = corsProperties;
 	}
 
 	@Bean
@@ -45,8 +47,14 @@ public class SecurityConfig {
 
 	@Bean
 	@Profile("!dev")
-	public CorsConfigurationSource disabledCorsConfigurationSource() {
+	public CorsConfigurationSource productionCorsConfigurationSource() {
+		CorsConfiguration configuration = new CorsConfiguration();
+		configuration.setAllowedOrigins(corsProperties.getAllowedOrigins());
+		configuration.setAllowedMethods(corsProperties.getAllowedMethods());
+		configuration.setAllowedHeaders(corsProperties.getAllowedHeaders());
+		configuration.setAllowCredentials(corsProperties.isAllowCredentials());
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", configuration);
 		return source;
 	}
 
@@ -61,14 +69,13 @@ public class SecurityConfig {
 								.accessDeniedHandler((swe,
 										e) -> Mono.fromRunnable(() -> swe.getResponse()
 												.setStatusCode(HttpStatus.FORBIDDEN))))
-				// .addFilterBefore(webFilter, SecurityWebFiltersOrder.CORS)
 				.securityContextRepository(securityContextRepository)
 				.authorizeExchange(exchanges -> exchanges
 						.pathMatchers(jwtConfig.getUri()).permitAll()
 						.pathMatchers("/actuator/**").permitAll()
 						.pathMatchers(HttpMethod.POST, "/api/users").permitAll()
 						.pathMatchers(HttpMethod.OPTIONS).permitAll()
-						.pathMatchers(HttpMethod.GET, "/api/featured-products/**").permitAll()
+						.pathMatchers(HttpMethod.GET, "/api/products/featured").permitAll()
 						.pathMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**", "/api/promotions/**").permitAll()
 						.anyExchange().authenticated())
 				.build();

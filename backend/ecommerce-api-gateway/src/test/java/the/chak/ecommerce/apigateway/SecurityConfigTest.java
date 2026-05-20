@@ -1,6 +1,5 @@
 package the.chak.ecommerce.apigateway;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -34,11 +33,6 @@ class SecurityConfigTest {
 
     @Autowired
     private WebTestClient webTestClient;
-
-    @BeforeAll
-    static void setUp() {
-        redis.start();
-    }
 
     @Test
     void testPublicEndpoint_Actuator_AllowsUnauthenticatedAccess() {

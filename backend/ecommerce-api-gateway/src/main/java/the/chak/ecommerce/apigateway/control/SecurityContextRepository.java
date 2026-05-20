@@ -1,6 +1,5 @@
 package the.chak.ecommerce.apigateway.control;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -16,11 +15,14 @@ import reactor.core.publisher.Mono;
 @Component
 public class SecurityContextRepository implements ServerSecurityContextRepository {
 
-	@Autowired
-	ReactiveAuthenticationManager authenticationManager;
+	private final ReactiveAuthenticationManager authenticationManager;
+	private final TokenResolver tokenResolver;
 
-	@Autowired
-	TokenResolver tokenResolver;
+	public SecurityContextRepository(ReactiveAuthenticationManager authenticationManager,
+			TokenResolver tokenResolver) {
+		this.authenticationManager = authenticationManager;
+		this.tokenResolver = tokenResolver;
+	}
 
 	@Override
 	public Mono save(ServerWebExchange swe, SecurityContext sc) {
@@ -37,7 +39,7 @@ public class SecurityContextRepository implements ServerSecurityContextRepositor
 			return this.authenticationManager.authenticate(auth)
 					.map((authentication) -> new SecurityContextImpl(authentication));
 		} else {
-			log.warn("couldn't resolve token .. gonna ignore.");
+			log.debug("couldn't resolve token .. gonna ignore.");
 			return Mono.empty();
 		}
 	}

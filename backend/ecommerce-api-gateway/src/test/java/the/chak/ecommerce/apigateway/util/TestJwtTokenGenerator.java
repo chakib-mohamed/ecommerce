@@ -8,7 +8,6 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Date;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 
 public class TestJwtTokenGenerator {
 
@@ -44,10 +43,10 @@ public class TestJwtTokenGenerator {
 
     public static String generateToken(String username, long expirationTime) {
         return Jwts.builder()
-                .setSubject(username)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(expirationTime))
-                .signWith(PRIVATE_KEY, SignatureAlgorithm.RS256)
+                .subject(username)
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(expirationTime))
+                .signWith(PRIVATE_KEY)
                 .compact();
     }
 

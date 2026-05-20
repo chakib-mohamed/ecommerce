@@ -5,7 +5,6 @@ import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import the.chak.ecommerce.apigateway.JwtConfig;
 import lombok.Getter;
@@ -14,8 +13,11 @@ import lombok.Getter;
 @Getter
 public class RsaKeyProvider {
 
-    @Autowired
-    JwtConfig jwtConfig;
+    private final JwtConfig jwtConfig;
+
+    public RsaKeyProvider(JwtConfig jwtConfig) {
+        this.jwtConfig = jwtConfig;
+    }
 
     private PublicKey publicKey;
 

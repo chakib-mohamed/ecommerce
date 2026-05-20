@@ -3,7 +3,6 @@ package the.chak.ecommerce.apigateway.control;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
@@ -21,14 +20,7 @@ public class AuthenticationManager implements ReactiveAuthenticationManager {
 	@Override
 	public Mono authenticate(Authentication authentication) {
 		String authToken = authentication.getCredentials().toString();
-		return tokenUtils.getUsername(authToken).map(username -> {
-			UsernamePasswordAuthenticationToken auth =
-					new UsernamePasswordAuthenticationToken(username, null, null);
-			SecurityContextHolder.getContext().setAuthentication(auth);
-			return (Authentication) auth;
-		}).switchIfEmpty(Mono.defer(() -> {
-			SecurityContextHolder.clearContext();
-			return Mono.empty();
-		}));
+		return tokenUtils.getUsername(authToken).map(username ->
+				(Authentication) new UsernamePasswordAuthenticationToken(username, null, null));
 	}
 }
