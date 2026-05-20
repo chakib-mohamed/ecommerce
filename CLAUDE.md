@@ -49,6 +49,22 @@ Feature specs live in `docs/specs/` — one file per feature or cross-service co
 
 See `docs/specs/cart.md` for an example of the spec format (OpenAPI-first + TDD).
 
+## Docs Layout
+
+All documentation artifacts live under `docs/`:
+
+| Path | Contents |
+|------|----------|
+| `docs/specs/` | Feature specs (one file per feature) |
+| `docs/tasks/` | Task plans and to-do lists — named `<feature>-plan.md` / `<feature>-todo.md` |
+| `docs/reviews/` | Code review notes |
+
+Never place documentation files at the repo root or in any other directory.
+
+## Task Session Policy
+
+Each task in `docs/tasks/` must be implemented in its own dedicated Claude Code session, and each **phase within a task** must also be its own session. Do not carry over context from a previous task or phase — start fresh each time to keep context lean and avoid cross-task interference.
+
 ## Package Conventions
 
 All DTOs (request/response objects, value objects, commands) live in `boundary/dto/` within each service or shared-api module. The `entity/` package is reserved exclusively for persistence-annotated domain objects (Panache entities and their embedded value objects).
