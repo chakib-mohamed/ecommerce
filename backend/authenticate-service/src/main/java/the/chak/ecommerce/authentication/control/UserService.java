@@ -1,42 +1,34 @@
 package the.chak.ecommerce.authentication.control;
 
 import java.util.Optional;
-import org.bson.Document;
 import org.mindrot.jbcrypt.BCrypt;
 import jakarta.enterprise.context.ApplicationScoped;
 import the.chak.ecommerce.authentication.boundary.dto.AuthenticateRequest;
+import the.chak.ecommerce.authentication.control.exceptions.DuplicateEmailException;
 import the.chak.ecommerce.authentication.entity.User;
 
 @ApplicationScoped
 public class UserService {
 
-    public Optional<User> authenticateUser(AuthenticateRequest authenticateRequest) {
+    private static final String DUMMY_HASH = BCrypt.hashpw("dummy", BCrypt.gensalt());
 
-        final Document document = new Document();
-        document.put("email", authenticateRequest.getEmail());
-        User user = User.find(document).firstResult();
-        boolean passwordMatched = user != null
-                && BCrypt.checkpw(authenticateRequest.getPassword(), user.getPassword());
-
-        return passwordMatched ? Optional.of(user) : Optional.empty();
-
+    public Optional<User> authenticateUser(AuthenticateRequest request) {
+        User user = User.find("email", request.getEmail()).firstResult();
+        String hash = user != null ? user.getPassword() : DUMMY_HASH;
+        boolean matched = BCrypt.checkpw(request.getPassword(), hash);
+        return (user != null && matched) ? Optional.of(user) : Optional.empty();
     }
 
     public Optional<User> findUser(String email) {
-
-        final Document document = new Document();
-        document.put("email", email);
-        User user = User.find(document).firstResult();
-
-        return Optional.ofNullable(user);
-
+        return Optional.ofNullable(User.find("email", email).firstResult());
     }
 
     public User addUser(User user) {
+        if (User.find("email", user.getEmail()).count() > 0) {
+            throw new DuplicateEmailException(user.getEmail());
+        }
         user.setPassword(BCrypt.hashpw(user.getPassword(), BCrypt.gensalt()));
         user.persist();
-
         return user;
     }
-
 }

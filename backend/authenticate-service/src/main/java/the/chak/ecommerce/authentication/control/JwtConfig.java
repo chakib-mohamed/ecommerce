@@ -8,7 +8,7 @@ import lombok.Data;
 @ApplicationScoped
 public class JwtConfig {
     @ConfigProperty(name = "security.jwt.uri", defaultValue = "/auth/**")
-    private String Uri;
+    private String uri;
 
     @ConfigProperty(name = "security.jwt.header", defaultValue = "Authorization")
     private String header;
