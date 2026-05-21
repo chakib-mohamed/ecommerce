@@ -2,7 +2,6 @@ package the.chak.ecommerce.products.entity;
 
 import java.util.List;
 import java.util.UUID;
-import org.bson.Document;
 import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import io.quarkus.mongodb.panache.common.MongoEntity;
 import lombok.Data;
@@ -17,11 +16,10 @@ public class ProductMongoEntity extends PanacheMongoEntity {
     private Double price;
     private String title;
 
-    private List<Document> promotions;
-    private List<Document> categories;
+    private List<EmbeddedPromotion> promotions;
+    private List<EmbeddedCategory> categories;
 
     public static ProductMongoEntity findByUuid(UUID productID) {
         return find("productID", productID).firstResult();
     }
-
 }

@@ -13,8 +13,11 @@ import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import the.chak.ecommerce.products.KafkaTestResource;
+import the.chak.ecommerce.products.MongoDbTestResource;
 import the.chak.ecommerce.products.boundary.dto.CategoryDto;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
@@ -22,6 +25,8 @@ import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 import the.chak.ecommerce.products.entity.ProductMongoEntity;
 
 @QuarkusTest
+@QuarkusTestResource(MongoDbTestResource.class)
+@QuarkusTestResource(KafkaTestResource.class)
 public class KafkaEventConsumerTest {
 
         @Inject
@@ -65,7 +70,7 @@ public class KafkaEventConsumerTest {
                 assertEquals("test-image-key", entity.getImage());
                 assertNotNull(entity.getCategories());
                 assertEquals(1, entity.getCategories().size());
-                assertEquals("Electronics", entity.getCategories().get(0).getString("label"));
+                assertEquals("Electronics", entity.getCategories().get(0).getLabel());
 
                 // Verify REST endpoint
                 given().when().get("/products/featured").then().log().all().statusCode(200)
