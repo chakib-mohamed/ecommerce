@@ -1,8 +1,10 @@
 package the.chak.ecommerce.authentication.control;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -13,48 +15,69 @@ import the.chak.ecommerce.authentication.entity.User;
 
 @QuarkusTest
 @QuarkusTestResource(MongoDbTestResource.class)
-public class UserServiceTest {
+class UserServiceTest {
 
     @Inject
     UserService userService;
 
     @Test
-    public void testAddAndFindUser() {
+    void addUser_newEmail_persistsUser() {
+        // given
         String email = "test-" + UUID.randomUUID() + "@example.com";
         User user = new User();
         user.email = email;
         user.password = "password123";
         user.roles = List.of("USER");
 
+        // when
         userService.addUser(user);
 
-        var foundUser = userService.findUser(email);
-        Assertions.assertTrue(foundUser.isPresent());
-        Assertions.assertEquals(email, foundUser.get().email);
+        // then
+        var found = userService.findUser(email);
+        assertTrue(found.isPresent());
+        assertEquals(email, found.get().email);
     }
 
     @Test
-    public void testAuthenticateUser() {
+    void authenticateUser_correctPassword_returnsUser() {
+        // given
         String email = "auth-" + UUID.randomUUID() + "@example.com";
-        String password = "secretPassword";
         User user = new User();
         user.email = email;
-        user.password = password;
+        user.password = "secretPassword";
         user.roles = List.of("USER");
-
         userService.addUser(user);
 
         AuthenticateRequest request = new AuthenticateRequest();
         request.setEmail(email);
-        request.setPassword(password);
+        request.setPassword("secretPassword");
 
-        var authenticatedUser = userService.authenticateUser(request);
-        Assertions.assertTrue(authenticatedUser.isPresent());
-        Assertions.assertEquals(email, authenticatedUser.get().email);
+        // when
+        var result = userService.authenticateUser(request);
 
-        // Test wrong password
+        // then
+        assertTrue(result.isPresent());
+        assertEquals(email, result.get().email);
+    }
+
+    @Test
+    void authenticateUser_wrongPassword_returnsEmpty() {
+        // given
+        String email = "auth-" + UUID.randomUUID() + "@example.com";
+        User user = new User();
+        user.email = email;
+        user.password = "secretPassword";
+        user.roles = List.of("USER");
+        userService.addUser(user);
+
+        AuthenticateRequest request = new AuthenticateRequest();
+        request.setEmail(email);
         request.setPassword("wrongPassword");
-        var failedAuth = userService.authenticateUser(request);
-        Assertions.assertFalse(failedAuth.isPresent());
+
+        // when
+        var result = userService.authenticateUser(request);
+
+        // then
+        assertFalse(result.isPresent());
     }
 }

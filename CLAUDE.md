@@ -71,6 +71,56 @@ All DTOs (request/response objects, value objects, commands) live in `boundary/d
 
 Kafka event payloads live in `control/events/` — they are messaging objects, not HTTP DTOs, so they stay in the control layer.
 
+## Testing Conventions
+
+All tests across every backend service follow the same pattern.
+
+**Method naming:** `action_context_expectedOutcome` — three underscore-separated camelCase segments, no `test` prefix, no `public` modifier.
+
+```java
+// good
+void createOrder_validProducts_returns201WithCalculatedPrice()
+void authenticate_wrongPassword_returns401()
+void getUsername_revokedToken_returnsEmpty()
+
+// bad
+public void testCreateOrder()
+void testAuthenticate_WrongPassword_Returns401()
+```
+
+**Body structure:** explicit `// given`, `// when`, `// then` comment blocks in every test. Omit `// given` only when there is genuinely no setup.
+
+```java
+@Test
+void confirmOrder_initiatedOrder_changesStatusToConfirmed() {
+    // given
+    Order order = new Order();
+    order.setStatus(OrderStatus.INITIATED);
+    order.persist();
+
+    // when
+    var response = given().when().post("/orders/" + order.id + "/confirm");
+
+    // then
+    response.then().statusCode(200).body("status", is("CONFIRMED"));
+}
+```
+
+**RestAssured split:** separate the HTTP call from the assertions so `// when` and `// then` are distinct.
+
+```java
+// when
+var response = given().contentType(ContentType.JSON).body(request)
+        .when().post("/orders");
+
+// then
+response.then().statusCode(201).body("price", is(100.0f));
+```
+
+**One behavior per test:** do not combine create + update + delete in a single test method. Each test exercises exactly one scenario. Compound setup (e.g. creating a record before testing an update) belongs in `// given`, not as a separate test phase.
+
+**Class modifiers:** test classes are package-private (no `public`).
+
 ## Branch Naming
 
 Use `feature/`, `fix/`, or `chore/` prefixes — e.g., `feature/add-cart`, `fix/auth-token-refresh`, `chore/update-deps`.

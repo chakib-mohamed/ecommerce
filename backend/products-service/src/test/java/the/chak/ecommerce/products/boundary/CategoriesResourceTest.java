@@ -1,5 +1,12 @@
 package the.chak.ecommerce.products.boundary;
 
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
@@ -7,109 +14,116 @@ import io.restassured.filter.log.LogDetail;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import the.chak.ecommerce.products.KafkaTestResource;
-
-import java.util.Map;
-
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
 @QuarkusTest
 @QuarkusTestResource(KafkaTestResource.class)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class CategoriesResourceTest {
+class CategoriesResourceTest {
 
-        static {
-                RestAssured.filters(new RequestLoggingFilter(LogDetail.ALL),
-                                new ResponseLoggingFilter(LogDetail.ALL));
-        }
+    static {
+        RestAssured.filters(new RequestLoggingFilter(LogDetail.ALL),
+                new ResponseLoggingFilter(LogDetail.ALL));
+    }
 
-        @Test
-        @Order(1)
-        public void testCreateCategory() {
-                Map<String, String> category = Map.of("label", "Test Category");
+    @Test
+    void createCategory_validLabel_returns201WithIdAndLabel() {
+        // given
+        String label = "Category-" + UUID.randomUUID();
 
-                given().contentType(ContentType.JSON).body(category).when().post("/categories")
-                                .then().statusCode(201).body("label", is("Test Category"))
-                                .body("id", notNullValue());
-        }
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("label", label))
+                .when().post("/categories");
 
-        @Test
-        @Order(2)
-        public void testGetCategories() {
-                given().when().get("/categories").then().statusCode(200).body("size()",
-                                notNullValue());
-        }
+        // then
+        Integer id = response.then().statusCode(201)
+                .body("label", is(label))
+                .body("id", notNullValue())
+                .extract().path("id");
+        given().when().delete("/categories/{id}", id);
+    }
 
-        @Test
-        @Order(3)
-        public void testUpdateCategory() {
-                // Create
-                Map<String, String> category = Map.of("label", "To Be Updated");
-                var response = given().contentType(ContentType.JSON).body(category).when()
-                                .post("/categories").then().statusCode(201).extract();
+    @Test
+    void getCategories_existingCategory_returnsNonEmptyList() {
+        // given
+        Integer id = given().contentType(ContentType.JSON)
+                .body(Map.of("label", "Category-" + UUID.randomUUID()))
+                .when().post("/categories").then().statusCode(201).extract().path("id");
 
-                Integer id = response.path("id");
+        // when
+        var response = given().when().get("/categories");
 
-                // Update
-                Map<String, Object> updatedCategory =
-                                Map.of("id", id, "label", "Updated Category Label");
+        // then
+        response.then().statusCode(200).body("size()", greaterThan(0));
+        given().when().delete("/categories/{id}", id);
+    }
 
-                given().contentType(ContentType.JSON).body(updatedCategory).when()
-                                .put("/categories").then().statusCode(200)
-                                .body("label", is("Updated Category Label"));
+    @Test
+    void updateCategory_existingCategory_returns200WithNewLabel() {
+        // given
+        Integer id = given().contentType(ContentType.JSON)
+                .body(Map.of("label", "To Be Updated-" + UUID.randomUUID()))
+                .when().post("/categories").then().statusCode(201).extract().path("id");
 
-                // Cleanup
-                given().when().delete("/categories/{categoryID}", id).then().statusCode(200);
-        }
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("id", id, "label", "Updated Category Label"))
+                .when().put("/categories");
 
-        @Test
-        @Order(4)
-        public void testSearchCategories() {
-                // Create
-                String label = "Searchable " + java.util.UUID.randomUUID().toString();
-                Map<String, String> category = Map.of("label", label);
-                var response = given().contentType(ContentType.JSON).body(category).when()
-                                .post("/categories").then().statusCode(201).extract();
+        // then
+        response.then().statusCode(200).body("label", is("Updated Category Label"));
+        given().when().delete("/categories/{id}", id);
+    }
 
-                Integer id = response.path("id");
+    @Test
+    void searchCategories_exactLabelMatch_returnsSingleResult() {
+        // given
+        String label = "Searchable-" + UUID.randomUUID();
+        Integer id = given().contentType(ContentType.JSON)
+                .body(Map.of("label", label))
+                .when().post("/categories").then().statusCode(201).extract().path("id");
 
-                // Search
-                Map<String, Object> searchCriteria =
-                                Map.of("label", Map.of("operator", "EQUALS", "value", label));
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("label", Map.of("operator", "EQUALS", "value", label)))
+                .when().post("/categories/search");
 
-                given().contentType(ContentType.JSON).body(searchCriteria).when()
-                                .post("/categories/search").then().statusCode(200)
-                                .body("size()", is(1)).body("[0].label", is(label));
+        // then
+        response.then().statusCode(200)
+                .body("size()", is(1))
+                .body("[0].label", is(label));
+        given().when().delete("/categories/{id}", id);
+    }
 
-                // Cleanup
-                given().when().delete("/categories/{categoryID}", id).then().statusCode(200);
-        }
+    @Test
+    void createCategory_duplicateLabel_returns400() {
+        // given
+        String label = "Duplicate-" + UUID.randomUUID();
+        Integer id = given().contentType(ContentType.JSON)
+                .body(Map.of("label", label))
+                .when().post("/categories").then().statusCode(201).extract().path("id");
 
-        @Test
-        @Order(5)
-        public void testCreateDuplicateCategory() {
-                Map<String, String> category = Map.of("label", "Test Category");
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("label", label))
+                .when().post("/categories");
 
-                given().contentType(ContentType.JSON).body(category).when().post("/categories")
-                                .then().statusCode(400);
-        }
+        // then
+        response.then().statusCode(400);
+        given().when().delete("/categories/{id}", id);
+    }
 
-        @Test
-        @Order(6)
-        public void testDeleteCategory() {
-                // First create a category to delete
-                Map<String, String> category = Map.of("label", "To Be Deleted");
-                var response = given().contentType(ContentType.JSON).body(category).when()
-                                .post("/categories").then().statusCode(201).extract();
+    @Test
+    void deleteCategory_existingCategory_returns200() {
+        // given
+        Integer id = given().contentType(ContentType.JSON)
+                .body(Map.of("label", "To Be Deleted-" + UUID.randomUUID()))
+                .when().post("/categories").then().statusCode(201).extract().path("id");
 
-                Integer id = response.path("id");
+        // when
+        var response = given().when().delete("/categories/{id}", id);
 
-                given().when().delete("/categories/{categoryID}", id).then().statusCode(200);
-        }
+        // then
+        response.then().statusCode(200);
+    }
 }

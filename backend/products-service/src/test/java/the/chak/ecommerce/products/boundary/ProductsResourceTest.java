@@ -1,5 +1,14 @@
 package the.chak.ecommerce.products.boundary;
 
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
@@ -7,165 +16,183 @@ import io.restassured.filter.log.LogDetail;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import the.chak.ecommerce.products.KafkaTestResource;
 import the.chak.ecommerce.products.MinioTestResource;
-
-import java.util.Map;
-import java.util.UUID;
-
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.is;
 
 @QuarkusTest
 @QuarkusTestResource(MinioTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class ProductsResourceTest {
+class ProductsResourceTest {
 
-        static {
-                RestAssured.filters(new RequestLoggingFilter(LogDetail.ALL),
-                                new ResponseLoggingFilter(LogDetail.ALL));
-        }
+    static final String BASE64_IMAGE =
+            "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
-        @Test
-        @Order(1)
-        public void testCreateAndListProducts() {
-                // Create
-                // Minimal 1x1 GIF
-                String base64Image = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-                Map<String, Object> newProduct = Map.of("title", "Integration Test Product",
-                                "description", "Created by RestAssured", "price", 123.45, "image",
-                                base64Image);
+    static {
+        RestAssured.filters(new RequestLoggingFilter(LogDetail.ALL),
+                new ResponseLoggingFilter(LogDetail.ALL));
+    }
 
-                var response = given().contentType(ContentType.JSON).body(newProduct).when()
-                                .post("/products").then().statusCode(201)
-                                .body("title", is("Integration Test Product"))
-                                .body("description", is("Created by RestAssured"))
-                                .body("price", is(123.45f))
-                                .body("image_key", is(org.hamcrest.Matchers.notNullValue()))
-                                .body("uuid", is(org.hamcrest.Matchers.notNullValue())).extract();
+    @Test
+    void createProduct_validRequest_returns201WithAllFields() {
+        // given
+        Map<String, Object> request = Map.of(
+                "title", "Integration Test Product",
+                "description", "Created by RestAssured",
+                "price", 123.45,
+                "image", BASE64_IMAGE);
 
-                String productUuid = response.path("uuid");
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/products");
 
-                // Get by ID - verify all fields persisted
-                given().when().get("/products/{id}", productUuid).then().statusCode(200)
-                                .body("uuid", is(productUuid))
-                                .body("title", is("Integration Test Product"))
-                                .body("description", is("Created by RestAssured"))
-                                .body("price", is(123.45f))
-                                .body("image_key", is(org.hamcrest.Matchers.notNullValue()))
-                                .body("categories", is(org.hamcrest.Matchers.notNullValue()))
-                                .body("promotions", is(org.hamcrest.Matchers.notNullValue()));
+        // then
+        String productUuid = response.then().statusCode(201)
+                .body("title", is("Integration Test Product"))
+                .body("description", is("Created by RestAssured"))
+                .body("price", is(123.45f))
+                .body("image_key", notNullValue())
+                .body("uuid", notNullValue())
+                .extract().path("uuid");
+        given().when().delete("/products/{id}", productUuid);
+    }
 
-                // List
-                given().when().get("/products").then().statusCode(200).body("size()",
-                                greaterThan(0));
+    @Test
+    void getProduct_existingProduct_returnsAllFields() {
+        // given
+        String productUuid = given().contentType(ContentType.JSON)
+                .body(Map.of("title", "Get Test Product", "description", "desc",
+                        "price", 10.0, "image", BASE64_IMAGE))
+                .when().post("/products").then().statusCode(201).extract().path("uuid");
 
-                // Delete
-                given().when().delete("/products/{id}", productUuid).then().statusCode(200);
+        // when
+        var response = given().when().get("/products/{id}", productUuid);
 
-                // Verify Delete
-                given().when().get("/products/{id}", productUuid).then().statusCode(404);
-        }
+        // then
+        response.then().statusCode(200)
+                .body("uuid", is(productUuid))
+                .body("title", is("Get Test Product"))
+                .body("description", is("desc"))
+                .body("price", is(10.0f))
+                .body("image_key", notNullValue())
+                .body("categories", notNullValue())
+                .body("promotions", notNullValue());
+        given().when().delete("/products/{id}", productUuid);
+    }
 
-        @Test
-        @Order(2)
-        public void testUpdateProduct() {
-                // Create
-                String base64Image = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-                Map<String, Object> newProduct = Map.of("title", "To Be Updated", "description",
-                                "Original description", "price", 10.0, "image", base64Image);
+    @Test
+    void listProducts_withExistingProduct_returnsNonEmptyList() {
+        // given
+        String productUuid = given().contentType(ContentType.JSON)
+                .body(Map.of("title", "List Test Product", "description", "desc",
+                        "price", 5.0, "image", BASE64_IMAGE))
+                .when().post("/products").then().statusCode(201).extract().path("uuid");
 
-                var response = given().contentType(ContentType.JSON).body(newProduct).when()
-                                .post("/products").then().statusCode(201).extract();
+        // when
+        var response = given().when().get("/products");
 
-                String productUuid = response.path("uuid");
+        // then
+        response.then().statusCode(200).body("size()", greaterThan(0));
+        given().when().delete("/products/{id}", productUuid);
+    }
 
-                // Update
-                Map<String, Object> updatedProduct = Map.of("uuid", productUuid, "title",
-                                "Updated Title", "description", "Updated description", "price",
-                                20.0, "image", base64Image);
+    @Test
+    void deleteProduct_existingProduct_removesProduct() {
+        // given
+        String productUuid = given().contentType(ContentType.JSON)
+                .body(Map.of("title", "Delete Test Product", "description", "desc",
+                        "price", 5.0, "image", BASE64_IMAGE))
+                .when().post("/products").then().statusCode(201).extract().path("uuid");
 
-                given().contentType(ContentType.JSON).body(updatedProduct).when().put("/products")
-                                .then().statusCode(200).body("title", is("Updated Title"))
-                                .body("price", is(20.0f));
+        // when
+        var response = given().when().delete("/products/{id}", productUuid);
 
-                // Verify update with GET
-                given().when().get("/products/{id}", productUuid).then().statusCode(200)
-                                .body("title", is("Updated Title")).body("price", is(20.0f));
+        // then
+        response.then().statusCode(200);
+        given().when().get("/products/{id}", productUuid).then().statusCode(404);
+    }
 
-                // Cleanup
-                given().when().delete("/products/{id}", productUuid).then().statusCode(200);
-        }
+    @Test
+    void updateProduct_existingProduct_returns200WithUpdatedFields() {
+        // given
+        String productUuid = given().contentType(ContentType.JSON)
+                .body(Map.of("title", "To Be Updated", "description", "Original description",
+                        "price", 10.0, "image", BASE64_IMAGE))
+                .when().post("/products").then().statusCode(201).extract().path("uuid");
 
-        @Test
-        @Order(3)
-        public void testSearchProducts() {
-                // Create a product to search for
-                String title = "Searchable Product " + UUID.randomUUID().toString();
-                Map<String, Object> newProduct = Map.of("title", title, "description",
-                                "Searchable description", "price", 50.0);
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("uuid", productUuid, "title", "Updated Title",
+                        "description", "Updated description", "price", 20.0, "image", BASE64_IMAGE))
+                .when().put("/products");
 
-                var response = given().contentType(ContentType.JSON).body(newProduct).when()
-                                .post("/products").then().statusCode(201).extract();
+        // then
+        response.then().statusCode(200)
+                .body("title", is("Updated Title"))
+                .body("price", is(20.0f));
+        given().when().get("/products/{id}", productUuid).then().statusCode(200)
+                .body("title", is("Updated Title"))
+                .body("price", is(20.0f));
+        given().when().delete("/products/{id}", productUuid);
+    }
 
-                String productUuid = response.path("uuid");
+    @Test
+    void searchProducts_exactTitleMatch_returnsSingleResult() {
+        // given
+        String title = "Searchable Product " + UUID.randomUUID();
+        String productUuid = given().contentType(ContentType.JSON)
+                .body(Map.of("title", title, "description", "Searchable description", "price", 50.0))
+                .when().post("/products").then().statusCode(201).extract().path("uuid");
 
-                // Search by exact title
-                Map<String, Object> searchCriteria =
-                                Map.of("title", Map.of("operator", "EQUALS", "value", title));
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("title", Map.of("operator", "EQUALS", "value", title)))
+                .when().post("/products/search");
 
-                given().contentType(ContentType.JSON).body(searchCriteria).when()
-                                .post("/products/search").then().statusCode(200)
-                                .body("size()", is(1)).body("[0].title", is(title))
-                                .body("[0].uuid", is(productUuid));
+        // then
+        response.then().statusCode(200)
+                .body("size()", is(1))
+                .body("[0].title", is(title))
+                .body("[0].uuid", is(productUuid));
+        given().when().delete("/products/{id}", productUuid);
+    }
 
-                // Cleanup
-                given().when().delete("/products/{id}", productUuid).then().statusCode(200);
-        }
+    @Test
+    void createProduct_invalidImageFormat_returns400() {
+        // given
+        String invalidImage = "VGhpcyBpcyBub3QgYW4gaW1hZ2U="; // "This is not an image"
+        Map<String, Object> request = Map.of(
+                "title", "Invalid Image Product",
+                "description", "Created by RestAssured",
+                "price", 123.45,
+                "image", invalidImage);
 
-        @Test
-        @Order(4)
-        public void testCreateProductWithInvalidImageFormat() {
-                String invalidImage = "VGhpcyBpcyBub3QgYW4gaW1hZ2U="; // "This is not an image"
-                Map<String, Object> newProduct = Map.of("title", "Invalid Image Product",
-                                "description", "Created by RestAssured", "price", 123.45, "image",
-                                invalidImage);
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/products");
 
-                given().contentType(ContentType.JSON).body(newProduct).when().post("/products")
-                                .then().statusCode(400);
-        }
+        // then
+        response.then().statusCode(400);
+    }
 
-        @Test
-        @Order(5)
-        public void testGetImage() {
-                // 1. Create product with image
-                String base64Image = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-                Map<String, Object> newProduct = Map.of("title", "Image Test Product",
-                                "description", "Testing image retrieval", "price", 9.99, "image",
-                                base64Image);
+    @Test
+    void getImage_uploadedProduct_returnsImageBytes() {
+        // given
+        var createResponse = given().contentType(ContentType.JSON)
+                .body(Map.of("title", "Image Test Product", "description", "Testing image retrieval",
+                        "price", 9.99, "image", BASE64_IMAGE))
+                .when().post("/products").then().statusCode(201).extract();
+        String productUuid = createResponse.path("uuid");
+        String imageKey = createResponse.path("image_key");
 
-                var response = given().contentType(ContentType.JSON).body(newProduct).when()
-                                .post("/products").then().statusCode(201).extract();
+        // when
+        var response = given().when().get("/products/images/{imageKey}", imageKey);
 
-                String productUuid = response.path("uuid");
-                String imageKey = response.path("image_key");
-
-                // 2. Retrieve image
-                byte[] downloadedImage = given().when().get("/products/images/{imageKey}", imageKey)
-                                .then().statusCode(200).contentType("image/jpeg").extract()
-                                .asByteArray();
-
-                // 3. Verify content (basic check)
-                org.junit.jupiter.api.Assertions.assertNotNull(downloadedImage);
-                org.junit.jupiter.api.Assertions.assertTrue(downloadedImage.length > 0);
-
-                // Cleanup
-                given().when().delete("/products/{id}", productUuid).then().statusCode(200);
-        }
+        // then
+        byte[] downloadedImage = response.then().statusCode(200)
+                .contentType("image/jpeg")
+                .extract().asByteArray();
+        assertNotNull(downloadedImage);
+        assertTrue(downloadedImage.length > 0);
+        given().when().delete("/products/{id}", productUuid);
+    }
 }

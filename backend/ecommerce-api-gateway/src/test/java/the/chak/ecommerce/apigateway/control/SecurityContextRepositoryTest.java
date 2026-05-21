@@ -34,25 +34,21 @@ class SecurityContextRepositoryTest {
     private SecurityContextRepository securityContextRepository;
 
     @Test
-    void testLoad_ValidToken_ReturnsSecurityContext() {
-        // Given
+    void load_validToken_returnsPopulatedSecurityContext() {
+        // given
         String username = "testuser";
         String validToken = TestJwtTokenGenerator.generateValidToken(username);
-
         ServerWebExchange exchange = mock(ServerWebExchange.class);
         ServerHttpRequest request = mock(ServerHttpRequest.class);
-
         when(exchange.getRequest()).thenReturn(request);
         when(tokenResolver.resolveToken(request)).thenReturn(Optional.of(validToken));
-
         Authentication auth = new UsernamePasswordAuthenticationToken(username, null, null);
-        when(authenticationManager.authenticate(any(Authentication.class)))
-                .thenReturn(Mono.just(auth));
+        when(authenticationManager.authenticate(any(Authentication.class))).thenReturn(Mono.just(auth));
 
-        // When
+        // when
         Mono<SecurityContext> result = securityContextRepository.load(exchange);
 
-        // Then
+        // then
         StepVerifier.create(result).assertNext(securityContext -> {
             assertThat(securityContext).isNotNull();
             assertThat(securityContext.getAuthentication()).isNotNull();
@@ -61,49 +57,46 @@ class SecurityContextRepositoryTest {
     }
 
     @Test
-    void testLoad_NoToken_ReturnsEmpty() {
-        // Given
+    void load_missingToken_returnsEmpty() {
+        // given
         ServerWebExchange exchange = mock(ServerWebExchange.class);
         ServerHttpRequest request = mock(ServerHttpRequest.class);
-
         when(exchange.getRequest()).thenReturn(request);
         when(tokenResolver.resolveToken(request)).thenReturn(Optional.empty());
 
-        // When
+        // when
         Mono<SecurityContext> result = securityContextRepository.load(exchange);
 
-        // Then
+        // then
         StepVerifier.create(result).verifyComplete();
     }
 
     @Test
-    void testLoad_InvalidToken_ReturnsEmpty() {
-        // Given
+    void load_invalidToken_returnsEmpty() {
+        // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
-
         ServerWebExchange exchange = mock(ServerWebExchange.class);
         ServerHttpRequest request = mock(ServerHttpRequest.class);
-
         when(exchange.getRequest()).thenReturn(request);
         when(tokenResolver.resolveToken(request)).thenReturn(Optional.of(invalidToken));
-        when(authenticationManager.authenticate(any(Authentication.class)))
-                .thenReturn(Mono.empty());
+        when(authenticationManager.authenticate(any(Authentication.class))).thenReturn(Mono.empty());
 
-        // When
+        // when
         Mono<SecurityContext> result = securityContextRepository.load(exchange);
 
-        // Then
+        // then
         StepVerifier.create(result).verifyComplete();
     }
 
     @Test
-    void testSave_ThrowsUnsupportedOperationException() {
-        // Given
+    void save_always_throwsUnsupportedOperation() {
+        // given
         ServerWebExchange exchange = mock(ServerWebExchange.class);
         SecurityContext securityContext = mock(SecurityContext.class);
 
-        // When/Then
+        // when / then
         assertThatThrownBy(() -> securityContextRepository.save(exchange, securityContext))
-                .isInstanceOf(UnsupportedOperationException.class).hasMessage("Not supported yet.");
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("Not supported yet.");
     }
 }

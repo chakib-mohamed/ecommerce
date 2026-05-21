@@ -35,95 +35,121 @@ class SecurityConfigTest {
     private WebTestClient webTestClient;
 
     @Test
-    void testPublicEndpoint_Actuator_AllowsUnauthenticatedAccess() {
-        // When/Then
-        webTestClient.get().uri("/actuator/health").exchange().expectStatus().isOk();
+    void actuatorHealth_noAuth_returns200() {
+        // when
+        var result = webTestClient.get().uri("/actuator/health").exchange();
+
+        // then
+        result.expectStatus().isOk();
     }
 
     @Test
-    void testPublicEndpoint_GetProducts_AllowsUnauthenticatedAccess() {
-        // When/Then - This will fail routing but should pass security
-        webTestClient.get().uri("/api/products").exchange().expectStatus().is5xxServerError();
+    void getProducts_noAuth_passesSecurityLayer() {
+        // when
+        var result = webTestClient.get().uri("/api/products").exchange();
+
+        // then
+        result.expectStatus().is5xxServerError(); // upstream unavailable in test env, not a security rejection
     }
 
     @Test
-    void testPublicEndpoint_GetCategories_AllowsUnauthenticatedAccess() {
-        // When/Then
-        webTestClient.get().uri("/api/categories").exchange().expectStatus().is5xxServerError();
+    void getCategories_noAuth_passesSecurityLayer() {
+        // when
+        var result = webTestClient.get().uri("/api/categories").exchange();
+
+        // then
+        result.expectStatus().is5xxServerError(); // upstream unavailable in test env, not a security rejection
     }
 
     @Test
-    void testPublicEndpoint_GetPromotions_AllowsUnauthenticatedAccess() {
-        // When/Then
-        webTestClient.get().uri("/api/promotions").exchange().expectStatus().is5xxServerError();
+    void getPromotions_noAuth_passesSecurityLayer() {
+        // when
+        var result = webTestClient.get().uri("/api/promotions").exchange();
+
+        // then
+        result.expectStatus().is5xxServerError(); // upstream unavailable in test env, not a security rejection
     }
 
     @Test
-    void testPublicEndpoint_PostUsers_AllowsUnauthenticatedAccess() {
-        // When/Then - This will fail routing but should pass security
-        webTestClient.post().uri("/api/users").exchange().expectStatus().is5xxServerError(); // Service
-                                                                                             // not
-                                                                                             // available,
-                                                                                             // but
-                                                                                             // not
-                                                                                             // 401/403
+    void postUsers_noAuth_passesSecurityLayer() {
+        // when
+        var result = webTestClient.post().uri("/api/users").exchange();
+
+        // then
+        result.expectStatus().is5xxServerError(); // upstream unavailable in test env, not a security rejection
     }
 
     @Test
-    void testProtectedEndpoint_NoToken_ReturnsUnauthorized() {
-        // When/Then
-        webTestClient.post().uri("/api/orders").exchange().expectStatus().isUnauthorized();
+    void postOrders_noToken_returns401() {
+        // when
+        var result = webTestClient.post().uri("/api/orders").exchange();
+
+        // then
+        result.expectStatus().isUnauthorized();
     }
 
     @Test
-    void testProtectedEndpoint_ValidToken_AllowsAccess() {
-        // Given
+    void postOrders_validToken_passesSecurityLayer() {
+        // given
         String token = TestJwtTokenGenerator.generateValidToken("testuser");
 
-        // When/Then - This will fail routing but should pass security
-        webTestClient.post().uri("/api/orders").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .exchange().expectStatus().is5xxServerError(); // Service not available, but not
-                                                               // 401/403
+        // when
+        var result = webTestClient.post().uri("/api/orders")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .exchange();
+
+        // then
+        result.expectStatus().is5xxServerError(); // upstream unavailable in test env, not a security rejection
     }
 
     @Test
-    void testProtectedEndpoint_InvalidToken_ReturnsUnauthorized() {
-        // Given
+    void postOrders_invalidToken_returns401() {
+        // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
 
-        // When/Then
-        webTestClient.post().uri("/api/orders")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + invalidToken).exchange()
-                .expectStatus().isUnauthorized();
+        // when
+        var result = webTestClient.post().uri("/api/orders")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + invalidToken)
+                .exchange();
+
+        // then
+        result.expectStatus().isUnauthorized();
     }
 
     @Test
-    void testProtectedEndpoint_ExpiredToken_ReturnsUnauthorized() {
-        // Given
+    void postOrders_expiredToken_returns401() {
+        // given
         String expiredToken = TestJwtTokenGenerator.generateExpiredToken("testuser");
 
-        // When/Then
-        webTestClient.post().uri("/api/orders")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken).exchange()
-                .expectStatus().isUnauthorized();
+        // when
+        var result = webTestClient.post().uri("/api/orders")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken)
+                .exchange();
+
+        // then
+        result.expectStatus().isUnauthorized();
     }
 
     @Test
-    void testProtectedEndpoint_MissingBearerPrefix_ReturnsUnauthorized() {
-        // Given
+    void postOrders_missingBearerPrefix_returns401() {
+        // given
         String token = TestJwtTokenGenerator.generateValidToken("testuser");
 
-        // When/Then
-        webTestClient.post().uri("/api/orders").header(HttpHeaders.AUTHORIZATION, token) // Missing
-                                                                                         // "Bearer
-                                                                                         // " prefix
-                .exchange().expectStatus().isUnauthorized();
+        // when
+        var result = webTestClient.post().uri("/api/orders")
+                .header(HttpHeaders.AUTHORIZATION, token)
+                .exchange();
+
+        // then
+        result.expectStatus().isUnauthorized();
     }
 
     @Test
-    void testOptionsRequest_AllowsUnauthenticatedAccess() {
-        // When/Then - In this test environment, it returns 500 due to routing failure,
-        // but it should not be 401/403
-        webTestClient.options().uri("/api/orders").exchange().expectStatus().is5xxServerError();
+    void optionsRequest_noAuth_passesSecurityLayer() {
+        // when
+        var result = webTestClient.options().uri("/api/orders").exchange();
+
+        // then
+        result.expectStatus().is5xxServerError(); // upstream unavailable in test env, not a security rejection
     }
 }

@@ -24,18 +24,17 @@ class AuthenticationManagerTest {
     private AuthenticationManager authenticationManager;
 
     @Test
-    void testAuthenticate_ValidToken_ReturnsAuthentication() {
-        // Given
+    void authenticate_validToken_returnsAuthentication() {
+        // given
         String username = "testuser";
         String validToken = TestJwtTokenGenerator.generateValidToken(username);
         Authentication auth = new UsernamePasswordAuthenticationToken(validToken, validToken);
-
         when(tokenUtils.getUsername(validToken)).thenReturn(Mono.just(username));
 
-        // When
+        // when
         Mono<Authentication> result = authenticationManager.authenticate(auth);
 
-        // Then
+        // then
         StepVerifier.create(result).assertNext(authentication -> {
             assertThat(authentication).isNotNull();
             assertThat(authentication.getPrincipal()).isEqualTo(username);
@@ -44,50 +43,44 @@ class AuthenticationManagerTest {
     }
 
     @Test
-    void testAuthenticate_InvalidToken_ReturnsEmpty() {
-        // Given
+    void authenticate_invalidToken_returnsEmpty() {
+        // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
         Authentication auth = new UsernamePasswordAuthenticationToken(invalidToken, invalidToken);
+        when(tokenUtils.getUsername(invalidToken)).thenReturn(Mono.empty());
 
-        when(tokenUtils.getUsername(invalidToken))
-                .thenReturn(Mono.empty());
-
-        // When
+        // when
         Mono<Authentication> result = authenticationManager.authenticate(auth);
 
-        // Then
+        // then
         StepVerifier.create(result).verifyComplete();
     }
 
     @Test
-    void testAuthenticate_RevokedToken_ReturnsEmpty() {
-        // Given
+    void authenticate_revokedToken_returnsEmpty() {
+        // given
         String revokedToken = TestJwtTokenGenerator.generateValidToken("testuser");
         Authentication auth = new UsernamePasswordAuthenticationToken(revokedToken, revokedToken);
+        when(tokenUtils.getUsername(revokedToken)).thenReturn(Mono.empty());
 
-        when(tokenUtils.getUsername(revokedToken))
-                .thenReturn(Mono.empty());
-
-        // When
+        // when
         Mono<Authentication> result = authenticationManager.authenticate(auth);
 
-        // Then
+        // then
         StepVerifier.create(result).verifyComplete();
     }
 
     @Test
-    void testAuthenticate_ExpiredToken_ReturnsEmpty() {
-        // Given
+    void authenticate_expiredToken_returnsEmpty() {
+        // given
         String expiredToken = TestJwtTokenGenerator.generateExpiredToken("testuser");
         Authentication auth = new UsernamePasswordAuthenticationToken(expiredToken, expiredToken);
+        when(tokenUtils.getUsername(anyString())).thenReturn(Mono.empty());
 
-        when(tokenUtils.getUsername(anyString()))
-                .thenReturn(Mono.empty());
-
-        // When
+        // when
         Mono<Authentication> result = authenticationManager.authenticate(auth);
 
-        // Then
+        // then
         StepVerifier.create(result).verifyComplete();
     }
 }

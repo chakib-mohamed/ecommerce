@@ -31,88 +31,79 @@ class AuthHeaderTokenResolverTest {
     }
 
     @Test
-    void testResolveToken_ValidAuthorizationHeader_ReturnsToken() {
-        // Given
+    void resolveToken_validBearerHeader_returnsToken() {
+        // given
         String token = TestJwtTokenGenerator.generateValidToken("testuser");
-        String authHeader = "Bearer " + token;
-
         ServerHttpRequest request = mock(ServerHttpRequest.class);
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.AUTHORIZATION, authHeader);
-
+        headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + token);
         when(request.getHeaders()).thenReturn(headers);
 
-        // When
+        // when
         Optional<String> result = authHeaderTokenResolver.resolveToken(request);
 
-        // Then
+        // then
         assertThat(result).isPresent();
         assertThat(result.get()).isEqualTo(token);
     }
 
     @Test
-    void testResolveToken_NoAuthorizationHeader_ReturnsEmpty() {
-        // Given
+    void resolveToken_missingAuthorizationHeader_returnsEmpty() {
+        // given
         ServerHttpRequest request = mock(ServerHttpRequest.class);
         HttpHeaders headers = new HttpHeaders();
-
         when(request.getHeaders()).thenReturn(headers);
 
-        // When
+        // when
         Optional<String> result = authHeaderTokenResolver.resolveToken(request);
 
-        // Then
+        // then
         assertThat(result).isEmpty();
     }
 
     @Test
-    void testResolveToken_InvalidPrefix_ReturnsEmpty() {
-        // Given
+    void resolveToken_wrongPrefix_returnsEmpty() {
+        // given
         String token = TestJwtTokenGenerator.generateValidToken("testuser");
-        String authHeader = "Basic " + token; // Wrong prefix
-
         ServerHttpRequest request = mock(ServerHttpRequest.class);
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.AUTHORIZATION, authHeader);
-
+        headers.set(HttpHeaders.AUTHORIZATION, "Basic " + token);
         when(request.getHeaders()).thenReturn(headers);
 
-        // When
+        // when
         Optional<String> result = authHeaderTokenResolver.resolveToken(request);
 
-        // Then
+        // then
         assertThat(result).isEmpty();
     }
 
     @Test
-    void testResolveToken_EmptyAuthorizationHeader_ReturnsEmpty() {
-        // Given
+    void resolveToken_emptyAuthorizationHeader_returnsEmpty() {
+        // given
         ServerHttpRequest request = mock(ServerHttpRequest.class);
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.AUTHORIZATION, "");
-
         when(request.getHeaders()).thenReturn(headers);
 
-        // When
+        // when
         Optional<String> result = authHeaderTokenResolver.resolveToken(request);
 
-        // Then
+        // then
         assertThat(result).isEmpty();
     }
 
     @Test
-    void testResolveToken_OnlyBearerPrefix_ReturnsEmpty() {
-        // Given
+    void resolveToken_onlyBearerPrefix_returnsEmptyString() {
+        // given
         ServerHttpRequest request = mock(ServerHttpRequest.class);
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.AUTHORIZATION, "Bearer ");
-
         when(request.getHeaders()).thenReturn(headers);
 
-        // When
+        // when
         Optional<String> result = authHeaderTokenResolver.resolveToken(request);
 
-        // Then
+        // then
         assertThat(result).isPresent();
         assertThat(result.get()).isEmpty();
     }

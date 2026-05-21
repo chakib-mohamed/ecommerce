@@ -23,7 +23,7 @@ import the.chak.ecommerce.pricing.control.KafkaPriceEventPublisher;
 @QuarkusTest
 @QuarkusTestResource(MongoDbTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
-public class PricingResourceTest {
+class PricingResourceTest {
 
     @InjectMock
     KafkaPriceEventPublisher publisher;
@@ -35,8 +35,8 @@ public class PricingResourceTest {
     }
 
     @Test
-    public void calculatePrice_qtyAbove5_appliesDrlDiscount() {
-        // qty=6 > 5 → DRL fires 5% reduction → 6 * 10.0 * 0.95 = 57.0
+    void calculatePrice_qtyAbove5_appliesDrlDiscount() {
+        // given — qty=6 > 5 triggers DRL 5% reduction: 6 * 10.0 * 0.95 = 57.0
         ProductVO product = new ProductVO();
         product.setProductID("prod-1");
         product.setTitle("Widget");
@@ -50,17 +50,19 @@ public class PricingResourceTest {
         PriceCalculationRequest request = new PriceCalculationRequest();
         request.setOrder(order);
 
-        given().contentType(ContentType.JSON)
-                .body(request)
-                .when().post("/pricing/calculate")
-                .then().statusCode(200)
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/pricing/calculate");
+
+        // then
+        response.then().statusCode(200)
                 .body("id", notNullValue())
                 .body("order.price", closeTo(57.0, 0.01));
     }
 
     @Test
-    public void calculatePrice_withPromotion_appliesPercentageOff() {
-        // qty=1, price=100.0, percentageOff=10 → 1 * 100.0 * 0.90 = 90.0
+    void calculatePrice_withPromotion_appliesPercentageOff() {
+        // given — qty=1, price=100.0, percentageOff=10: 1 * 100.0 * 0.90 = 90.0
         ProductVO product = new ProductVO();
         product.setProductID("prod-2");
         product.setTitle("Gadget");
@@ -74,35 +76,42 @@ public class PricingResourceTest {
         PriceCalculationRequest request = new PriceCalculationRequest();
         request.setOrder(order);
 
-        given().contentType(ContentType.JSON)
-                .body(request)
-                .when().post("/pricing/calculate")
-                .then().statusCode(200)
-                .body("order.price", closeTo(90.0, 0.01));
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/pricing/calculate");
+
+        // then
+        response.then().statusCode(200).body("order.price", closeTo(90.0, 0.01));
     }
 
     @Test
-    public void calculatePrice_emptyProducts_returns400() {
+    void calculatePrice_emptyProducts_returns400() {
+        // given
         OrderDTO order = new OrderDTO();
         order.setProducts(List.of());
 
         PriceCalculationRequest request = new PriceCalculationRequest();
         request.setOrder(order);
 
-        given().contentType(ContentType.JSON)
-                .body(request)
-                .when().post("/pricing/calculate")
-                .then().statusCode(400);
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/pricing/calculate");
+
+        // then
+        response.then().statusCode(400);
     }
 
     @Test
-    public void calculatePrice_nullOrder_returns400() {
+    void calculatePrice_nullOrder_returns400() {
+        // given
         PriceCalculationRequest request = new PriceCalculationRequest();
         request.setOrder(null);
 
-        given().contentType(ContentType.JSON)
-                .body(request)
-                .when().post("/pricing/calculate")
-                .then().statusCode(400);
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/pricing/calculate");
+
+        // then
+        response.then().statusCode(400);
     }
 }

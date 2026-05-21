@@ -14,97 +14,127 @@ import the.chak.ecommerce.authentication.boundary.dto.SignUpRequest;
 
 @QuarkusTest
 @QuarkusTestResource(MongoDbTestResource.class)
-public class AuthenticationResourceTest {
+class AuthenticationResourceTest {
 
     @Test
-    public void testSignUpAndAuthenticate() {
-        String email = "api-test-" + UUID.randomUUID() + "@example.com";
-        String password = "password123";
+    void signUp_validRequest_returns201WithEmail() {
+        // given
+        String email = "signup-" + UUID.randomUUID() + "@example.com";
+        SignUpRequest request = new SignUpRequest();
+        request.setEmail(email);
+        request.setPassword("password123");
 
-        SignUpRequest signUpRequest = new SignUpRequest();
-        signUpRequest.setEmail(email);
-        signUpRequest.setPassword(password);
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/users");
 
-        given().contentType(ContentType.JSON).body(signUpRequest).when().post("/users").then()
-                .statusCode(201).body("email", is(email));
+        // then
+        response.then().statusCode(201).body("email", is(email));
+    }
 
-        AuthenticateRequest authRequest = new AuthenticateRequest();
-        authRequest.setEmail(email);
-        authRequest.setPassword(password);
+    @Test
+    void authenticate_validCredentials_returns200WithTokenAndCookie() {
+        // given
+        String email = "auth-" + UUID.randomUUID() + "@example.com";
+        SignUpRequest signUp = new SignUpRequest();
+        signUp.setEmail(email);
+        signUp.setPassword("password123");
+        given().contentType(ContentType.JSON).body(signUp).when().post("/users");
 
-        given().contentType(ContentType.JSON).body(authRequest).when().post("/users/authenticate")
-                .then().statusCode(200).body("accessToken", notNullValue())
+        AuthenticateRequest request = new AuthenticateRequest();
+        request.setEmail(email);
+        request.setPassword("password123");
+
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/users/authenticate");
+
+        // then
+        response.then().statusCode(200)
+                .body("accessToken", notNullValue())
                 .cookie("Authorization", notNullValue());
     }
 
     @Test
-    public void testGetUserByEmail() {
-        String email = "get-test-" + UUID.randomUUID() + "@example.com";
-        String password = "pass123";
+    void getUser_authenticatedRequest_returnsUserDetails() {
+        // given
+        String email = "get-" + UUID.randomUUID() + "@example.com";
+        SignUpRequest signUp = new SignUpRequest();
+        signUp.setEmail(email);
+        signUp.setPassword("pass123");
+        given().contentType(ContentType.JSON).body(signUp).when().post("/users");
 
-        SignUpRequest signUpRequest = new SignUpRequest();
-        signUpRequest.setEmail(email);
-        signUpRequest.setPassword(password);
+        AuthenticateRequest auth = new AuthenticateRequest();
+        auth.setEmail(email);
+        auth.setPassword("pass123");
+        String cookie = given().contentType(ContentType.JSON).body(auth)
+                .when().post("/users/authenticate").then().extract().cookie("Authorization");
 
-        given().contentType(ContentType.JSON).body(signUpRequest).when().post("/users").then()
-                .statusCode(201);
+        // when
+        var response = given().cookie("Authorization", cookie)
+                .when().get("/users/{email}", email);
 
-        AuthenticateRequest authRequest = new AuthenticateRequest();
-        authRequest.setEmail(email);
-        authRequest.setPassword(password);
-
-        String cookie = given().contentType(ContentType.JSON).body(authRequest)
-                .when().post("/users/authenticate").then().statusCode(200)
-                .extract().cookie("Authorization");
-
-        given().cookie("Authorization", cookie).when().get("/users/{email}", email)
-                .then().statusCode(200).body("email", is(email));
+        // then
+        response.then().statusCode(200).body("email", is(email));
     }
 
     @Test
-    public void testWrongPasswordReturns401() {
+    void authenticate_wrongPassword_returns401() {
+        // given
         String email = "wrong-pass-" + UUID.randomUUID() + "@example.com";
+        SignUpRequest signUp = new SignUpRequest();
+        signUp.setEmail(email);
+        signUp.setPassword("correctPassword");
+        given().contentType(ContentType.JSON).body(signUp).when().post("/users");
 
-        SignUpRequest signUpRequest = new SignUpRequest();
-        signUpRequest.setEmail(email);
-        signUpRequest.setPassword("correctPassword");
+        AuthenticateRequest request = new AuthenticateRequest();
+        request.setEmail(email);
+        request.setPassword("wrongPassword");
 
-        given().contentType(ContentType.JSON).body(signUpRequest).when().post("/users").then()
-                .statusCode(201);
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/users/authenticate");
 
-        AuthenticateRequest authRequest = new AuthenticateRequest();
-        authRequest.setEmail(email);
-        authRequest.setPassword("wrongPassword");
-
-        given().contentType(ContentType.JSON).body(authRequest)
-                .when().post("/users/authenticate").then().statusCode(401);
+        // then
+        response.then().statusCode(401);
     }
 
     @Test
-    public void testDuplicateEmailReturns409() {
+    void signUp_duplicateEmail_returns409() {
+        // given
         String email = "dup-" + UUID.randomUUID() + "@example.com";
+        SignUpRequest request = new SignUpRequest();
+        request.setEmail(email);
+        request.setPassword("password123");
+        given().contentType(ContentType.JSON).body(request).when().post("/users");
 
-        SignUpRequest signUpRequest = new SignUpRequest();
-        signUpRequest.setEmail(email);
-        signUpRequest.setPassword("password123");
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/users");
 
-        given().contentType(ContentType.JSON).body(signUpRequest).when().post("/users").then()
-                .statusCode(201);
-
-        given().contentType(ContentType.JSON).body(signUpRequest).when().post("/users").then()
-                .statusCode(409);
+        // then
+        response.then().statusCode(409);
     }
 
     @Test
-    public void testInvalidInputReturns400() {
-        SignUpRequest signUpRequest = new SignUpRequest();
+    void signUp_missingFields_returns400() {
+        // given
+        SignUpRequest request = new SignUpRequest();
 
-        given().contentType(ContentType.JSON).body(signUpRequest).when().post("/users").then()
-                .statusCode(400);
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/users");
+
+        // then
+        response.then().statusCode(400);
     }
 
     @Test
-    public void testGetUserWithoutAuthReturns401() {
-        given().when().get("/users/anyone@example.com").then().statusCode(401);
+    void getUser_unauthenticated_returns401() {
+        // when
+        var response = given().when().get("/users/anyone@example.com");
+
+        // then
+        response.then().statusCode(401);
     }
 }

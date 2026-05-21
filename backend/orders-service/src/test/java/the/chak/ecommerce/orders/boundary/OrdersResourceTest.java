@@ -4,6 +4,9 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
@@ -11,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
@@ -36,7 +38,7 @@ import the.chak.ecommerce.products.boundary.dto.ProductDto;
 
 @QuarkusTest
 @QuarkusTestResource(MongoTestResource.class)
-public class OrdersResourceTest {
+class OrdersResourceTest {
 
     @InjectMock
     ProductsApiClient productsApiClient;
@@ -53,9 +55,10 @@ public class OrdersResourceTest {
     @Test
     @TestSecurity(user = "original_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "original_user") })
-    public void testUpdateOrder() {
-        Order order = new Order();
+    void updateOrder_initiatedOrder_preservesStatusAndPrice() {
+        // given
         LocalDateTime originalCreationDate = LocalDateTime.now().minusDays(1);
+        Order order = new Order();
         order.setCreationDate(originalCreationDate);
         order.setStatus(OrderStatus.INITIATED);
         order.setUserID("original_user");
@@ -63,36 +66,42 @@ public class OrdersResourceTest {
         order.setProducts(new ArrayList<>());
         order.persist();
 
-        String orderId = order.id.toString();
-
-        OrderRequest updateRequest = new OrderRequest();
-        updateRequest.setId(orderId);
         ProductVO product = new ProductVO();
         product.setProductID("prod_update");
         product.setTitle("Updated Product");
         product.setQty(3);
         product.setPrice(75.0);
-        updateRequest.setProducts(List.of(product));
 
-        given().contentType(ContentType.JSON).body(updateRequest).when().put("/orders").then()
-                .statusCode(200).body("status", is(OrderStatus.INITIATED.name()))
-                .body("userID", is("original_user")).body("price", is(100.0f));
+        OrderRequest request = new OrderRequest();
+        request.setId(order.id.toString());
+        request.setProducts(List.of(product));
 
-        Order updatedOrder = Order.findById(order.id);
-        Assertions.assertEquals(OrderStatus.INITIATED, updatedOrder.getStatus());
-        Assertions.assertEquals("original_user", updatedOrder.getUserID());
-        Assertions.assertEquals(100.0, updatedOrder.getPrice());
-        Assertions.assertEquals(
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().put("/orders");
+
+        // then
+        response.then().statusCode(200)
+                .body("status", is(OrderStatus.INITIATED.name()))
+                .body("userID", is("original_user"))
+                .body("price", is(100.0f));
+
+        Order updated = Order.findById(order.id);
+        assertEquals(OrderStatus.INITIATED, updated.getStatus());
+        assertEquals("original_user", updated.getUserID());
+        assertEquals(100.0, updated.getPrice());
+        assertEquals(
                 originalCreationDate.truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
-                updatedOrder.getCreationDate().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
-        Assertions.assertEquals(1, updatedOrder.getProducts().size());
-        Assertions.assertEquals("prod_update", updatedOrder.getProducts().get(0).getProductID());
+                updated.getCreationDate().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+        assertEquals(1, updated.getProducts().size());
+        assertEquals("prod_update", updated.getProducts().get(0).getProductID());
     }
 
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
-    public void testCreateOrder() {
+    void createOrder_validProducts_returns201WithCalculatedPrice() {
+        // given
         ProductDto mockProduct = new ProductDto();
         mockProduct.setTitle("Mock Product");
         mockProduct.setPrice(50.0);
@@ -105,26 +114,31 @@ public class OrdersResourceTest {
         mockPriceResponse.setId("process123");
         when(pricingApi.calculatePrice(any())).thenReturn(Response.ok(mockPriceResponse).build());
 
-        OrderRequest request = new OrderRequest();
         ProductVO product = new ProductVO();
         product.setProductID("prod1");
         product.setTitle("Product 1");
         product.setQty(2);
         product.setPrice(50.0);
+
+        OrderRequest request = new OrderRequest();
         request.setProducts(List.of(product));
 
-        String orderId = given().contentType(ContentType.JSON).body(request).when().post("/orders")
-                .then().statusCode(201).body("price", is(100.0f)).extract().path("id");
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/orders");
 
-        Assertions.assertNotNull(orderId);
-        Order order = Order.findById(new ObjectId(orderId));
-        Assertions.assertNotNull(order);
+        // then
+        String orderId = response.then().statusCode(201).body("price", is(100.0f))
+                .extract().path("id");
+        assertNotNull(orderId);
+        assertNotNull(Order.findById(new ObjectId(orderId)));
     }
 
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
-    public void testSearchOrders() {
+    void searchOrders_byUserId_returnsMatchingOrders() {
+        // given
         Order order1 = new Order();
         order1.setUserID("user_search");
         order1.setStatus(OrderStatus.INITIATED);
@@ -138,40 +152,52 @@ public class OrdersResourceTest {
         SearchOrdersCommand command = new SearchOrdersCommand();
         command.setUserID("user_search");
 
-        given().contentType(ContentType.JSON).body(command).when().post("/orders/search").then()
-                .statusCode(200).body("y", not(empty())).body("y[0].userID", is("user_search"));
+        // when
+        var response = given().contentType(ContentType.JSON).body(command)
+                .when().post("/orders/search");
+
+        // then
+        response.then().statusCode(200)
+                .body("y", not(empty()))
+                .body("y[0].userID", is("user_search"));
     }
 
     @Test
     @TestSecurity(user = "user_delete")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "user_delete") })
-    public void testDeleteOrder() {
+    void deleteOrder_existingOrder_removesFromDatabase() {
+        // given
         Order order = new Order();
         order.setUserID("user_delete");
         order.setStatus(OrderStatus.INITIATED);
         order.persist();
         String orderId = order.id.toString();
 
-        given().when().delete("/orders/" + orderId).then().statusCode(200);
+        // when
+        var response = given().when().delete("/orders/" + orderId);
 
-        Order deletedOrder = Order.findById(order.id);
-        Assertions.assertNull(deletedOrder);
+        // then
+        response.then().statusCode(200);
+        assertNull(Order.findById(order.id));
     }
 
     @Test
     @TestSecurity(user = "user_confirm")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "user_confirm") })
-    public void testConfirmOrder() {
+    void confirmOrder_initiatedOrder_changesStatusToConfirmed() {
+        // given
         Order order = new Order();
         order.setUserID("user_confirm");
         order.setStatus(OrderStatus.INITIATED);
         order.persist();
         String orderId = order.id.toString();
 
-        given().when().post("/orders/" + orderId + "/confirm").then().statusCode(200).body("status",
-                is(OrderStatus.CONFIRMED.name()));
+        // when
+        var response = given().when().post("/orders/" + orderId + "/confirm");
 
-        Order confirmedOrder = Order.findById(order.id);
-        Assertions.assertEquals(OrderStatus.CONFIRMED, confirmedOrder.getStatus());
+        // then
+        response.then().statusCode(200).body("status", is(OrderStatus.CONFIRMED.name()));
+        Order confirmed = Order.findById(order.id);
+        assertEquals(OrderStatus.CONFIRMED, confirmed.getStatus());
     }
 }

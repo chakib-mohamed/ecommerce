@@ -46,104 +46,125 @@ class TokenUtilsTest {
     }
 
     @Test
-    void testGetUsername_ValidToken_ReturnsUsername() {
+    void getUsername_validToken_returnsUsername() {
+        // given
         String username = "testuser";
         String validToken = TestJwtTokenGenerator.generateValidToken(username);
         when(redisTemplate.hasKey(anyString())).thenReturn(Mono.just(false));
 
+        // when
         Mono<String> result = tokenUtils.getUsername(validToken);
 
+        // then
         StepVerifier.create(result).expectNext(username).verifyComplete();
     }
 
     @Test
-    void testGetUsername_ExpiredToken_ReturnsEmpty() {
-        String username = "testuser";
-        String expiredToken = TestJwtTokenGenerator.generateExpiredToken(username);
+    void getUsername_expiredToken_returnsEmpty() {
+        // given
+        String expiredToken = TestJwtTokenGenerator.generateExpiredToken("testuser");
         when(redisTemplate.hasKey(anyString())).thenReturn(Mono.just(false));
 
+        // when
         Mono<String> result = tokenUtils.getUsername(expiredToken);
 
+        // then
         StepVerifier.create(result).verifyComplete();
     }
 
     @Test
-    void testGetUsername_InvalidToken_ReturnsEmpty() {
+    void getUsername_invalidToken_returnsEmpty() {
+        // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
         when(redisTemplate.hasKey(anyString())).thenReturn(Mono.just(false));
 
+        // when
         Mono<String> result = tokenUtils.getUsername(invalidToken);
 
+        // then
         StepVerifier.create(result).verifyComplete();
     }
 
     @Test
-    void testGetUsername_RevokedToken_ReturnsEmpty() {
-        String username = "testuser";
-        String validToken = TestJwtTokenGenerator.generateValidToken(username);
+    void getUsername_revokedToken_returnsEmpty() {
+        // given
+        String validToken = TestJwtTokenGenerator.generateValidToken("testuser");
         when(redisTemplate.hasKey(anyString())).thenReturn(Mono.just(true));
 
+        // when
         Mono<String> result = tokenUtils.getUsername(validToken);
 
+        // then
         StepVerifier.create(result).verifyComplete();
     }
 
     @Test
-    void testRevokeToken_ValidToken_StoresInRedis() {
-        String username = "testuser";
-        String validToken = TestJwtTokenGenerator.generateValidToken(username);
+    void revokeToken_validToken_storesInRedis() {
+        // given
+        String validToken = TestJwtTokenGenerator.generateValidToken("testuser");
         when(valueOperations.set(anyString(), anyString(), any(Duration.class)))
                 .thenReturn(Mono.just(true));
 
+        // when
         Mono<Void> result = tokenUtils.revokeToken(validToken);
 
+        // then
         StepVerifier.create(result).verifyComplete();
-        verify(valueOperations).set(eq("revoked_token:" + validToken), eq("true"),
-                any(Duration.class));
+        verify(valueOperations).set(eq("revoked_token:" + validToken), eq("true"), any(Duration.class));
     }
 
     @Test
-    void testRevokeToken_ExpiredToken_ReturnsEmpty() {
-        String username = "testuser";
-        String expiredToken = TestJwtTokenGenerator.generateExpiredToken(username);
+    void revokeToken_expiredToken_returnsEmpty() {
+        // given
+        String expiredToken = TestJwtTokenGenerator.generateExpiredToken("testuser");
         when(valueOperations.set(anyString(), anyString(), any(Duration.class)))
                 .thenReturn(Mono.just(true));
 
+        // when
         Mono<Void> result = tokenUtils.revokeToken(expiredToken);
 
+        // then
         StepVerifier.create(result).verifyComplete();
     }
 
     @Test
-    void testRevokeToken_InvalidToken_UsesFallback() {
+    void revokeToken_invalidToken_usesFallback() {
+        // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
         when(valueOperations.set(anyString(), anyString(), any(Duration.class)))
                 .thenReturn(Mono.just(true));
 
+        // when
         Mono<Void> result = tokenUtils.revokeToken(invalidToken);
 
+        // then
         StepVerifier.create(result).verifyComplete();
-        verify(valueOperations).set(eq("revoked_token:" + invalidToken), eq("true"),
-                any(Duration.class));
+        verify(valueOperations).set(eq("revoked_token:" + invalidToken), eq("true"), any(Duration.class));
     }
 
     @Test
-    void testIsTokenRevoked_RevokedToken_ReturnsTrue() {
+    void isTokenRevoked_revokedToken_returnsTrue() {
+        // given
         String token = "some-token";
         when(redisTemplate.hasKey("revoked_token:" + token)).thenReturn(Mono.just(true));
 
+        // when
         Mono<Boolean> result = tokenUtils.isTokenRevoked(token);
 
+        // then
         StepVerifier.create(result).expectNext(true).verifyComplete();
     }
 
     @Test
-    void testIsTokenRevoked_NotRevokedToken_ReturnsFalse() {
+    void isTokenRevoked_activeToken_returnsFalse() {
+        // given
         String token = "some-token";
         when(redisTemplate.hasKey("revoked_token:" + token)).thenReturn(Mono.just(false));
 
+        // when
         Mono<Boolean> result = tokenUtils.isTokenRevoked(token);
 
+        // then
         StepVerifier.create(result).expectNext(false).verifyComplete();
     }
 }
