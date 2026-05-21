@@ -1,6 +1,5 @@
 package the.chak.ecommerce.pricing.boundary.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,7 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PriceResponse {
-    @JsonProperty("productId")
     private String productId;
     private Double price;
 }

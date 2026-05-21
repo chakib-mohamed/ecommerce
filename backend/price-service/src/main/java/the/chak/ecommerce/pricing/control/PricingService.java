@@ -8,13 +8,13 @@ import org.kie.api.builder.KieBuilder;
 import org.kie.api.builder.KieFileSystem;
 import org.kie.api.builder.KieRepository;
 import org.kie.api.runtime.KieContainer;
-import org.kie.api.runtime.KieSession;
+import org.kie.api.runtime.StatelessKieSession;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
-import the.chak.ecommerce.orders.boundary.dto.ProductVO;
 import the.chak.ecommerce.pricing.boundary.dto.PriceCalculationRequest;
 import the.chak.ecommerce.pricing.boundary.dto.PriceCalculationResponse;
 import the.chak.ecommerce.pricing.control.exceptions.InvalidOrderException;
 
+import java.util.Locale;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -45,20 +45,16 @@ public class PricingService {
         applyPromotionsService.applyPromotion(order);
         applyDroolsRules(order);
 
+        double total = order.getProducts().stream()
+                .mapToDouble(p -> p.getPrice() * p.getQty())
+                .sum();
+        order.setPrice(Double.parseDouble(String.format(Locale.US, "%.2f", total)));
+
         return new PriceCalculationResponse(UUID.randomUUID().toString(), order);
     }
 
     private void applyDroolsRules(OrderDTO order) {
-        KieSession session = kieContainer.newKieSession();
-        try {
-            session.insert(order);
-            for (ProductVO product : order.getProducts()) {
-                session.insert(product);
-            }
-            session.getAgenda().getAgendaGroup("ApplySpecialOffers").setFocus();
-            session.fireAllRules();
-        } finally {
-            session.dispose();
-        }
+        StatelessKieSession session = kieContainer.newStatelessKieSession();
+        session.execute(order);
     }
 }

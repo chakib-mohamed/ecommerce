@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.boundary;
 
+import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
@@ -11,6 +12,7 @@ import the.chak.ecommerce.pricing.boundary.dto.PriceCalculationRequest;
 import the.chak.ecommerce.pricing.boundary.dto.PriceCalculationResponse;
 import the.chak.ecommerce.pricing.control.PricingService;
 
+@Authenticated
 @Path("/pricing")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
