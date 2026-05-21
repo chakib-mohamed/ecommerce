@@ -121,6 +121,24 @@ response.then().statusCode(201).body("price", is(100.0f));
 
 **Class modifiers:** test classes are package-private (no `public`).
 
+## JPA / Entity Rules
+
+All JPA relationship fields (`@ManyToOne`, `@OneToOne`, `@OneToMany`, `@ManyToMany`) **must** declare `fetch = FetchType.LAZY` explicitly. `@ManyToOne` and `@OneToOne` default to `EAGER`, which causes silent N+1 queries.
+
+```java
+// good
+@ManyToOne(fetch = FetchType.LAZY)
+@JoinColumn(name = "parent_id")
+private Category parent;
+
+// bad — defaults to EAGER
+@ManyToOne
+@JoinColumn(name = "parent_id")
+private Category parent;
+```
+
+An ArchUnit test in `products-service` (`LazyRelationshipsTest`) enforces this as a CI gate and will fail the build on any violation.
+
 ## Branch Naming
 
 Use `feature/`, `fix/`, or `chore/` prefixes — e.g., `feature/add-cart`, `fix/auth-token-refresh`, `chore/update-deps`.
