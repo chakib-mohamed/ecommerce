@@ -310,7 +310,7 @@ public class CartResourceTest {
             .post("/cart/checkout")
         .then()
             .statusCode(404)
-            .body("errorCode", is("CART_NOT_FOUND"));
+            .body("type", is("FUNCTIONAL"));
     }
 
     @Test
@@ -328,7 +328,7 @@ public class CartResourceTest {
             .post("/cart/checkout")
         .then()
             .statusCode(400)
-            .body("errorCode", is("CART_EMPTY"));
+            .body("type", is("FUNCTIONAL"));
     }
 
     @Test
@@ -348,7 +348,7 @@ public class CartResourceTest {
             .post("/cart/checkout")
         .then()
             .statusCode(500)
-            .body("errorCode", is("INTERNAL_ERROR"));
+            .body("type", is("TECHNICAL"));
 
         assertTrue(Cart.findByUserId(USER_ID).isPresent());
     }

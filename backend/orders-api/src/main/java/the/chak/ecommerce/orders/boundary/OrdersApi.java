@@ -20,7 +20,7 @@ public interface OrdersApi {
     @POST
     @Path("/search")
     @Produces(MediaType.APPLICATION_JSON)
-    Tuple<Integer, List<OrderDTO>> searchOrders(SearchOrdersCommand searchOrdersCommand);
+    Tuple<Long, List<OrderDTO>> searchOrders(SearchOrdersCommand searchOrdersCommand);
 
     @POST
     Response createOrder(OrderRequest orderRequest);

@@ -9,9 +9,17 @@ import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.Tuple;
 import the.chak.ecommerce.orders.control.OrderService;
 import the.chak.ecommerce.orders.entity.Order;
+import io.quarkus.security.Authenticated;
+import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import org.eclipse.microprofile.reactive.messaging.Emitter;
 
+@Authenticated
+@RequestScoped
 public class OrdersResource implements OrdersApi {
 
     @Inject
@@ -20,15 +28,21 @@ public class OrdersResource implements OrdersApi {
     @Inject
     OrderService orderService;
 
-    public Tuple<Integer, List<OrderDTO>> searchOrders(SearchOrdersCommand searchOrdersCommand) {
-        Tuple<Integer, List<Order>> orders = orderService.searchOrders(searchOrdersCommand);
+    @Inject
+    @Channel("order-initiated")
+    Emitter<OrderDTO> orderEmitter;
+
+    @Context
+    SecurityContext sec;
+
+    public Tuple<Long, List<OrderDTO>> searchOrders(SearchOrdersCommand searchOrdersCommand) {
+        Tuple<Long, List<Order>> orders = orderService.searchOrders(searchOrdersCommand);
 
         return new Tuple<>(orders.getX(),
-                orders.getY().stream().map(o -> orderMapper.orderToOrderDto(o)).collect(toList()));
+                orders.getY().stream().map(orderMapper::orderToOrderDto).collect(toList()));
     }
 
     public Response createOrder(OrderRequest orderRequest) {
-
         var order = orderMapper.toOrder(orderRequest);
         orderService.saveOrder(order);
 
@@ -36,26 +50,44 @@ public class OrdersResource implements OrdersApi {
     }
 
     public Response updateOrder(OrderRequest orderRequest) {
-        Order order = orderService.updateOrder(orderRequest.getId(), orderRequest);
-        if (order == null) {
+        Order existing = Order.findById(new ObjectId(orderRequest.getId()));
+        if (existing == null) {
             return Response.status(404).build();
         }
-        return Response.ok(order).status(200).build();
+        String userId = sec.getUserPrincipal().getName();
+        if (!userId.equals(existing.getUserID())) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+        orderMapper.updateOrderFromRequest(orderRequest, existing);
+        existing.update();
+        return Response.ok(existing).status(200).build();
     }
 
     public Response deleteOrder(String orderID) {
-
-        Order.deleteById(new ObjectId(orderID));
-
+        Order order = Order.findById(new ObjectId(orderID));
+        if (order == null) {
+            return Response.status(404).build();
+        }
+        String userId = sec.getUserPrincipal().getName();
+        if (!userId.equals(order.getUserID())) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+        order.delete();
         return Response.ok().status(200).build();
     }
 
     public Response confirmOrder(String orderID) {
-        Order order = orderService.confirmOrder(orderID);
-        if (order == null) {
+        Order existing = Order.findById(new ObjectId(orderID));
+        if (existing == null) {
             return Response.status(404).build();
         }
+        String userId = sec.getUserPrincipal().getName();
+        if (!userId.equals(existing.getUserID())) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+        Order order = orderService.confirmOrder(orderID);
+        OrderDTO orderDTO = orderMapper.orderToOrderDto(order);
+        orderEmitter.send(orderDTO);
         return Response.ok(order).status(200).build();
     }
-
 }

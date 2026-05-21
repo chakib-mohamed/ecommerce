@@ -1,28 +1,30 @@
 package the.chak.ecommerce.orders.boundary;
 
-import the.chak.ecommerce.orders.boundary.dto.ErrorResponse;
-import the.chak.ecommerce.orders.control.exceptions.FunctionalException;
-import io.quarkus.logging.Log;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
+import jakarta.ws.rs.ext.ExceptionMapper;
+import jakarta.ws.rs.ext.Provider;
+import org.jboss.logging.Logger;
+import the.chak.ecommerce.orders.boundary.dto.ErrorResponse;
+import the.chak.ecommerce.orders.control.exceptions.FunctionalException;
 
-public class GlobalExceptionHandler {
+@Provider
+public class GlobalExceptionHandler implements ExceptionMapper<Exception> {
 
-    @ServerExceptionMapper
-    public Response handleFunctional(FunctionalException e) {
-        return Response.status(e.getStatus())
-                .type(MediaType.APPLICATION_JSON)
-                .entity(new ErrorResponse(e.getErrorCode(), e.getMessage()))
-                .build();
-    }
+    private static final Logger LOG = Logger.getLogger(GlobalExceptionHandler.class);
 
-    @ServerExceptionMapper
-    public Response handleTechnical(Exception e) {
-        Log.errorf(e, "Unexpected technical error: %s", e.getMessage());
+    @Override
+    public Response toResponse(Exception e) {
+        if (e instanceof FunctionalException fe) {
+            return Response.status(fe.getStatus())
+                    .entity(new ErrorResponse("FUNCTIONAL", fe.getMessage()))
+                    .type(MediaType.APPLICATION_JSON)
+                    .build();
+        }
+        LOG.error("Unexpected error", e);
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(new ErrorResponse("TECHNICAL", "An unexpected error occurred"))
                 .type(MediaType.APPLICATION_JSON)
-                .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
                 .build();
     }
 }

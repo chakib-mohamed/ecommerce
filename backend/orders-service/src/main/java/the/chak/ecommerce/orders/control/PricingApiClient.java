@@ -12,9 +12,8 @@ import jakarta.ws.rs.core.Response;
 @Path("/pricing/calculate")
 public interface PricingApiClient {
 
-    @LoggingFilter.Logged
     @Timeout(2000)
     @POST
-    Response calculatePrice(PriceRequest order) ;
+    Response calculatePrice(PriceRequest order);
 
 }

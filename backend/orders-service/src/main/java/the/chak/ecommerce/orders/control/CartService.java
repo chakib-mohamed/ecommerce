@@ -50,7 +50,7 @@ public class CartService {
     }
 
     public Optional<CartResponse> getCart(String userId) {
-        return Cart.findByUserId(userId).map(this::toResponseWithPrices);
+        return Cart.findByUserId(userId).map(this::toResponse);
     }
 
     public Optional<CartResponse> updateItem(String userId, String productId, UpdateItemRequest request) {
@@ -112,13 +112,6 @@ public class CartService {
     }
 
     private CartResponse toResponse(Cart cart) {
-        List<CartItemResponse> items = cart.items.stream()
-                .map(i -> new CartItemResponse(i.getProductId(), i.getQuantity(), null, null))
-                .toList();
-        return new CartResponse(cart.userId, items, cart.updatedAt);
-    }
-
-    private CartResponse toResponseWithPrices(Cart cart) {
         List<CartItemResponse> items = cart.items.stream()
                 .map(i -> {
                     Double unitPrice = priceCacheService.getPrice(i.getProductId());

@@ -12,6 +12,7 @@ import java.util.List;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
@@ -26,6 +27,9 @@ import the.chak.ecommerce.orders.MongoTestResource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
+import io.quarkus.test.security.jwt.Claim;
+import io.quarkus.test.security.jwt.JwtSecurity;
 import io.restassured.http.ContentType;
 import jakarta.ws.rs.core.Response;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
@@ -41,9 +45,15 @@ public class OrdersResourceTest {
     @RestClient
     PricingApiClient pricingApi;
 
+    @BeforeEach
+    void cleanup() {
+        Order.deleteAll();
+    }
+
     @Test
+    @TestSecurity(user = "original_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "original_user") })
     public void testUpdateOrder() {
-        // 1. Create an order first
         Order order = new Order();
         LocalDateTime originalCreationDate = LocalDateTime.now().minusDays(1);
         order.setCreationDate(originalCreationDate);
@@ -55,7 +65,6 @@ public class OrdersResourceTest {
 
         String orderId = order.id.toString();
 
-        // 2. Create update request (Note: OrderRequest only has id and products)
         OrderRequest updateRequest = new OrderRequest();
         updateRequest.setId(orderId);
         ProductVO product = new ProductVO();
@@ -65,12 +74,10 @@ public class OrdersResourceTest {
         product.setPrice(75.0);
         updateRequest.setProducts(List.of(product));
 
-        // 3. Call PUT endpoint
         given().contentType(ContentType.JSON).body(updateRequest).when().put("/orders").then()
                 .statusCode(200).body("status", is(OrderStatus.INITIATED.name()))
                 .body("userID", is("original_user")).body("price", is(100.0f));
 
-        // 4. Verify in DB
         Order updatedOrder = Order.findById(order.id);
         Assertions.assertEquals(OrderStatus.INITIATED, updatedOrder.getStatus());
         Assertions.assertEquals("original_user", updatedOrder.getUserID());
@@ -83,14 +90,14 @@ public class OrdersResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
     public void testCreateOrder() {
-        // Mock ProductsApiClient
         ProductDto mockProduct = new ProductDto();
         mockProduct.setTitle("Mock Product");
         mockProduct.setPrice(50.0);
         when(productsApiClient.getProduct(any())).thenReturn(mockProduct);
 
-        // Mock PricingApiClient
         PriceRequest mockPriceResponse = new PriceRequest();
         OrderDTO mockOrderDto = new OrderDTO();
         mockOrderDto.setPrice(100.0);
@@ -115,8 +122,9 @@ public class OrdersResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
     public void testSearchOrders() {
-        // Setup: Create some orders
         Order order1 = new Order();
         order1.setUserID("user_search");
         order1.setStatus(OrderStatus.INITIATED);
@@ -135,36 +143,34 @@ public class OrdersResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "user_delete")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "user_delete") })
     public void testDeleteOrder() {
-        // Setup: Create an order
         Order order = new Order();
         order.setUserID("user_delete");
         order.setStatus(OrderStatus.INITIATED);
         order.persist();
         String orderId = order.id.toString();
 
-        // Delete
         given().when().delete("/orders/" + orderId).then().statusCode(200);
 
-        // Verify
         Order deletedOrder = Order.findById(order.id);
         Assertions.assertNull(deletedOrder);
     }
 
     @Test
+    @TestSecurity(user = "user_confirm")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "user_confirm") })
     public void testConfirmOrder() {
-        // 1. Create an order
         Order order = new Order();
         order.setUserID("user_confirm");
         order.setStatus(OrderStatus.INITIATED);
         order.persist();
         String orderId = order.id.toString();
 
-        // 2. Call POST /orders/{id}/confirm
         given().when().post("/orders/" + orderId + "/confirm").then().statusCode(200).body("status",
                 is(OrderStatus.CONFIRMED.name()));
 
-        // 3. Verify in DB
         Order confirmedOrder = Order.findById(order.id);
         Assertions.assertEquals(OrderStatus.CONFIRMED, confirmedOrder.getStatus());
     }

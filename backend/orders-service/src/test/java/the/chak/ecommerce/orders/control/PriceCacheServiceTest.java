@@ -52,7 +52,35 @@ public class PriceCacheServiceTest {
         ProductDto result = priceCacheService.getProduct("missing-id");
 
         assertNull(result);
-        // stub bypasses the API entirely — verify the call was made
         verify(productsApiClient, times(1)).getProduct("missing-id");
+    }
+
+    @Test
+    public void getPrice_cacheMiss_fetchesPriceAndCachesResult() {
+        ProductDto product = new ProductDto();
+        product.setTitle("Widget");
+        product.setPrice(19.99);
+        when(productsApiClient.getProduct("price-prod-1")).thenReturn(product);
+
+        Double result = priceCacheService.getPrice("price-prod-1");
+
+        assertNotNull(result);
+        assertEquals(19.99, result);
+
+        // Second call must hit cache — API called exactly once
+        Double cached = priceCacheService.getPrice("price-prod-1");
+        assertNotNull(cached);
+        assertEquals(19.99, cached);
+        verify(productsApiClient, times(1)).getProduct("price-prod-1");
+    }
+
+    @Test
+    public void getPrice_productNotFound_returnsNull() {
+        when(productsApiClient.getProduct("price-missing")).thenReturn(null);
+
+        Double result = priceCacheService.getPrice("price-missing");
+
+        assertNull(result);
+        verify(productsApiClient, times(1)).getProduct("price-missing");
     }
 }
