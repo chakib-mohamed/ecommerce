@@ -2,6 +2,7 @@ package the.chak.ecommerce.products.control;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -9,23 +10,23 @@ import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
+import org.jboss.logging.Logger;
 import the.chak.ecommerce.products.boundary.dto.Criteria;
-import the.chak.ecommerce.products.boundary.mapper.ProductMapper;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
-import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
+import the.chak.ecommerce.products.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.products.entity.Product;
 
 @ApplicationScoped
 public class ProductService {
 
+    private static final Logger LOG = Logger.getLogger(ProductService.class);
+
+    private static final Set<String> ALLOWED_PRODUCT_FIELDS =
+            Set.of("uuid", "description", "imageKey", "price", "title");
+
     @Inject
     EntityManager em;
-
-    @Inject
-    ProductMapper productMapper;
-
-    @Inject
-    Event<ProductUpdatedEvent> productUpdatedEvent;
 
     @Inject
     Event<ProductDeletedEvent> productDeletedEvent;
@@ -40,31 +41,27 @@ public class ProductService {
             product.setImageKey(imageKey);
         }
         product.persist();
-        productUpdatedEvent.fire(new ProductUpdatedEvent(productMapper.toDto(product)));
-
         return product;
     }
 
     @Transactional
-    public void updateProduct(Product product, byte[] imageBytes) {
+    public Product updateProduct(Product product, byte[] imageBytes) {
         var existing = Product.<Product>find("uuid", product.getUuid()).firstResult();
-        if (existing != null) {
-            product.id = existing.id;
-            if (imageBytes != null && imageBytes.length > 0) {
-                // Delete old image if it exists
-                if (existing.getImageKey() != null) {
-                    minioService.deleteImage(existing.getImageKey());
-                }
-                String imageKey = minioService.uploadImage(imageBytes);
-                product.setImageKey(imageKey);
-            } else {
-                // Keep existing image key if no new bytes provided
-                product.setImageKey(existing.getImageKey());
-            }
+        if (existing == null) {
+            throw new ProductNotFoundException(product.getUuid());
         }
-
+        product.id = existing.id;
+        if (imageBytes != null && imageBytes.length > 0) {
+            if (existing.getImageKey() != null) {
+                minioService.deleteImage(existing.getImageKey());
+            }
+            String imageKey = minioService.uploadImage(imageBytes);
+            product.setImageKey(imageKey);
+        } else {
+            product.setImageKey(existing.getImageKey());
+        }
         em.merge(product);
-        productUpdatedEvent.fire(new ProductUpdatedEvent(productMapper.toDto(product)));
+        return product;
     }
 
     @Transactional
@@ -82,15 +79,22 @@ public class ProductService {
     @Transactional
     public void updatePrice(String productId, Double newPrice) {
         Product product = Product.<Product>find("uuid", UUID.fromString(productId)).firstResult();
-        if (product != null) {
-            product.setPrice(newPrice);
+        if (product == null) {
+            LOG.warnf("Price-changed event for unknown product %s — discarding", productId);
+            return;
         }
+        product.setPrice(newPrice);
     }
 
     public List<Product> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {
         var query = new StringBuilder("1=1");
-        params.forEach((key, criteria) -> query.append(" and ").append(key)
-                .append(criteria.getOperator().getValue()).append(" :").append(key));
+        params.forEach((key, criteria) -> {
+            if (!ALLOWED_PRODUCT_FIELDS.contains(key)) {
+                throw new BadRequestException("Invalid search field: " + key);
+            }
+            query.append(" and ").append(key)
+                    .append(criteria.getOperator().getValue()).append(" :").append(key);
+        });
 
         return Product
                 .find(query.toString(),
@@ -98,5 +102,4 @@ public class ProductService {
                                 Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValue())))
                 .page(pageIndex, pageSize).list();
     }
-
 }

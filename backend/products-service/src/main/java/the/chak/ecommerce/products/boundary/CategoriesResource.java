@@ -44,7 +44,7 @@ public class CategoriesResource {
 
         var category = categoryMapper.toEntity(createCategoryCommand);
         categoryService.saveCategory(category);
-        return Response.ok(categoryMapper.toDto(category)).status(201).build();
+        return Response.status(Response.Status.CREATED).entity(categoryMapper.toDto(category)).build();
     }
 
     @PUT

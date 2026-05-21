@@ -101,7 +101,7 @@ public class CategoriesResourceTest {
         }
 
         @Test
-        @Order(4)
+        @Order(6)
         public void testDeleteCategory() {
                 // First create a category to delete
                 Map<String, String> category = Map.of("label", "To Be Deleted");

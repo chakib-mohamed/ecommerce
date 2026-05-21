@@ -18,8 +18,7 @@ public class Criteria {
         EQUALS(" = "),
         LIKE(" LIKE "),
         GREATER_THAN(" > "),
-        LESS_THAN(" < "),
-        BETWEEN(" BETWEEN ");
+        LESS_THAN(" < ");
 
         private final String value;
     }

@@ -3,6 +3,8 @@ package the.chak.ecommerce.products.entity;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,10 +20,11 @@ public class Category extends PanacheEntity {
     @Column(unique = true)
     private String label;
 
-    @Column(name = "parent_id")
-    private Long parentId;
+    @ManyToOne
+    @JoinColumn(name = "parent_id")
+    private Category parent;
 
-    @OneToMany(mappedBy = "parentId")
+    @OneToMany(mappedBy = "parent")
     private List<Category> subCategories;
 
     public List<Category> getSubCategories() {

@@ -14,12 +14,10 @@ public class ProductDto {
     @jakarta.json.bind.annotation.JsonbTypeAdapter(the.chak.ecommerce.products.boundary.ByteArrayBase64Adapter.class)
     private byte[] image;
 
-    @jakarta.json.bind.annotation.JsonbTypeAdapter(the.chak.ecommerce.products.boundary.ByteArrayBase64Adapter.class)
     public byte[] getImage() {
         return image;
     }
 
-    @jakarta.json.bind.annotation.JsonbTypeAdapter(the.chak.ecommerce.products.boundary.ByteArrayBase64Adapter.class)
     public void setImage(byte[] image) {
         this.image = image;
     }

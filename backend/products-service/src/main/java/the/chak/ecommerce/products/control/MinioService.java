@@ -20,16 +20,16 @@ import jakarta.enterprise.context.ApplicationScoped;
 @ApplicationScoped
 public class MinioService {
 
-    @ConfigProperty(name = "quarkus.s3.endpoint-override")
+    @ConfigProperty(name = "products.minio.endpoint")
     String endpoint;
 
-    @ConfigProperty(name = "quarkus.s3.aws.region")
+    @ConfigProperty(name = "products.minio.region")
     String region;
 
-    @ConfigProperty(name = "quarkus.s3.aws.credentials.static.access-key-id")
+    @ConfigProperty(name = "products.minio.access-key")
     String accessKey;
 
-    @ConfigProperty(name = "quarkus.s3.aws.credentials.static.secret-access-key")
+    @ConfigProperty(name = "products.minio.secret-key")
     String secretKey;
 
     @ConfigProperty(name = "products.images.bucket")
@@ -63,7 +63,7 @@ public class MinioService {
         String key = UUID.randomUUID().toString();
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(data.length);
-        metadata.setContentType("image/jpeg"); // Basic assumption
+        metadata.setContentType(detectContentType(data));
 
         s3Client.putObject(bucketName, key, new ByteArrayInputStream(data), metadata);
         return key;
@@ -79,5 +79,23 @@ public class MinioService {
 
     public void deleteImage(String key) {
         s3Client.deleteObject(bucketName, key);
+    }
+
+    private String detectContentType(byte[] data) {
+        if (data.length >= 3 && (data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8 && (data[2] & 0xFF) == 0xFF) {
+            return "image/jpeg";
+        }
+        if (data.length >= 8 && (data[0] & 0xFF) == 0x89 && (data[1] & 0xFF) == 0x50
+                && (data[2] & 0xFF) == 0x4E && (data[3] & 0xFF) == 0x47) {
+            return "image/png";
+        }
+        if (data.length >= 6 && data[0] == 'G' && data[1] == 'I' && data[2] == 'F') {
+            return "image/gif";
+        }
+        if (data.length >= 12 && data[0] == 'R' && data[1] == 'I' && data[2] == 'F' && data[3] == 'F'
+                && data[8] == 'W' && data[9] == 'E' && data[10] == 'B' && data[11] == 'P') {
+            return "image/webp";
+        }
+        return "application/octet-stream";
     }
 }

@@ -41,7 +41,7 @@ public class PromotionsResource implements PromotionsApi {
 
         promotionService.savePromotion(promotion);
 
-        return Response.ok(promotionMapper.toDto(promotion)).status(201).build();
+        return Response.status(Response.Status.CREATED).entity(promotionMapper.toDto(promotion)).build();
     }
 
     @Override

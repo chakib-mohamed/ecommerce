@@ -11,12 +11,12 @@ public interface CategoryMapper extends BaseMapper {
 
     CategoryDto toDto(Category category);
 
-    @Mapping(target = "parentId", ignore = true)
+    @Mapping(target = "parent", ignore = true)
     @Mapping(target = "subCategories", ignore = true)
     Category toEntity(CategoryDto categoryDto);
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "parentId", ignore = true)
+    @Mapping(target = "parent", ignore = true)
     @Mapping(target = "subCategories", ignore = true)
     Category toEntity(SaveCategoryDto saveCategoryDto);
 }
