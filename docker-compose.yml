@@ -107,6 +107,7 @@ services:
       - backend
     volumes:
       - mongodb_data:/data/db
+      - ./backend/dev-scripts/mongodb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s

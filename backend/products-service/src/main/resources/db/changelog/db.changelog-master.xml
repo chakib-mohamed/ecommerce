@@ -8,5 +8,6 @@
     <include file="changes/001-init-schema.sql" relativeToChangelogFile="true"/>
     <include file="changes/002-init-data.sql" relativeToChangelogFile="true"/>
     <include file="changes/003-add-product-uuid-unique.sql" relativeToChangelogFile="true"/>
+    <include file="changes/004-rich-dev-data.sql" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>
