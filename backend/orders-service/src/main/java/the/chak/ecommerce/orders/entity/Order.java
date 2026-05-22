@@ -5,8 +5,8 @@ import java.util.List;
 import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import io.quarkus.mongodb.panache.common.MongoEntity;
 import lombok.Data;
-import the.chak.ecommerce.orders.boundary.dto.OrderStatus;
-import the.chak.ecommerce.orders.boundary.dto.ProductVO;
+import the.chak.ecommerce.orders.entity.OrderStatus;
+import the.chak.ecommerce.orders.entity.ProductVO;
 
 @Data
 @MongoEntity(collection = "order")

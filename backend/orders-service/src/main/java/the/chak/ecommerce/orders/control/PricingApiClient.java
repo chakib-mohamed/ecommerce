@@ -1,6 +1,5 @@
 package the.chak.ecommerce.orders.control;
 
-import the.chak.ecommerce.orders.boundary.dto.PriceRequest;
 import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
@@ -14,6 +13,6 @@ public interface PricingApiClient {
 
     @Timeout(2000)
     @POST
-    Response calculatePrice(PriceRequest order);
+    Response calculatePrice(PricingOrder order);
 
 }

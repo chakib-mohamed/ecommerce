@@ -231,8 +231,27 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
           }
-        }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
       },
       "post" : {
         "operationId" : "createOrder",
@@ -249,8 +268,27 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
           }
-        }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
       }
     },
     "/orders/search" : {
@@ -272,12 +310,31 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/TupleIntegerListOrderDTO"
+                  "$ref" : "#/components/schemas/TupleLongListOrderDTO"
                 }
               }
             }
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
           }
-        }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
       }
     },
     "/orders/{orderID}" : {
@@ -294,8 +351,27 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
           }
-        }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
       }
     },
     "/orders/{orderID}/confirm" : {
@@ -312,8 +388,27 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          },
+          "401" : {
+            "description" : "Not Authorized"
+          },
+          "403" : {
+            "description" : "Not Allowed"
           }
-        }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        } ]
       }
     },
     "/cart" : {
@@ -333,6 +428,18 @@
         "summary" : "Get Cart",
         "tags" : [ "Cart Resource" ],
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -433,6 +540,18 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       }
     },
@@ -463,6 +582,18 @@
         "summary" : "Add Item",
         "tags" : [ "Cart Resource" ],
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -583,6 +714,18 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       },
       "delete" : {
@@ -650,6 +793,18 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       }
     },
@@ -670,6 +825,18 @@
         "summary" : "Checkout",
         "tags" : [ "Cart Resource" ],
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -916,6 +1083,21 @@
         "properties" : {
           "x" : {
             "format" : "int32",
+            "type" : "integer"
+          },
+          "y" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrderDTO"
+            }
+          }
+        }
+      },
+      "TupleLongListOrderDTO" : {
+        "type" : "object",
+        "properties" : {
+          "x" : {
+            "format" : "int64",
             "type" : "integer"
           },
           "y" : {

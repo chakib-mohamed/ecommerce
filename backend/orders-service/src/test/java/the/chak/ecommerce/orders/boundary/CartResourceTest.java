@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,7 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.control.OrderService;
 import the.chak.ecommerce.orders.control.PriceCacheService;
-import the.chak.ecommerce.orders.boundary.dto.OrderStatus;
+import the.chak.ecommerce.orders.entity.OrderStatus;
 import the.chak.ecommerce.orders.entity.Cart;
 import the.chak.ecommerce.orders.entity.CartItem;
 import the.chak.ecommerce.orders.entity.Order;
@@ -286,12 +288,12 @@ class CartResourceTest {
         cart.updatedAt = Instant.now();
         cart.persist();
 
-        Order mockOrder = new Order();
-        mockOrder.id = new ObjectId();
-        mockOrder.setUserID(USER_ID);
-        mockOrder.setStatus(OrderStatus.INITIATED);
-        mockOrder.setPrice(100.0);
-        when(orderService.saveOrder(any())).thenReturn(mockOrder);
+        doAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setStatus(OrderStatus.INITIATED);
+            o.setPrice(100.0);
+            return o;
+        }).when(orderService).saveOrder(any());
 
         // when
         var response = given().when().post("/cart/checkout");
@@ -342,7 +344,7 @@ class CartResourceTest {
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 1)));
         cart.updatedAt = Instant.now();
         cart.persist();
-        when(orderService.saveOrder(any())).thenThrow(new RuntimeException("pricing service down"));
+        doThrow(new RuntimeException("pricing service down")).when(orderService).saveOrder(any());
 
         // when
         var response = given().when().post("/cart/checkout");

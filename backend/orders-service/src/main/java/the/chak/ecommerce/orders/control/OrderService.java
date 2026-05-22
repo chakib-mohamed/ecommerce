@@ -7,20 +7,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
-import the.chak.ecommerce.orders.boundary.OrderMapper;
-import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
-import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
-import the.chak.ecommerce.orders.boundary.dto.PriceRequest;
-import the.chak.ecommerce.orders.boundary.dto.OrderStatus;
-import the.chak.ecommerce.orders.boundary.dto.Tuple;
 import the.chak.ecommerce.orders.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.orders.entity.Order;
+import the.chak.ecommerce.orders.entity.OrderStatus;
 import io.quarkus.panache.common.Page;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
+import the.chak.ecommerce.orders.boundary.dto.Tuple;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
 import the.chak.ecommerce.products.boundary.dto.PromotionDto;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 @ApplicationScoped
 public class OrderService {
@@ -30,13 +27,9 @@ public class OrderService {
 
     @Inject
     @RestClient
-    PricingApiClient pricingApi;
-
-    @Inject
-    OrderMapper orderMapper;
+    PricingApiClient pricingApiClient;
 
     public Order saveOrder(Order order) {
-
         order.setCreationDate(LocalDateTime.now());
         order.setStatus(OrderStatus.INITIATED);
 
@@ -55,24 +48,20 @@ public class OrderService {
                     .orElse(null));
         });
 
-        var orderDTO = orderMapper.orderToOrderDto(order);
-        var response = pricingApi.calculatePrice(new PriceRequest(orderDTO))
-                .readEntity(PriceRequest.class);
+        PricingOrder pricingOrder = new PricingOrder();
+        pricingOrder.setProducts(order.getProducts().stream().map(p -> {
+            PricingOrder.PricingOrderProduct item = new PricingOrder.PricingOrderProduct();
+            item.setProductID(p.getProductID());
+            item.setQty(p.getQty());
+            item.setPrice(p.getPrice());
+            item.setPercentageOff(p.getPercentageOff());
+            return item;
+        }).toList());
 
-        order.setPrice(response.getOrder().getPrice());
-        order.setProcessID(response.getId());
+        PricingResult result = pricingApiClient.calculatePrice(pricingOrder).readEntity(PricingResult.class);
+        order.setPrice(result.getOrder().getPrice());
+        order.setProcessID(result.getId());
         order.persist();
-
-        return order;
-    }
-
-    public Order updateOrder(String orderId, OrderRequest orderRequest) {
-        Order order = Order.findById(new org.bson.types.ObjectId(orderId));
-        if (order == null) {
-            return null;
-        }
-        orderMapper.updateOrderFromRequest(orderRequest, order);
-        order.update();
         return order;
     }
 
@@ -83,7 +72,6 @@ public class OrderService {
         var now = LocalDate.now();
         return promotion.getActiveFrom().isBefore(now) && now.isBefore(promotion.getActiveTo());
     }
-
 
     public Tuple<Long, List<Order>> searchOrders(SearchOrdersCommand searchOrdersCommand) {
         var query = "";

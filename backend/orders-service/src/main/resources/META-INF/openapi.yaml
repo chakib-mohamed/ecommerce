@@ -148,6 +148,17 @@ paths:
       responses:
         "200":
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
     post:
       operationId: createOrder
       requestBody:
@@ -159,6 +170,17 @@ paths:
       responses:
         "200":
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
   /orders/search:
     post:
       operationId: searchOrders
@@ -174,7 +196,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TupleIntegerListOrderDTO"
+                $ref: "#/components/schemas/TupleLongListOrderDTO"
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
   /orders/{orderID}:
     delete:
       operationId: deleteOrder
@@ -187,6 +220,17 @@ paths:
       responses:
         "200":
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
   /orders/{orderID}/confirm:
     post:
       operationId: confirmOrder
@@ -199,6 +243,17 @@ paths:
       responses:
         "200":
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
   /cart:
     get:
       operationId: getCart
@@ -213,6 +268,12 @@ paths:
       tags:
       - Cart Resource
       security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
@@ -268,6 +329,12 @@ paths:
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
   /cart/items:
     post:
       operationId: addItem
@@ -288,6 +355,12 @@ paths:
       tags:
       - Cart Resource
       security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
@@ -356,6 +429,12 @@ paths:
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
     delete:
       operationId: removeItem
       parameters:
@@ -396,6 +475,12 @@ paths:
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
   /cart/checkout:
     post:
       operationId: checkout
@@ -410,6 +495,12 @@ paths:
       tags:
       - Cart Resource
       security:
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
+      - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
       - bearerAuth: []
@@ -577,6 +668,16 @@ components:
       properties:
         x:
           format: int32
+          type: integer
+        "y":
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderDTO"
+    TupleLongListOrderDTO:
+      type: object
+      properties:
+        x:
+          format: int64
           type: integer
         "y":
           type: array

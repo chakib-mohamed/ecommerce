@@ -4,7 +4,7 @@ import the.chak.ecommerce.orders.boundary.dto.AddItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.UpdateItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.CartItemResponse;
 import the.chak.ecommerce.orders.boundary.dto.CartResponse;
-import the.chak.ecommerce.orders.boundary.dto.ProductVO;
+import the.chak.ecommerce.orders.entity.ProductVO;
 import the.chak.ecommerce.orders.control.exceptions.CartEmptyException;
 import the.chak.ecommerce.orders.control.exceptions.CartNotFoundException;
 import the.chak.ecommerce.orders.entity.Cart;
@@ -106,9 +106,9 @@ public class CartService {
         order.setUserID(userId);
         order.setProducts(products);
 
-        Order created = orderService.saveOrder(order);
+        orderService.saveOrder(order);
         cart.delete();
-        return created;
+        return order;
     }
 
     private CartResponse toResponse(Cart cart) {

@@ -43,9 +43,8 @@ public class OrdersResource implements OrdersApi {
     }
 
     public Response createOrder(OrderRequest orderRequest) {
-        var order = orderMapper.toOrder(orderRequest);
+        Order order = orderMapper.toOrder(orderRequest);
         orderService.saveOrder(order);
-
         return Response.ok(order).status(201).build();
     }
 

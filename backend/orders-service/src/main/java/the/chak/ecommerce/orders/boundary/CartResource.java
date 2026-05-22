@@ -3,8 +3,8 @@ package the.chak.ecommerce.orders.boundary;
 import the.chak.ecommerce.orders.boundary.dto.AddItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.UpdateItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.CartResponse;
-import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.control.CartService;
+import the.chak.ecommerce.orders.entity.Order;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -80,7 +80,7 @@ public class CartResource {
     @Consumes(MediaType.WILDCARD)
     public Response checkout(@Context SecurityContext sec) {
         String userId = sec.getUserPrincipal().getName();
-        OrderDTO order = orderMapper.orderToOrderDto(cartService.checkout(userId));
-        return Response.status(Response.Status.CREATED).entity(order).build();
+        Order order = cartService.checkout(userId);
+        return Response.status(Response.Status.CREATED).entity(orderMapper.orderToOrderDto(order)).build();
     }
 }
