@@ -61,11 +61,11 @@ class OrdersResourceTest {
         // given
         LocalDateTime originalCreationDate = LocalDateTime.now().minusDays(1);
         Order order = new Order();
-        order.creationDate = originalCreationDate;
-        order.status = OrderStatus.INITIATED;
-        order.userID = "original_user";
-        order.price = 100.0;
-        order.products = new ArrayList<>();
+        order.setCreationDate(originalCreationDate);
+        order.setStatus(OrderStatus.INITIATED);
+        order.setUserID("original_user");
+        order.setPrice(100.0);
+        order.setProducts(new ArrayList<>());
         order.persist();
 
         ProductVO product = new ProductVO();
@@ -89,14 +89,14 @@ class OrdersResourceTest {
                 .body("price", is(100.0f));
 
         Order updated = Order.findById(order.id);
-        assertEquals(OrderStatus.INITIATED, updated.status);
-        assertEquals("original_user", updated.userID);
-        assertEquals(100.0, updated.price);
+        assertEquals(OrderStatus.INITIATED, updated.getStatus());
+        assertEquals("original_user", updated.getUserID());
+        assertEquals(100.0, updated.getPrice());
         assertEquals(
                 originalCreationDate.truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
-                updated.creationDate.truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
-        assertEquals(1, updated.products.size());
-        assertEquals("prod_update", updated.products.get(0).getProductID());
+                updated.getCreationDate().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+        assertEquals(1, updated.getProducts().size());
+        assertEquals("prod_update", updated.getProducts().get(0).getProductID());
     }
 
     @Test
@@ -144,13 +144,13 @@ class OrdersResourceTest {
     void searchOrders_byUserId_returnsMatchingOrders() {
         // given
         Order order1 = new Order();
-        order1.userID = "user_search";
-        order1.status = OrderStatus.INITIATED;
+        order1.setUserID("user_search");
+        order1.setStatus(OrderStatus.INITIATED);
         order1.persist();
 
         Order order2 = new Order();
-        order2.userID = "user_other";
-        order2.status = OrderStatus.INITIATED;
+        order2.setUserID("user_other");
+        order2.setStatus(OrderStatus.INITIATED);
         order2.persist();
 
         SearchOrdersCommand command = new SearchOrdersCommand();
@@ -172,8 +172,8 @@ class OrdersResourceTest {
     void deleteOrder_existingOrder_removesFromDatabase() {
         // given
         Order order = new Order();
-        order.userID = "user_delete";
-        order.status = OrderStatus.INITIATED;
+        order.setUserID("user_delete");
+        order.setStatus(OrderStatus.INITIATED);
         order.persist();
         String orderId = order.id.toString();
 
@@ -191,8 +191,8 @@ class OrdersResourceTest {
     void confirmOrder_initiatedOrder_changesStatusToConfirmed() {
         // given
         Order order = new Order();
-        order.userID = "user_confirm";
-        order.status = OrderStatus.INITIATED;
+        order.setUserID("user_confirm");
+        order.setStatus(OrderStatus.INITIATED);
         order.persist();
         String orderId = order.id.toString();
 
@@ -202,6 +202,6 @@ class OrdersResourceTest {
         // then
         response.then().statusCode(200).body("status", is(OrderStatus.CONFIRMED.name()));
         Order confirmed = Order.findById(order.id);
-        assertEquals(OrderStatus.CONFIRMED, confirmed.status);
+        assertEquals(OrderStatus.CONFIRMED, confirmed.getStatus());
     }
 }

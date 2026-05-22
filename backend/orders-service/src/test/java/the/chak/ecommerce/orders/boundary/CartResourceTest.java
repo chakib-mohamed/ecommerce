@@ -292,8 +292,8 @@ class CartResourceTest {
 
         doAnswer(inv -> {
             Order o = inv.getArgument(0);
-            o.status = OrderStatus.INITIATED;
-            o.price = 100.0;
+            o.setStatus(OrderStatus.INITIATED);
+            o.setPrice(100.0);
             return o;
         }).when(orderService).saveOrder(any());
 

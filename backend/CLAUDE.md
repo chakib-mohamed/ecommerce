@@ -177,7 +177,7 @@ Enforce this rule with an ArchUnit test where possible so it becomes a CI gate.
 | Class type | Allowed annotations | Rationale |
 |------------|-------------------|-----------|
 | JPA entity (`PanacheEntity`) | `@Getter` + `@Setter` | No `equals`/`hashCode` override — use JPA identity. Use `@Getter(AccessLevel.NONE)` on fields with manual getter overrides (e.g. lazy-init collections). |
-| Panache MongoDB entity (`PanacheMongoEntity`) | **None** — use public fields directly | Panache MongoDB rewrites field access at build time; Lombok annotations are redundant and can conflict. |
+| Panache MongoDB entity (`PanacheMongoEntity`) | `@Getter` + `@Setter` | Same convention as JPA entities — private fields with accessors. |
 | CDI/Spring config bean | `@Getter` only | Config must be immutable after injection — never expose setters. |
 | Plain DTO (control-layer, boundary) | `@Data` permitted | No entity identity concerns; `@Data` is acceptable shorthand. |
 | Kafka event payload | `@Getter` + `@Setter` + `@NoArgsConstructor` + `@AllArgsConstructor` | JSON-B needs no-arg constructor for deserialization; all-args for construction in producers. |

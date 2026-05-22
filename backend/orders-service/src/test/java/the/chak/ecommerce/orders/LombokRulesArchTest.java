@@ -69,30 +69,5 @@ class LombokRulesArchTest {
         rule.check(classes);
     }
 
-    @Test
-    void mongoEntities_mustNotUse_lombokGetter() {
-        // given
-        ArchRule rule = noClasses()
-                .that().areAssignableTo(io.quarkus.mongodb.panache.PanacheMongoEntity.class)
-                .should().beAnnotatedWith("lombok.Getter")
-                .as("Panache MongoDB entities use public fields — Lombok @Getter is redundant")
-                .allowEmptyShould(true);
-
-        // then
-        rule.check(classes);
-    }
-
-    @Test
-    void mongoEntities_mustNotUse_lombokSetter() {
-        // given
-        ArchRule rule = noClasses()
-                .that().areAssignableTo(io.quarkus.mongodb.panache.PanacheMongoEntity.class)
-                .should().beAnnotatedWith("lombok.Setter")
-                .as("Panache MongoDB entities use public fields — Lombok @Setter is redundant")
-                .allowEmptyShould(true);
-
-        // then
-        rule.check(classes);
-    }
 }
 
