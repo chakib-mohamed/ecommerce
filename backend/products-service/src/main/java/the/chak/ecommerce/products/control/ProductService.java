@@ -86,6 +86,18 @@ public class ProductService {
         product.setPrice(newPrice);
     }
 
+    @Transactional
+    public List<Product> getProducts(int pageIndex, int pageSize) {
+        List<Product> products = Product
+                .<Product>find("from Product p left join fetch p.promotions")
+                .page(pageIndex, pageSize).list();
+        if (products.isEmpty()) return List.of();
+        // Second query initializes categories via the session cache — avoids MultipleBagFetchException
+        List<Long> ids = products.stream().map(p -> p.id).toList();
+        Product.find("from Product p left join fetch p.categories where p.id in ?1", ids).list();
+        return products;
+    }
+
     public List<Product> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {
         var query = new StringBuilder("1=1");
         params.forEach((key, criteria) -> {

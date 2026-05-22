@@ -10,6 +10,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -23,14 +24,15 @@ public interface ProductsApi {
 
         @GET
         @Produces(MediaType.APPLICATION_JSON)
-        List<ProductDto> getProducts(@QueryParam("page") int pageIndex,
-                        @QueryParam("size") int pageSize);
+        List<ProductDto> getProducts(@QueryParam("page") @DefaultValue("0") int pageIndex,
+                        @QueryParam("size") @DefaultValue("10") int pageSize);
 
         @POST
         @Path("/search")
         @Produces(MediaType.APPLICATION_JSON)
         List<ProductDto> searchProducts(Map<String, Criteria> searchProductsRequest,
-                        @QueryParam("page") int pageIndex, @QueryParam("size") int pageSize);
+                        @QueryParam("page") @DefaultValue("0") int pageIndex,
+                        @QueryParam("size") @DefaultValue("10") int pageSize);
 
         @GET
         @Path("/{productID}")

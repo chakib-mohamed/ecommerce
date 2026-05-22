@@ -38,9 +38,7 @@ public class ProductsResource implements ProductsApi {
     public List<ProductDto> getProducts(
             @QueryParam("page") @DefaultValue("0") int pageIndex,
             @QueryParam("size") @DefaultValue("10") int pageSize) {
-        return Product.<Product>find(
-                        "from Product p left join fetch p.promotions left join fetch p.categories")
-                .page(pageIndex, pageSize).list()
+        return productService.getProducts(pageIndex, pageSize)
                 .stream().map(productMapper::toDto).toList();
     }
 
