@@ -1,8 +1,10 @@
 package the.chak.ecommerce.orders.entity;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class ProductVO {
     private String productID;
     private String title;

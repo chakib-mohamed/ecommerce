@@ -1,14 +1,17 @@
 package the.chak.ecommerce.orders.control;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class PricingResult {
 
     private String id;
     private PricingResultOrder order;
 
-    @Data
+    @Getter
+    @Setter
     public static class PricingResultOrder {
         private Double price;
     }

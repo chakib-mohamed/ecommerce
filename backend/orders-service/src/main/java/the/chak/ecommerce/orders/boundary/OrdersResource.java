@@ -54,7 +54,7 @@ public class OrdersResource implements OrdersApi {
             return Response.status(404).build();
         }
         String userId = sec.getUserPrincipal().getName();
-        if (!userId.equals(existing.getUserID())) {
+        if (!userId.equals(existing.userID)) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
         orderMapper.updateOrderFromRequest(orderRequest, existing);
@@ -68,7 +68,7 @@ public class OrdersResource implements OrdersApi {
             return Response.status(404).build();
         }
         String userId = sec.getUserPrincipal().getName();
-        if (!userId.equals(order.getUserID())) {
+        if (!userId.equals(order.userID)) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
         order.delete();
@@ -81,7 +81,7 @@ public class OrdersResource implements OrdersApi {
             return Response.status(404).build();
         }
         String userId = sec.getUserPrincipal().getName();
-        if (!userId.equals(existing.getUserID())) {
+        if (!userId.equals(existing.userID)) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
         Order order = orderService.confirmOrder(orderID);

@@ -22,6 +22,7 @@ import the.chak.ecommerce.orders.entity.OrderStatus;
 import the.chak.ecommerce.orders.entity.Cart;
 import the.chak.ecommerce.orders.entity.CartItem;
 import the.chak.ecommerce.orders.entity.Order;
+import the.chak.ecommerce.orders.KafkaTestResource;
 import the.chak.ecommerce.orders.MongoTestResource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.QuarkusTestResource;
@@ -33,6 +34,7 @@ import io.restassured.http.ContentType;
 
 @QuarkusTest
 @QuarkusTestResource(MongoTestResource.class)
+@QuarkusTestResource(KafkaTestResource.class)
 class CartResourceTest {
 
     static final String USER_ID = "test-user-123";
@@ -290,8 +292,8 @@ class CartResourceTest {
 
         doAnswer(inv -> {
             Order o = inv.getArgument(0);
-            o.setStatus(OrderStatus.INITIATED);
-            o.setPrice(100.0);
+            o.status = OrderStatus.INITIATED;
+            o.price = 100.0;
             return o;
         }).when(orderService).saveOrder(any());
 

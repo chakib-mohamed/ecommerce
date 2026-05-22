@@ -103,8 +103,8 @@ public class CartService {
         }).toList();
 
         Order order = new Order();
-        order.setUserID(userId);
-        order.setProducts(products);
+        order.userID = userId;
+        order.products = products;
 
         orderService.saveOrder(order);
         cart.delete();

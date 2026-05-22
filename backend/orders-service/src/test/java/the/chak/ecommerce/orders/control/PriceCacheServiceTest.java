@@ -11,12 +11,14 @@ import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import the.chak.ecommerce.orders.KafkaTestResource;
 import the.chak.ecommerce.orders.MongoTestResource;
 import the.chak.ecommerce.orders.RedisTestResource;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
 
 @QuarkusTest
 @QuarkusTestResource(MongoTestResource.class)
+@QuarkusTestResource(KafkaTestResource.class)
 @QuarkusTestResource(value = RedisTestResource.class, restrictToAnnotatedClass = true)
 class PriceCacheServiceTest {
 

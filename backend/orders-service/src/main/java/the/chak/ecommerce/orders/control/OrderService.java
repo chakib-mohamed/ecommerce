@@ -30,10 +30,10 @@ public class OrderService {
     PricingApiClient pricingApiClient;
 
     public Order saveOrder(Order order) {
-        order.setCreationDate(LocalDateTime.now());
-        order.setStatus(OrderStatus.INITIATED);
+        order.creationDate = LocalDateTime.now();
+        order.status = OrderStatus.INITIATED;
 
-        order.getProducts().forEach(productVO -> {
+        order.products.forEach(productVO -> {
             ProductDto product = productsApiClient.getProduct(productVO.getProductID());
             if (product == null) {
                 throw new ProductNotFoundException(productVO.getProductID());
@@ -49,7 +49,7 @@ public class OrderService {
         });
 
         PricingOrder pricingOrder = new PricingOrder();
-        pricingOrder.setProducts(order.getProducts().stream().map(p -> {
+        pricingOrder.setProducts(order.products.stream().map(p -> {
             PricingOrder.PricingOrderProduct item = new PricingOrder.PricingOrderProduct();
             item.setProductID(p.getProductID());
             item.setQty(p.getQty());
@@ -59,8 +59,8 @@ public class OrderService {
         }).toList());
 
         PricingResult result = pricingApiClient.calculatePrice(pricingOrder).readEntity(PricingResult.class);
-        order.setPrice(result.getOrder().getPrice());
-        order.setProcessID(result.getId());
+        order.price = result.getOrder().getPrice();
+        order.processID = result.getId();
         order.persist();
         return order;
     }
@@ -100,7 +100,7 @@ public class OrderService {
         if (order == null) {
             return null;
         }
-        order.setStatus(OrderStatus.CONFIRMED);
+        order.status = OrderStatus.CONFIRMED;
         order.update();
         return order;
     }
