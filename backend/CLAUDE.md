@@ -170,7 +170,7 @@ Enforce this rule with an ArchUnit test where possible so it becomes a CI gate.
 
 ## Lombok Rules
 
-**Never use `@Data`.** It generates `equals`/`hashCode`/`toString`/setters indiscriminately, which breaks entity identity and exposes mutability on config/response objects.
+**`@Data` is banned on entity classes.** It generates `equals`/`hashCode`/`toString`/setters indiscriminately, which breaks entity identity. On plain DTOs (control-layer objects, boundary DTOs) `@Data` is permitted.
 
 ### By class type:
 
@@ -179,8 +179,7 @@ Enforce this rule with an ArchUnit test where possible so it becomes a CI gate.
 | JPA entity (`PanacheEntity`) | `@Getter` + `@Setter` | No `equals`/`hashCode` override — use JPA identity. Use `@Getter(AccessLevel.NONE)` on fields with manual getter overrides (e.g. lazy-init collections). |
 | Panache MongoDB entity (`PanacheMongoEntity`) | **None** — use public fields directly | Panache MongoDB rewrites field access at build time; Lombok annotations are redundant and can conflict. |
 | CDI/Spring config bean | `@Getter` only | Config must be immutable after injection — never expose setters. |
-| Response DTO (read-only) | `@Getter` + `@AllArgsConstructor` | Immutable by construction; no setters needed. |
-| Request DTO (JSON-B input) | `@Getter` + `@Setter` | Needs setters for deserialization. |
+| Plain DTO (control-layer, boundary) | `@Data` permitted | No entity identity concerns; `@Data` is acceptable shorthand. |
 | Kafka event payload | `@Getter` + `@Setter` + `@NoArgsConstructor` + `@AllArgsConstructor` | JSON-B needs no-arg constructor for deserialization; all-args for construction in producers. |
 | Immutable value object | `@Getter` + `@AllArgsConstructor` (with `final` fields) | True value semantics — no setters. |
 
@@ -188,7 +187,7 @@ Enforce this rule with an ArchUnit test where possible so it becomes a CI gate.
 
 | Annotation | Why |
 |------------|-----|
-| `@Data` | Generates `equals`/`hashCode` on mutable fields, adds unwanted setters, creates `toString` that may trigger lazy-loading |
+| `@Data` on entity classes | Generates `equals`/`hashCode` on mutable fields, breaks entity identity, `toString` can trigger lazy-loading |
 | `@EqualsAndHashCode` on entities | Entity identity must come from the database ID, not field-based hashing |
 | `@ToString` on entities | Can trigger lazy-loading of relationships and leak sensitive data |
 

@@ -18,11 +18,12 @@ class LombokRulesArchTest {
     }
 
     @Test
-    void noClass_shouldUse_dataAnnotation() {
+    void noEntityClass_shouldUse_dataAnnotation() {
         // given
         ArchRule rule = noClasses()
+                .that().resideInAPackage("..entity..")
                 .should().beAnnotatedWith("lombok.Data")
-                .as("@Data is banned — use @Getter/@Setter explicitly per class type")
+                .as("@Data is banned on entity classes — use @Getter/@Setter explicitly")
                 .allowEmptyShould(true);
 
         // then

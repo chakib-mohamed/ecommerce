@@ -1,17 +1,14 @@
 package the.chak.ecommerce.orders.control;
 
 import java.util.List;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
-@Getter
-@Setter
+@Data
 public class PricingOrder {
 
     private List<PricingOrderProduct> products;
 
-    @Getter
-    @Setter
+    @Data
     public static class PricingOrderProduct {
         private String productID;
         private Integer qty;
