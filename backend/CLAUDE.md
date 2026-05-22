@@ -13,6 +13,12 @@ Covers all Quarkus services (Quarkus 3.17.6, Java 21). The API gateway is Spring
 ./mvnw quarkus:dev -pl products-service
 ```
 
+## Package Conventions
+
+All DTOs (request/response objects, value objects, commands) live in `boundary/dto/` within each service or shared-api module. The `entity/` package is reserved exclusively for persistence-annotated domain objects (Panache entities and their embedded value objects).
+
+Kafka event payloads live in `control/events/` — they are messaging objects, not HTTP DTOs, so they stay in the control layer.
+
 ## Exception Handling
 
 All Quarkus services use a two-tier exception model. **Never use try-catch in resource classes.**
@@ -87,6 +93,111 @@ Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
 - Docker must be running for tests to pass.
 
 **Kafka in tests** — use `KafkaTestResource` (backed by `org.testcontainers:kafka`, image `confluentinc/cp-kafka:7.6.1`). It starts a real broker and injects `kafka.bootstrap.servers`. **Never use `smallrye-reactive-messaging-in-memory`** — it is banned from all services. Any `@QuarkusTest` in a service that has Kafka channels must be annotated with `@QuarkusTestResource(KafkaTestResource.class)`.
+
+### Test Method Naming
+
+`action_context_expectedOutcome` — three underscore-separated camelCase segments, no `test` prefix, no `public` modifier.
+
+```java
+// good
+void createOrder_validProducts_returns201WithCalculatedPrice()
+void authenticate_wrongPassword_returns401()
+void getUsername_revokedToken_returnsEmpty()
+
+// bad
+public void testCreateOrder()
+void testAuthenticate_WrongPassword_Returns401()
+```
+
+### Test Body Structure
+
+Explicit `// given`, `// when`, `// then` comment blocks in every test. Omit `// given` only when there is genuinely no setup.
+
+```java
+@Test
+void confirmOrder_initiatedOrder_changesStatusToConfirmed() {
+    // given
+    Order order = new Order();
+    order.setStatus(OrderStatus.INITIATED);
+    order.persist();
+
+    // when
+    var response = given().when().post("/orders/" + order.id + "/confirm");
+
+    // then
+    response.then().statusCode(200).body("status", is("CONFIRMED"));
+}
+```
+
+### HTTP Test Split
+
+Separate the HTTP call from the assertions so `// when` and `// then` are distinct.
+
+```java
+// when
+var response = given().contentType(ContentType.JSON).body(request)
+        .when().post("/orders");
+
+// then
+response.then().statusCode(201).body("price", is(100.0f));
+```
+
+### One Behavior Per Test
+
+Do not combine create + update + delete in a single test method. Each test exercises exactly one scenario. Compound setup (e.g. creating a record before testing an update) belongs in `// given`, not as a separate test phase.
+
+### Class Modifiers
+
+Test classes are package-private (no `public`).
+
+## JPA / Entity Rules
+
+All JPA relationship fields (`@ManyToOne`, `@OneToOne`, `@OneToMany`, `@ManyToMany`) **must** declare `fetch = FetchType.LAZY` explicitly. `@ManyToOne` and `@OneToOne` default to `EAGER`, which causes silent N+1 queries.
+
+```java
+// good
+@ManyToOne(fetch = FetchType.LAZY)
+@JoinColumn(name = "parent_id")
+private Category parent;
+
+// bad — defaults to EAGER
+@ManyToOne
+@JoinColumn(name = "parent_id")
+private Category parent;
+```
+
+Enforce this rule with an ArchUnit test where possible so it becomes a CI gate.
+
+## Lombok Rules
+
+**Never use `@Data`.** It generates `equals`/`hashCode`/`toString`/setters indiscriminately, which breaks entity identity and exposes mutability on config/response objects.
+
+### By class type:
+
+| Class type | Allowed annotations | Rationale |
+|------------|-------------------|-----------|
+| JPA entity (`PanacheEntity`) | `@Getter` + `@Setter` | No `equals`/`hashCode` override — use JPA identity. Use `@Getter(AccessLevel.NONE)` on fields with manual getter overrides (e.g. lazy-init collections). |
+| Panache MongoDB entity (`PanacheMongoEntity`) | **None** — use public fields directly | Panache MongoDB rewrites field access at build time; Lombok annotations are redundant and can conflict. |
+| CDI/Spring config bean | `@Getter` only | Config must be immutable after injection — never expose setters. |
+| Response DTO (read-only) | `@Getter` + `@AllArgsConstructor` | Immutable by construction; no setters needed. |
+| Request DTO (JSON-B input) | `@Getter` + `@Setter` | Needs setters for deserialization. |
+| Kafka event payload | `@Getter` + `@Setter` + `@NoArgsConstructor` + `@AllArgsConstructor` | JSON-B needs no-arg constructor for deserialization; all-args for construction in producers. |
+| Immutable value object | `@Getter` + `@AllArgsConstructor` (with `final` fields) | True value semantics — no setters. |
+
+### Banned annotations:
+
+| Annotation | Why |
+|------------|-----|
+| `@Data` | Generates `equals`/`hashCode` on mutable fields, adds unwanted setters, creates `toString` that may trigger lazy-loading |
+| `@EqualsAndHashCode` on entities | Entity identity must come from the database ID, not field-based hashing |
+| `@ToString` on entities | Can trigger lazy-loading of relationships and leak sensitive data |
+
+### Additional rules:
+
+- **Do not mix public fields with `@Getter`/`@Setter`** — pick one convention. Panache Mongo = public fields (no Lombok); everything else = private fields + Lombok accessors.
+- **When overriding a generated getter** (e.g. null-safe collection init), annotate the field with `@Getter(AccessLevel.NONE)` to signal intent and avoid dead-code confusion.
+- **Never use `@Setter` on config/security-sensitive fields** (keys, secrets, tokens).
+
 
 ## Service-Specific Details
 

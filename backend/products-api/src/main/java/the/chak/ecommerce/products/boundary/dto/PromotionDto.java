@@ -11,15 +11,15 @@ public class PromotionDto {
 
         private Long id;
 
-        public String label;
+        private String label;
 
-        public Double percentageOff;
-
-        @JsonbDateFormat("yyyy-MM-dd")
-        public LocalDate activeFrom;
+        private Double percentageOff;
 
         @JsonbDateFormat("yyyy-MM-dd")
-        public LocalDate activeTo;
+        private LocalDate activeFrom;
 
-        public ProductLiteDto product;
+        @JsonbDateFormat("yyyy-MM-dd")
+        private LocalDate activeTo;
+
+        private ProductLiteDto product;
 }

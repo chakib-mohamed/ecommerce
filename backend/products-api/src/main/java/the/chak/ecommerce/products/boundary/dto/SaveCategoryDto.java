@@ -1,8 +1,10 @@
 package the.chak.ecommerce.products.boundary.dto;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class SaveCategoryDto {
 
     private String label;

@@ -1,11 +1,11 @@
 package the.chak.ecommerce.pricing.boundary.dto;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 
-@Data
+@Getter
 @NoArgsConstructor
 @AllArgsConstructor
 public class PriceCalculationResponse {

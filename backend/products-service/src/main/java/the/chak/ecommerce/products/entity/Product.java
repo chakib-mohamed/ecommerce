@@ -2,6 +2,7 @@ package the.chak.ecommerce.products.entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -20,11 +21,13 @@ public class Product extends PanacheEntity {
     private Double price;
     private String title;
 
+    @Getter(AccessLevel.NONE)
     @ManyToMany
     @JoinTable(name = "product_promotion", joinColumns = @JoinColumn(name = "product_id"),
             inverseJoinColumns = @JoinColumn(name = "promotion_id"))
     List<Promotion> promotions;
 
+    @Getter(AccessLevel.NONE)
     @ManyToMany
     @JoinTable(name = "product_category", joinColumns = @JoinColumn(name = "product_id"),
             inverseJoinColumns = @JoinColumn(name = "category_id"))

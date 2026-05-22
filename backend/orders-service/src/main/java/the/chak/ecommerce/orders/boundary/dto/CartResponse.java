@@ -1,12 +1,12 @@
 package the.chak.ecommerce.orders.boundary.dto;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 
 import java.time.Instant;
 import java.util.List;
 
-@Data
+@Getter
 @AllArgsConstructor
 public class CartResponse {
     private String userId;

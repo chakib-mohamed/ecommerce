@@ -2,9 +2,9 @@ package the.chak.ecommerce.authentication.control;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import jakarta.enterprise.context.ApplicationScoped;
-import lombok.Data;
+import lombok.Getter;
 
-@Data
+@Getter
 @ApplicationScoped
 public class JwtConfig {
     @ConfigProperty(name = "security.jwt.uri", defaultValue = "/auth/**")

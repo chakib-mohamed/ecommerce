@@ -7,6 +7,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -25,6 +26,7 @@ public class Category extends PanacheEntity {
     @JoinColumn(name = "parent_id")
     private Category parent;
 
+    @Getter(AccessLevel.NONE)
     @OneToMany(mappedBy = "parent")
     private List<Category> subCategories;
 

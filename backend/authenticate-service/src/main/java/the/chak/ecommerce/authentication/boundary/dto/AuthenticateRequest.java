@@ -2,9 +2,11 @@ package the.chak.ecommerce.authentication.boundary.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class AuthenticateRequest {
     @NotBlank
     @Email

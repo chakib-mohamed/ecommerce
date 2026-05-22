@@ -1,10 +1,10 @@
 package the.chak.ecommerce.apigateway;
 
-import lombok.Data;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-@Data
+@Getter
 @Component
 public class JwtConfig {
     @Value("${security.jwt.uri:/api/users/authenticate/**}")
