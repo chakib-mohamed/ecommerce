@@ -1,4 +1,4 @@
-    package the.chak.ecommerce.products.boundary;
+package the.chak.ecommerce.products.boundary;
 
 import java.util.List;
 import java.util.Map;
@@ -6,7 +6,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Response;
@@ -17,7 +16,6 @@ import the.chak.ecommerce.products.boundary.mapper.ProductMapper;
 import the.chak.ecommerce.products.control.ProductService;
 import the.chak.ecommerce.products.control.StorageService;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
-import the.chak.ecommerce.products.entity.Product;
 
 @Path("/products")
 public class ProductsResource implements ProductsApi {
@@ -51,24 +49,13 @@ public class ProductsResource implements ProductsApi {
     }
 
     @Override
-    @Transactional
     public Response getProduct(String uuid) {
-        UUID id = UUID.fromString(uuid);
-        var maybeProduct = Product.<Product>find(
-                        "from Product p left join fetch p.promotions where p.uuid = ?1", id)
-                .firstResultOptional();
-        if (maybeProduct.isEmpty()) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        Product product = maybeProduct.get();
-        // Second query loads categories via the session cache — avoids MultipleBagFetchException
-        Product.find("from Product p left join fetch p.categories where p.id = ?1", product.id)
-                .firstResult();
-        return Response.ok(productMapper.toDto(product)).build();
+        return productService.getProductWithAssociations(UUID.fromString(uuid))
+                .map(p -> Response.ok(productMapper.toDto(p)).build())
+                .orElse(Response.status(Response.Status.NOT_FOUND).build());
     }
 
     @Override
-    @Transactional
     public Response createProduct(ProductDto saveProductDto) {
         var product = productMapper.toEntity(saveProductDto);
         byte[] imageBytes = saveProductDto.getImage();
@@ -78,7 +65,6 @@ public class ProductsResource implements ProductsApi {
     }
 
     @Override
-    @Transactional
     public Response updateProduct(ProductDto saveProductDto) {
         var product = productMapper.toEntity(saveProductDto);
         byte[] imageBytes = saveProductDto.getImage();

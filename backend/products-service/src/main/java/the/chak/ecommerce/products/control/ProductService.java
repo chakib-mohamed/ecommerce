@@ -2,6 +2,7 @@ package the.chak.ecommerce.products.control;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -35,45 +36,86 @@ public class ProductService {
     StorageService storageService;
 
     @Transactional
+    public Optional<Product> getProductWithAssociations(UUID uuid) {
+        var maybeProduct = Product.<Product>find(
+                        "from Product p left join fetch p.promotions where p.uuid = ?1", uuid)
+                .firstResultOptional();
+        if (maybeProduct.isEmpty()) return Optional.empty();
+        Product product = maybeProduct.get();
+        // Second query loads categories via the session cache — avoids MultipleBagFetchException
+        Product.find("from Product p left join fetch p.categories where p.id = ?1", product.id)
+                .firstResult();
+        return Optional.of(product);
+    }
+
     public Product saveProduct(Product product, byte[] imageBytes) {
         if (imageBytes != null && imageBytes.length > 0) {
             String imageKey = storageService.uploadImage(imageBytes);
             product.setImageKey(imageKey);
+            try {
+                persistProduct(product);
+            } catch (Exception e) {
+                storageService.deleteImage(imageKey);
+                throw e;
+            }
+        } else {
+            persistProduct(product);
         }
-        product.persist();
         return product;
     }
 
     @Transactional
+    void persistProduct(Product product) {
+        product.persist();
+    }
+
     public Product updateProduct(Product product, byte[] imageBytes) {
         var existing = Product.<Product>find("uuid", product.getUuid()).firstResult();
         if (existing == null) {
             throw new ProductNotFoundException(product.getUuid());
         }
         product.id = existing.id;
+        String oldImageKey = existing.getImageKey();
+
         if (imageBytes != null && imageBytes.length > 0) {
-            if (existing.getImageKey() != null) {
-                storageService.deleteImage(existing.getImageKey());
+            String newImageKey = storageService.uploadImage(imageBytes);
+            product.setImageKey(newImageKey);
+            try {
+                mergeProduct(product);
+            } catch (Exception e) {
+                storageService.deleteImage(newImageKey);
+                throw e;
             }
-            String imageKey = storageService.uploadImage(imageBytes);
-            product.setImageKey(imageKey);
+            if (oldImageKey != null) {
+                storageService.deleteImage(oldImageKey);
+            }
         } else {
-            product.setImageKey(existing.getImageKey());
+            product.setImageKey(oldImageKey);
+            mergeProduct(product);
         }
-        em.merge(product);
         return product;
     }
 
     @Transactional
+    void mergeProduct(Product product) {
+        em.merge(product);
+    }
+
     public void deleteProduct(UUID uuid) {
-        var product = Product.<Product>find("uuid", uuid).firstResult();
-        if (product != null) {
-            if (product.getImageKey() != null) {
-                storageService.deleteImage(product.getImageKey());
-            }
-            product.delete();
-            productDeletedEvent.fire(new ProductDeletedEvent(product.getUuid()));
+        String imageKey = deleteProductRecord(uuid);
+        if (imageKey != null) {
+            storageService.deleteImage(imageKey);
         }
+    }
+
+    @Transactional
+    String deleteProductRecord(UUID uuid) {
+        var product = Product.<Product>find("uuid", uuid).firstResult();
+        if (product == null) return null;
+        String imageKey = product.getImageKey();
+        product.delete();
+        productDeletedEvent.fire(new ProductDeletedEvent(product.getUuid()));
+        return imageKey;
     }
 
     @Transactional
