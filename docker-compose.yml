@@ -51,7 +51,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
-      minio:
+      localstack:
         condition: service_healthy
     networks:
       - backend
@@ -132,19 +132,17 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
+  localstack:
+    image: localstack/localstack:4
     ports:
-      - 9000:9000
-      - 9001:9001
+      - 4566:4566
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
+      - SERVICES=s3
+      - DEFAULT_REGION=us-east-1
     networks:
       - backend
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s
       timeout: 5s
       retries: 5

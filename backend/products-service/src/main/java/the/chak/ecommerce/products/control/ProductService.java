@@ -32,12 +32,12 @@ public class ProductService {
     Event<ProductDeletedEvent> productDeletedEvent;
 
     @Inject
-    MinioService minioService;
+    StorageService storageService;
 
     @Transactional
     public Product saveProduct(Product product, byte[] imageBytes) {
         if (imageBytes != null && imageBytes.length > 0) {
-            String imageKey = minioService.uploadImage(imageBytes);
+            String imageKey = storageService.uploadImage(imageBytes);
             product.setImageKey(imageKey);
         }
         product.persist();
@@ -53,9 +53,9 @@ public class ProductService {
         product.id = existing.id;
         if (imageBytes != null && imageBytes.length > 0) {
             if (existing.getImageKey() != null) {
-                minioService.deleteImage(existing.getImageKey());
+                storageService.deleteImage(existing.getImageKey());
             }
-            String imageKey = minioService.uploadImage(imageBytes);
+            String imageKey = storageService.uploadImage(imageBytes);
             product.setImageKey(imageKey);
         } else {
             product.setImageKey(existing.getImageKey());
@@ -69,7 +69,7 @@ public class ProductService {
         var product = Product.<Product>find("uuid", uuid).firstResult();
         if (product != null) {
             if (product.getImageKey() != null) {
-                minioService.deleteImage(product.getImageKey());
+                storageService.deleteImage(product.getImageKey());
             }
             product.delete();
             productDeletedEvent.fire(new ProductDeletedEvent(product.getUuid()));

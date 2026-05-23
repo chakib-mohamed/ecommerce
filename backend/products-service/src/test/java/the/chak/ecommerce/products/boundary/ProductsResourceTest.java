@@ -17,10 +17,10 @@ import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
 import the.chak.ecommerce.products.KafkaTestResource;
-import the.chak.ecommerce.products.MinioTestResource;
+import the.chak.ecommerce.products.StorageTestResource;
 
 @QuarkusTest
-@QuarkusTestResource(MinioTestResource.class)
+@QuarkusTestResource(StorageTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
 class ProductsResourceTest {
 

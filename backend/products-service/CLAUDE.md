@@ -4,7 +4,7 @@ Quarkus 3.17.6 service. Handles products, categories, promotions, and image uplo
 
 ## Prerequisites
 
-MinIO bucket `product-images` must exist before the service starts. The service will crash on first image upload if the bucket is absent.
+The `product-images` S3 bucket is created automatically by `StorageService.@PostConstruct` on first startup. No manual bucket creation needed.
 
 ## Database Migrations
 
@@ -24,4 +24,6 @@ Serializer: `io.quarkus.kafka.client.serialization.JsonbSerializer`. Dev bootstr
 
 ## Image Storage
 
-Uses Quarkus S3 extension pointing at MinIO (`http://minio:9000` in Docker, configured via `quarkus.s3.*`). Bucket name is `product-images`. Images are served via the gateway at `/api/products/images/{filename}`.
+Uses AWS SDK v2 (`software.amazon.awssdk:s3:2.42.27`) via `StorageService`, pointed at **LocalStack** (`http://localstack:4566` in Docker, `http://localhost:4566` in dev mode). Config prefix `products.storage.*`. Bucket name is `product-images`. Images are served via the gateway at `/api/products/images/{filename}`.
+
+Tests use `StorageTestResource` which starts a `LocalStackContainer` (Testcontainers) with S3 enabled and injects the endpoint/credentials at runtime. No MinIO dependency remains.

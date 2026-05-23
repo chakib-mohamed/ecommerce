@@ -11,7 +11,7 @@ import the.chak.ecommerce.products.control.events.PriceChangedEvent;
 import the.chak.ecommerce.products.entity.Product;
 
 @QuarkusTest
-@QuarkusTestResource(MinioTestResource.class)
+@QuarkusTestResource(StorageTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
 class PriceChangedConsumerTest {
 

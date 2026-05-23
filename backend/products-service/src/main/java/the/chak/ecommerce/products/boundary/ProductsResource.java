@@ -1,4 +1,4 @@
-package the.chak.ecommerce.products.boundary;
+    package the.chak.ecommerce.products.boundary;
 
 import java.util.List;
 import java.util.Map;
@@ -14,8 +14,8 @@ import jakarta.ws.rs.Path;
 import the.chak.ecommerce.products.boundary.dto.Criteria;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
 import the.chak.ecommerce.products.boundary.mapper.ProductMapper;
-import the.chak.ecommerce.products.control.MinioService;
 import the.chak.ecommerce.products.control.ProductService;
+import the.chak.ecommerce.products.control.StorageService;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 import the.chak.ecommerce.products.entity.Product;
 
@@ -29,7 +29,7 @@ public class ProductsResource implements ProductsApi {
     ProductMapper productMapper;
 
     @Inject
-    MinioService minioService;
+    StorageService storageService;
 
     @Inject
     Event<ProductUpdatedEvent> productUpdatedEvent;
@@ -51,13 +51,20 @@ public class ProductsResource implements ProductsApi {
     }
 
     @Override
+    @Transactional
     public Response getProduct(String uuid) {
-        return Product.<Product>find(
-                        "from Product p left join fetch p.promotions left join fetch p.categories where p.uuid = ?1",
-                        UUID.fromString(uuid))
-                .firstResultOptional()
-                .map(productMapper::toDto).map(p -> Response.ok(p).build())
-                .orElse(Response.status(Response.Status.NOT_FOUND).build());
+        UUID id = UUID.fromString(uuid);
+        var maybeProduct = Product.<Product>find(
+                        "from Product p left join fetch p.promotions where p.uuid = ?1", id)
+                .firstResultOptional();
+        if (maybeProduct.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        Product product = maybeProduct.get();
+        // Second query loads categories via the session cache — avoids MultipleBagFetchException
+        Product.find("from Product p left join fetch p.categories where p.id = ?1", product.id)
+                .firstResult();
+        return Response.ok(productMapper.toDto(product)).build();
     }
 
     @Override
@@ -88,7 +95,7 @@ public class ProductsResource implements ProductsApi {
 
     @Override
     public Response getImage(String imageKey) {
-        byte[] imageData = minioService.downloadImage(imageKey);
+        byte[] imageData = storageService.downloadImage(imageKey);
         return Response.ok(imageData).build();
     }
 }
