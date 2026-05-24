@@ -109,7 +109,9 @@ class CategoriesResourceTest {
                 .when().post("/categories");
 
         // then
-        response.then().statusCode(400);
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("errorCode", is("CATEGORY_ALREADY_EXISTS"));
         given().when().delete("/categories/{id}", id);
     }
 
@@ -125,5 +127,57 @@ class CategoriesResourceTest {
 
         // then
         response.then().statusCode(200);
+    }
+
+    @Test
+    void createCategory_blankLabel_returns400() {
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("label", ""))
+                .when().post("/categories");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("errorCode", is("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void createCategory_nullLabel_returns400() {
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{}")
+                .when().post("/categories");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("errorCode", is("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void updateCategory_nullId_returns400() {
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("label", "Valid Label"))
+                .when().put("/categories");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("errorCode", is("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void updateCategory_blankLabel_returns400() {
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("id", 1, "label", ""))
+                .when().put("/categories");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("errorCode", is("VALIDATION_ERROR"));
     }
 }

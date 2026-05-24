@@ -251,6 +251,62 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       },
       "post" : {
@@ -277,6 +333,62 @@
           }
         },
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -334,6 +446,62 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       }
     },
@@ -360,6 +528,62 @@
           }
         },
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -408,6 +632,62 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       }
     },
@@ -428,6 +708,62 @@
         "summary" : "Get Cart",
         "tags" : [ "Cart Resource" ],
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -552,6 +888,62 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       }
     },
@@ -582,6 +974,62 @@
         "summary" : "Add Item",
         "tags" : [ "Cart Resource" ],
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -726,6 +1174,62 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       },
       "delete" : {
@@ -805,6 +1309,62 @@
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
         } ]
       }
     },
@@ -825,6 +1385,62 @@
         "summary" : "Checkout",
         "tags" : [ "Cart Resource" ],
         "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
+          "bearerAuth" : [ ]
+        }, {
           "bearerAuth" : [ ]
         }, {
           "bearerAuth" : [ ]
@@ -1019,12 +1635,14 @@
         }
       },
       "OrderRequest" : {
+        "required" : [ "products" ],
         "type" : "object",
         "properties" : {
           "id" : {
             "type" : "string"
           },
           "products" : {
+            "minItems" : 1,
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ProductVO"
@@ -1037,9 +1655,11 @@
         "type" : "string"
       },
       "ProductVO" : {
+        "required" : [ "productID", "qty", "price" ],
         "type" : "object",
         "properties" : {
           "productID" : {
+            "pattern" : "\\S",
             "type" : "string"
           },
           "title" : {
@@ -1047,10 +1667,13 @@
           },
           "qty" : {
             "format" : "int32",
+            "minimum" : 1,
             "type" : "integer"
           },
           "price" : {
             "format" : "double",
+            "minimum" : 0,
+            "exclusiveMinimum" : true,
             "type" : "number"
           },
           "percentageOff" : {
@@ -1060,17 +1683,22 @@
         }
       },
       "SearchOrdersCommand" : {
+        "required" : [ "userID" ],
         "type" : "object",
         "properties" : {
           "userID" : {
+            "pattern" : "\\S",
             "type" : "string"
           },
           "offset" : {
             "format" : "int32",
+            "minimum" : 0,
             "type" : "integer"
           },
           "limit" : {
             "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 1,
             "type" : "integer"
           },
           "sortBy" : {

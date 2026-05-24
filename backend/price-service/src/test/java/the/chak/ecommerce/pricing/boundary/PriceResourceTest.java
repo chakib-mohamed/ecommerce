@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
 import io.quarkus.test.InjectMock;
 import the.chak.ecommerce.pricing.KafkaTestResource;
@@ -23,6 +24,7 @@ class PriceResourceTest {
     KafkaPriceEventPublisher publisher;
 
     @Test
+    @TestSecurity(user = "test-user")
     void updatePrice_validPrice_returns200WithStoredPrice() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();
@@ -34,11 +36,12 @@ class PriceResourceTest {
 
         // then
         response.then().statusCode(200)
-                .body("productId", notNullValue())
+                .body("product_id", notNullValue())
                 .body("price", is(49.99f));
     }
 
     @Test
+    @TestSecurity(user = "test-user")
     void updatePrice_negativePrice_returns400() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();
@@ -49,10 +52,13 @@ class PriceResourceTest {
                 .when().put("/prices/{productId}", UUID.randomUUID().toString());
 
         // then
-        response.then().statusCode(400);
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
     }
 
     @Test
+    @TestSecurity(user = "test-user")
     void updatePrice_nullPrice_returns400() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();
@@ -63,6 +69,8 @@ class PriceResourceTest {
                 .when().put("/prices/{productId}", UUID.randomUUID().toString());
 
         // then
-        response.then().statusCode(400);
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
     }
 }

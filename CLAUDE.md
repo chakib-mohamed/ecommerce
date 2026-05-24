@@ -2,11 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+---
+
+## Project-Specific Details
+
+> **Fill this section in per-repository. Everything below the line is generic and portable.**
+
+### Overview
 
 Microservices-based ecommerce platform. Backend has 7 services: one Spring Boot API Gateway plus 6 Quarkus services. Frontend is React 18 + TypeScript + Vite.
 
-## Architecture
+### Architecture
 
 | Service                   | Framework         | Port | Database   | Notes                              |
 |---------------------------|-------------------|------|------------|-------------------------------------|
@@ -21,7 +27,7 @@ Shared API modules: `products-api` and `orders-api` (DTOs only, no runtime).
 
 All traffic goes through the gateway at `/api/**`. Two Docker Compose networks: `frontend` (gateway + frontend) and `backend` (all internal services).
 
-## Build & Run
+### Build & Run
 
 ```bash
 ./build.sh          # builds frontend image + all backend JARs + Docker images
@@ -32,8 +38,23 @@ All traffic goes through the gateway at `/api/**`. Two Docker Compose networks: 
 ./shutdown.sh kubernetes
 ```
 
-See `backend/CLAUDE.md` for per-service build commands and Quarkus specifics.
+See `backend/CLAUDE.md` for backend build commands, testing conventions, and framework specifics.
 See `frontend/CLAUDE.md` for frontend dev commands.
+
+### JSON Serialization Rules
+
+All HTTP API JSON across every service must follow these rules:
+
+| Rule | Detail |
+|------|--------|
+| Field names | **snake_case** — `access_token`, `user_id`, `created_at` |
+| Null fields | **Omitted** — never serialized as `null` |
+| Dates | **ISO-8601 strings** — `2026-01-15T10:30:00`, never numeric timestamps |
+| Unknown keys | **Ignored on deserialization** — forward-compatible |
+
+Implementation: see `backend/CLAUDE.md` for how to configure each framework (JSON-B vs Jackson vs Spring Jackson).
+
+---
 
 ## Development Workflow
 
@@ -41,13 +62,13 @@ Every feature follows this sequence — **do not skip steps or proceed without e
 
 1. **Spec** — write or update `docs/specs/<feature>.md`
 2. **OpenAPI** — write the full OpenAPI contract (`openapi.yaml`) and show it to the user. **Stop and wait for approval before writing any code.**
+   - Descriptions must be consumer-facing only: what the endpoint does, what inputs it expects, what it returns.
+   - Never mention database technology, message brokers, internal service calls, event names, framework names, or infrastructure details in any `info`, `summary`, `description`, or schema `description` field.
 3. **Failing tests** — write all tests (they must fail). Show the failure output to the user. **Stop and wait for approval before implementing.**
 4. **Implementation** — make the tests pass.
-5. **Gateway routes** — update `application.yml` and `application-dev.yml` if new endpoints are exposed.
+5. **Infrastructure config** — update routing/gateway/proxy config if new endpoints are exposed.
 
 Feature specs live in `docs/specs/` — one file per feature or cross-service concern.
-
-See `docs/specs/cart.md` for an example of the spec format (OpenAPI-first + TDD).
 
 ## Docs Layout
 
@@ -64,80 +85,6 @@ Never place documentation files at the repo root or in any other directory.
 ## Task Session Policy
 
 Each task in `docs/tasks/` must be implemented in its own dedicated Claude Code session, and each **phase within a task** must also be its own session. Do not carry over context from a previous task or phase — start fresh each time to keep context lean and avoid cross-task interference.
-
-## Package Conventions
-
-All DTOs (request/response objects, value objects, commands) live in `boundary/dto/` within each service or shared-api module. The `entity/` package is reserved exclusively for persistence-annotated domain objects (Panache entities and their embedded value objects).
-
-Kafka event payloads live in `control/events/` — they are messaging objects, not HTTP DTOs, so they stay in the control layer.
-
-## Testing Conventions
-
-All tests across every backend service follow the same pattern.
-
-**Method naming:** `action_context_expectedOutcome` — three underscore-separated camelCase segments, no `test` prefix, no `public` modifier.
-
-```java
-// good
-void createOrder_validProducts_returns201WithCalculatedPrice()
-void authenticate_wrongPassword_returns401()
-void getUsername_revokedToken_returnsEmpty()
-
-// bad
-public void testCreateOrder()
-void testAuthenticate_WrongPassword_Returns401()
-```
-
-**Body structure:** explicit `// given`, `// when`, `// then` comment blocks in every test. Omit `// given` only when there is genuinely no setup.
-
-```java
-@Test
-void confirmOrder_initiatedOrder_changesStatusToConfirmed() {
-    // given
-    Order order = new Order();
-    order.setStatus(OrderStatus.INITIATED);
-    order.persist();
-
-    // when
-    var response = given().when().post("/orders/" + order.id + "/confirm");
-
-    // then
-    response.then().statusCode(200).body("status", is("CONFIRMED"));
-}
-```
-
-**RestAssured split:** separate the HTTP call from the assertions so `// when` and `// then` are distinct.
-
-```java
-// when
-var response = given().contentType(ContentType.JSON).body(request)
-        .when().post("/orders");
-
-// then
-response.then().statusCode(201).body("price", is(100.0f));
-```
-
-**One behavior per test:** do not combine create + update + delete in a single test method. Each test exercises exactly one scenario. Compound setup (e.g. creating a record before testing an update) belongs in `// given`, not as a separate test phase.
-
-**Class modifiers:** test classes are package-private (no `public`).
-
-## JPA / Entity Rules
-
-All JPA relationship fields (`@ManyToOne`, `@OneToOne`, `@OneToMany`, `@ManyToMany`) **must** declare `fetch = FetchType.LAZY` explicitly. `@ManyToOne` and `@OneToOne` default to `EAGER`, which causes silent N+1 queries.
-
-```java
-// good
-@ManyToOne(fetch = FetchType.LAZY)
-@JoinColumn(name = "parent_id")
-private Category parent;
-
-// bad — defaults to EAGER
-@ManyToOne
-@JoinColumn(name = "parent_id")
-private Category parent;
-```
-
-An ArchUnit test in `products-service` (`LazyRelationshipsTest`) enforces this as a CI gate and will fail the build on any violation.
 
 ## Branch Naming
 

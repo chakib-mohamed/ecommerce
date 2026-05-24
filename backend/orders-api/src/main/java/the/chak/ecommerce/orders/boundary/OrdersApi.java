@@ -1,10 +1,6 @@
 package the.chak.ecommerce.orders.boundary;
 
-import java.util.List;
-import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
-import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
-import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
-import the.chak.ecommerce.orders.boundary.dto.Tuple;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -13,6 +9,11 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.util.List;
+import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
+import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
+import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
+import the.chak.ecommerce.orders.boundary.dto.Tuple;
 
 @Path("/orders")
 public interface OrdersApi {
@@ -20,13 +21,13 @@ public interface OrdersApi {
     @POST
     @Path("/search")
     @Produces(MediaType.APPLICATION_JSON)
-    Tuple<Long, List<OrderDTO>> searchOrders(SearchOrdersCommand searchOrdersCommand);
+    Tuple<Long, List<OrderDTO>> searchOrders(@Valid SearchOrdersCommand searchOrdersCommand);
 
     @POST
-    Response createOrder(OrderRequest orderRequest);
+    Response createOrder(@Valid OrderRequest orderRequest);
 
     @PUT
-    Response updateOrder(OrderRequest orderRequest);
+    Response updateOrder(@Valid OrderRequest orderRequest);
 
     @DELETE
     @Path("/{orderID}")

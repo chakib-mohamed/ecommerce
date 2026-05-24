@@ -17,13 +17,13 @@ public class GlobalExceptionHandler implements ExceptionMapper<Exception> {
     public Response toResponse(Exception e) {
         if (e instanceof FunctionalException fe) {
             return Response.status(fe.getStatus())
-                    .entity(new ErrorResponse("FUNCTIONAL", fe.getMessage()))
+                    .entity(new ErrorResponse("FUNCTIONAL", fe.getErrorCode(), fe.getMessage()))
                     .type(MediaType.APPLICATION_JSON)
                     .build();
         }
         LOG.error("Unexpected error", e);
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new ErrorResponse("TECHNICAL", "An unexpected error occurred"))
+                .entity(new ErrorResponse("TECHNICAL", "INTERNAL_ERROR", "An unexpected error occurred"))
                 .type(MediaType.APPLICATION_JSON)
                 .build();
     }

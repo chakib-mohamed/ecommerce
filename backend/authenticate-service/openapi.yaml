@@ -1,0 +1,189 @@
+openapi: 3.0.3
+info:
+  title: authenticate-service API
+  description: User registration, login, and JWT issuance.
+  version: 1.0.0
+servers:
+  - url: /
+    description: Service-internal base path
+
+paths:
+
+  /users/authenticate:
+    post:
+      summary: Authenticate a user
+      description: Validates credentials and returns a JWT both in the response body and as an HttpOnly `Authorization` cookie.
+      operationId: authenticate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticateRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          headers:
+            Set-Cookie:
+              description: HttpOnly Authorization cookie containing the JWT
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticateResponse'
+        '400':
+          description: Validation error (invalid email or blank password)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+
+  /users:
+    post:
+      summary: Register a new user
+      operationId: signUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Validation error or duplicate email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{email}:
+    get:
+      summary: Get user by email
+      operationId: getUser
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid or missing Authorization cookie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/current:
+    get:
+      summary: Get the currently authenticated user
+      operationId: getAuthenticatedUser
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid or missing Authorization cookie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: Authorization
+      description: HttpOnly JWT cookie set by POST /users/authenticate
+
+  schemas:
+
+    AuthenticateRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          maxLength: 64
+
+    AuthenticateResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT token (also set as the Authorization cookie)
+
+    SignUpRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 64
+
+    UserResponse:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        id:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FUNCTIONAL, TECHNICAL]
+        error_code:
+          type: string
+        message:
+          type: string

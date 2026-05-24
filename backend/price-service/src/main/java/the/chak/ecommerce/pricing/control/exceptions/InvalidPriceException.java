@@ -5,6 +5,6 @@ import jakarta.ws.rs.core.Response;
 public class InvalidPriceException extends FunctionalException {
 
     public InvalidPriceException() {
-        super("Price must be a positive value", Response.Status.BAD_REQUEST);
+        super(Response.Status.BAD_REQUEST, "INVALID_PRICE", "Price must be a positive value");
     }
 }

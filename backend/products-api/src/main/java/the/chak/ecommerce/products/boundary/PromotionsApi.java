@@ -1,9 +1,9 @@
 package the.chak.ecommerce.products.boundary;
 
+import jakarta.validation.Valid;
+import jakarta.ws.rs.*;
 import the.chak.ecommerce.products.boundary.dto.PromotionDto;
 import the.chak.ecommerce.products.boundary.dto.SavePromotionDto;
-
-import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
@@ -16,7 +16,7 @@ public interface PromotionsApi {
     List<PromotionDto> getPromotions();
 
     @POST
-    Response createPromotion(SavePromotionDto savePromotionDto);
+    Response createPromotion(@Valid SavePromotionDto savePromotionDto);
 
     @DELETE
     @Path("/{promotionID}")

@@ -11,5 +11,6 @@ public class CustomJsonbConfigCustomizer implements JsonbConfigCustomizer {
     @Override
     public void customize(JsonbConfig config) {
         config.withPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CASE_WITH_UNDERSCORES);
+        config.withNullValues(false);
     }
 }

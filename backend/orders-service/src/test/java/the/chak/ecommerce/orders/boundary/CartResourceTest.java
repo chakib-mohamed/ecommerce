@@ -57,14 +57,14 @@ class CartResourceTest {
     void addItem_noExistingCart_createsCartWithItem() {
         // when
         var response = given().contentType(ContentType.JSON)
-                .body("{ \"productId\": \"prod-1\", \"quantity\": 2 }")
+                .body("{ \"product_id\": \"prod-1\", \"quantity\": 2 }")
                 .when().post("/cart/items");
 
         // then
         response.then().statusCode(201)
-                .body("userId", is(USER_ID))
+                .body("user_id", is(USER_ID))
                 .body("items", hasSize(1))
-                .body("items[0].productId", is("prod-1"))
+                .body("items[0].product_id", is("prod-1"))
                 .body("items[0].quantity", is(2));
     }
 
@@ -74,12 +74,12 @@ class CartResourceTest {
     void addItem_existingProduct_incrementsQuantity() {
         // given
         given().contentType(ContentType.JSON)
-                .body("{ \"productId\": \"prod-1\", \"quantity\": 2 }")
+                .body("{ \"product_id\": \"prod-1\", \"quantity\": 2 }")
                 .when().post("/cart/items");
 
         // when
         var response = given().contentType(ContentType.JSON)
-                .body("{ \"productId\": \"prod-1\", \"quantity\": 3 }")
+                .body("{ \"product_id\": \"prod-1\", \"quantity\": 3 }")
                 .when().post("/cart/items");
 
         // then
@@ -94,11 +94,13 @@ class CartResourceTest {
     void addItem_zeroOrNegativeQuantity_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
-                .body("{ \"productId\": \"prod-1\", \"quantity\": 0 }")
+                .body("{ \"product_id\": \"prod-1\", \"quantity\": 0 }")
                 .when().post("/cart/items");
 
         // then
-        response.then().statusCode(400);
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
     }
 
     @Test
@@ -107,11 +109,35 @@ class CartResourceTest {
     void addItem_blankProductId_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
-                .body("{ \"productId\": \"\", \"quantity\": 1 }")
+                .body("{ \"product_id\": \"\", \"quantity\": 1 }")
                 .when().post("/cart/items");
 
         // then
-        response.then().statusCode(400);
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @TestSecurity(user = USER_ID)
+    @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    void updateItem_zeroQuantity_returns400() {
+        // given
+        Cart cart = new Cart();
+        cart.userId = USER_ID;
+        cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 3)));
+        cart.updatedAt = Instant.now();
+        cart.persist();
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{ \"quantity\": 0 }")
+                .when().put("/cart/items/prod-1");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
     }
 
     @Test
@@ -141,9 +167,9 @@ class CartResourceTest {
 
         // then
         response.then().statusCode(200)
-                .body("userId", is(USER_ID))
+                .body("user_id", is(USER_ID))
                 .body("items", hasSize(1))
-                .body("items[0].productId", is("prod-1"))
+                .body("items[0].product_id", is("prod-1"))
                 .body("items[0].quantity", is(3));
     }
 
@@ -275,8 +301,8 @@ class CartResourceTest {
 
         // then
         response.then().statusCode(200)
-                .body("items[0].unitPrice", is(25.0f))
-                .body("items[0].totalPrice", is(75.0f));
+                .body("items[0].unit_price", is(25.0f))
+                .body("items[0].total_price", is(75.0f));
     }
 
     @Test
@@ -302,7 +328,7 @@ class CartResourceTest {
 
         // then
         response.then().statusCode(201)
-                .body("userID", is(USER_ID))
+                .body("user_id", is(USER_ID))
                 .body("status", is("INITIATED"));
         assertTrue(Cart.findByUserId(USER_ID).isEmpty());
     }
@@ -315,7 +341,7 @@ class CartResourceTest {
         var response = given().when().post("/cart/checkout");
 
         // then
-        response.then().statusCode(404).body("type", is("FUNCTIONAL"));
+        response.then().statusCode(404).body("type", is("FUNCTIONAL")).body("error_code", is("CART_NOT_FOUND"));
     }
 
     @Test
@@ -333,7 +359,7 @@ class CartResourceTest {
         var response = given().when().post("/cart/checkout");
 
         // then
-        response.then().statusCode(400).body("type", is("FUNCTIONAL"));
+        response.then().statusCode(400).body("type", is("FUNCTIONAL")).body("error_code", is("CART_EMPTY"));
     }
 
     @Test
@@ -352,7 +378,7 @@ class CartResourceTest {
         var response = given().when().post("/cart/checkout");
 
         // then
-        response.then().statusCode(500).body("type", is("TECHNICAL"));
+        response.then().statusCode(500).body("type", is("TECHNICAL")).body("error_code", is("INTERNAL_ERROR"));
         assertTrue(Cart.findByUserId(USER_ID).isPresent());
     }
 }

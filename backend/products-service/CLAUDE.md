@@ -12,7 +12,7 @@ Liquibase runs automatically at startup (`quarkus.liquibase.migrate-at-start=tru
 
 ## JSON Naming
 
-The ORM uses `CamelCaseToUnderscoresNamingStrategy` for column names (e.g., `percentageOff` → `percentage_off`). JSON serialization uses Jakarta JSON-B with no custom strategy — field names are camelCase in the API.
+The ORM uses `CamelCaseToUnderscoresNamingStrategy` for column names (e.g., `percentageOff` → `percentage_off`). JSON serialization uses Jakarta JSON-B with `LOWER_CASE_WITH_UNDERSCORES` — field names are snake_case in the API (e.g., `image_key`, `percentage_off`).
 
 ## Kafka
 

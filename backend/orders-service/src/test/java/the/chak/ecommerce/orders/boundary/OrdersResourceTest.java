@@ -18,8 +18,6 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
-import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
-import the.chak.ecommerce.orders.boundary.dto.ProductVO;
 import the.chak.ecommerce.orders.entity.OrderStatus;
 import the.chak.ecommerce.orders.control.PricingApiClient;
 import the.chak.ecommerce.orders.control.PricingResult;
@@ -68,24 +66,18 @@ class OrdersResourceTest {
         order.setProducts(new ArrayList<>());
         order.persist();
 
-        ProductVO product = new ProductVO();
-        product.setProductID("prod_update");
-        product.setTitle("Updated Product");
-        product.setQty(3);
-        product.setPrice(75.0);
-
-        OrderRequest request = new OrderRequest();
-        request.setId(order.id.toString());
-        request.setProducts(List.of(product));
+        String body = String.format(
+                "{\"id\":\"%s\",\"products\":[{\"product_id\":\"prod_update\",\"title\":\"Updated Product\",\"qty\":3,\"price\":75.0}]}",
+                order.id.toString());
 
         // when
-        var response = given().contentType(ContentType.JSON).body(request)
+        var response = given().contentType(ContentType.JSON).body(body)
                 .when().put("/orders");
 
         // then
         response.then().statusCode(200)
                 .body("status", is(OrderStatus.INITIATED.name()))
-                .body("userID", is("original_user"))
+                .body("user_id", is("original_user"))
                 .body("price", is(100.0f));
 
         Order updated = Order.findById(order.id);
@@ -118,17 +110,9 @@ class OrdersResourceTest {
         when(mockPricingResponse.readEntity(PricingResult.class)).thenReturn(mockPricingResult);
         when(pricingApi.calculatePrice(any())).thenReturn(mockPricingResponse);
 
-        ProductVO product = new ProductVO();
-        product.setProductID("prod1");
-        product.setTitle("Product 1");
-        product.setQty(2);
-        product.setPrice(50.0);
-
-        OrderRequest request = new OrderRequest();
-        request.setProducts(List.of(product));
-
         // when
-        var response = given().contentType(ContentType.JSON).body(request)
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"products\":[{\"product_id\":\"prod1\",\"title\":\"Product 1\",\"qty\":2,\"price\":50.0}]}")
                 .when().post("/orders");
 
         // then
@@ -153,17 +137,15 @@ class OrdersResourceTest {
         order2.setStatus(OrderStatus.INITIATED);
         order2.persist();
 
-        SearchOrdersCommand command = new SearchOrdersCommand();
-        command.setUserID("user_search");
-
         // when
-        var response = given().contentType(ContentType.JSON).body(command)
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_search\"}")
                 .when().post("/orders/search");
 
         // then
         response.then().statusCode(200)
                 .body("y", not(empty()))
-                .body("y[0].userID", is("user_search"));
+                .body("y[0].user_id", is("user_search"));
     }
 
     @Test
@@ -203,5 +185,55 @@ class OrdersResourceTest {
         response.then().statusCode(200).body("status", is(OrderStatus.CONFIRMED.name()));
         Order confirmed = Order.findById(order.id);
         assertEquals(OrderStatus.CONFIRMED, confirmed.getStatus());
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    void createOrder_emptyProductsList_returns400() {
+        // given
+        OrderRequest request = new OrderRequest();
+        request.setProducts(List.of());
+
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/orders");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    void createOrder_productWithBlankId_returns400() {
+        // given
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"products\":[{\"product_id\":\"\",\"qty\":1,\"price\":10.0}]}")
+                .when().post("/orders");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    void searchOrders_blankUserId_returns400() {
+        // given
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"\"}")
+                .when().post("/orders/search");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
     }
 }

@@ -15,5 +15,6 @@ public class CustomJsonbConfigCustomizer implements JsonbConfigCustomizer {
     public void customize(JsonbConfig config) {
         LOG.debug("CustomJsonbConfigCustomizer.customize called");
         config.withPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CASE_WITH_UNDERSCORES);
+        config.withNullValues(false);
     }
 }

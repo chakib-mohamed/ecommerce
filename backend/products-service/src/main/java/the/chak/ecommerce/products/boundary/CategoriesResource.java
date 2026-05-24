@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import jakarta.inject.Inject;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
@@ -40,7 +41,7 @@ public class CategoriesResource {
     }
 
     @POST
-    public Response createCategory(SaveCategoryDto createCategoryCommand) {
+    public Response createCategory(@Valid SaveCategoryDto createCategoryCommand) {
 
         var category = categoryMapper.toEntity(createCategoryCommand);
         categoryService.saveCategory(category);
@@ -48,7 +49,7 @@ public class CategoriesResource {
     }
 
     @PUT
-    public Response updateCategory(CategoryDto categoryDto) {
+    public Response updateCategory(@Valid CategoryDto categoryDto) {
         var category = categoryMapper.toEntity(categoryDto);
         categoryService.updateCategory(category);
         return Response.ok(categoryMapper.toDto(category)).status(200).build();

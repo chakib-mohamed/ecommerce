@@ -5,6 +5,6 @@ import jakarta.ws.rs.core.Response;
 public class DuplicateEmailException extends FunctionalException {
 
     public DuplicateEmailException(String email) {
-        super("Email already registered: " + email, Response.Status.CONFLICT);
+        super(Response.Status.CONFLICT, "EMAIL_ALREADY_EXISTS", "Email already registered: " + email);
     }
 }

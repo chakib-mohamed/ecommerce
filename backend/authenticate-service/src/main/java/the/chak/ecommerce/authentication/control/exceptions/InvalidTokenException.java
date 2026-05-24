@@ -5,6 +5,6 @@ import jakarta.ws.rs.core.Response;
 public class InvalidTokenException extends FunctionalException {
 
     public InvalidTokenException() {
-        super("Invalid or missing authentication token", Response.Status.UNAUTHORIZED);
+        super(Response.Status.UNAUTHORIZED, "INVALID_TOKEN", "Invalid or missing authentication token");
     }
 }

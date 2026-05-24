@@ -1,0 +1,189 @@
+openapi: 3.0.3
+info:
+  title: price-service API
+  description: Manages product prices and computes effective order totals.
+  version: 1.0.0
+servers:
+  - url: /
+    description: Service-internal base path
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  /prices/{productId}:
+    put:
+      summary: Set the base price for a product
+      operationId: updatePrice
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          description: UUID of the product whose price is being set
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePriceRequest'
+            example:
+              price: 49.99
+      responses:
+        '200':
+          description: Price updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceResponse'
+              example:
+                product_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                price: 49.99
+        '400':
+          description: Invalid price (null or non-positive)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pricing/calculate:
+    post:
+      summary: Calculate the effective price for an order
+      description: Applies active promotions and quantity-based discounts to the order lines and returns the order with the computed total.
+      operationId: calculatePrice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceCalculationRequest'
+      responses:
+        '200':
+          description: Effective price computed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceCalculationResponse'
+        '400':
+          description: Invalid or empty order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    UpdatePriceRequest:
+      type: object
+      required:
+        - price
+      properties:
+        price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: New base price; must be strictly positive
+
+    PriceResponse:
+      type: object
+      properties:
+        product_id:
+          type: string
+          format: uuid
+        price:
+          type: number
+          format: double
+
+    PriceCalculationRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Tracking ID; omit on request, present on response
+        order:
+          $ref: '#/components/schemas/OrderDTO'
+
+    PriceCalculationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Tracking ID
+        order:
+          $ref: '#/components/schemas/OrderDTO'
+
+    OrderDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        card_number:
+          type: string
+        creation_date:
+          type: string
+          format: date-time
+          description: ISO-8601 datetime
+        expiration_date:
+          type: string
+        price:
+          type: number
+          format: double
+          description: Computed effective total; null on request, populated on response
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVO'
+        user_id:
+          type: string
+        validation_number:
+          type: string
+        status:
+          type: string
+          enum: [INITIATED, CONFIRMED]
+
+    ProductVO:
+      type: object
+      required:
+        - product_id
+        - qty
+        - price
+      properties:
+        product_id:
+          type: string
+        title:
+          type: string
+        qty:
+          type: integer
+          minimum: 1
+        price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: Unit price
+        percentage_off:
+          type: number
+          format: double
+          description: Active promotion discount percentage (e.g. 10.0 = 10% off); omitted if no active promotion
+
+    ErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FUNCTIONAL, TECHNICAL]
+        error_code:
+          type: string
+        message:
+          type: string

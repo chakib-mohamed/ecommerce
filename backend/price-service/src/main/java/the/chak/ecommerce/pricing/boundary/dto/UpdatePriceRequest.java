@@ -9,6 +9,6 @@ import lombok.Setter;
 @Setter
 public class UpdatePriceRequest {
     @NotNull
-    @Positive(message = "price must be positive")
+    @Positive
     private Double price;
 }

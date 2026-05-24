@@ -1,0 +1,509 @@
+openapi: 3.0.3
+info:
+  title: products-service API
+  description: Products, categories, promotions, and product image management.
+  version: 1.0.0
+servers:
+  - url: /
+    description: Service-internal base path
+
+paths:
+
+  /products:
+    get:
+      summary: List products
+      operationId: getProducts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Products returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductDto'
+
+    post:
+      summary: Create a product
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductDto'
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDto'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update a product
+      operationId: updateProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductDto'
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDto'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/search:
+    post:
+      summary: Search products by field criteria
+      operationId: searchProducts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/Criteria'
+              example:
+                title:
+                  operator: LIKE
+                  value: laptop
+      responses:
+        '200':
+          description: Matching products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductDto'
+
+  /products/{productID}:
+    get:
+      summary: Get product by ID
+      operationId: getProduct
+      parameters:
+        - name: productID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDto'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete a product
+      operationId: deleteProduct
+      parameters:
+        - name: productID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product deleted
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/images/{imageKey}:
+    get:
+      summary: Get a product image by S3 key
+      operationId: getImage
+      parameters:
+        - name: imageKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: JPEG image bytes
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Image not found
+
+  /categories:
+    get:
+      summary: List categories
+      operationId: getCategories
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Categories returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryDto'
+
+    post:
+      summary: Create a category
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveCategoryDto'
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDto'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update a category
+      operationId: updateCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryDto'
+      responses:
+        '200':
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDto'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /categories/search:
+    post:
+      summary: Search categories by field criteria
+      operationId: searchCategories
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/Criteria'
+      responses:
+        '200':
+          description: Matching categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryDto'
+
+  /categories/{categoryID}:
+    delete:
+      summary: Delete a category
+      operationId: deleteCategory
+      parameters:
+        - name: categoryID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category deleted
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /promotions:
+    get:
+      summary: List all promotions
+      operationId: getPromotions
+      responses:
+        '200':
+          description: Promotions returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PromotionDto'
+
+    post:
+      summary: Create a promotion
+      operationId: createPromotion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavePromotionDto'
+      responses:
+        '201':
+          description: Promotion created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionDto'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /promotions/{promotionID}:
+    delete:
+      summary: Delete a promotion
+      operationId: deletePromotion
+      parameters:
+        - name: promotionID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Promotion deleted
+        '404':
+          description: Promotion not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+
+    ProductDto:
+      type: object
+      required:
+        - price
+        - title
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        description:
+          type: string
+          maxLength: 2000
+        image:
+          type: string
+          format: byte
+          description: Base64-encoded JPEG image
+        image_key:
+          type: string
+          description: Key used to retrieve the image via GET /products/images/{imageKey}
+        price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+        title:
+          type: string
+        promotions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromotionDto'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryDto'
+
+    PromotionDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        label:
+          type: string
+        percentage_off:
+          type: number
+          format: double
+        active_from:
+          type: string
+          format: date
+          description: ISO-8601 date (yyyy-MM-dd)
+        active_to:
+          type: string
+          format: date
+          description: ISO-8601 date (yyyy-MM-dd)
+        product:
+          $ref: '#/components/schemas/ProductLiteDto'
+
+    ProductLiteDto:
+      type: object
+      properties:
+        title:
+          type: string
+
+    CategoryDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        label:
+          type: string
+
+    SaveCategoryDto:
+      type: object
+      required:
+        - label
+      properties:
+        label:
+          type: string
+
+    SavePromotionDto:
+      type: object
+      required:
+        - product_id
+        - label
+        - percentage_off
+        - active_from
+        - active_to
+      properties:
+        id:
+          type: string
+        product_id:
+          type: string
+          description: UUID of the product this promotion applies to
+        label:
+          type: string
+          maxLength: 100
+        percentage_off:
+          type: number
+          format: double
+          minimum: 0.01
+          maximum: 100.0
+        active_from:
+          type: string
+          format: date
+          description: ISO-8601 date (yyyy-MM-dd)
+        active_to:
+          type: string
+          format: date
+          description: ISO-8601 date (yyyy-MM-dd)
+
+    Criteria:
+      type: object
+      properties:
+        operator:
+          type: string
+          enum: [EQUALS, LIKE, GREATER_THAN, LESS_THAN]
+        value:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FUNCTIONAL, TECHNICAL]
+        error_code:
+          type: string
+        message:
+          type: string

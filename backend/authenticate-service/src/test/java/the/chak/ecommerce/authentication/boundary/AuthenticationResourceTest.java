@@ -51,7 +51,7 @@ class AuthenticationResourceTest {
 
         // then
         response.then().statusCode(200)
-                .body("accessToken", notNullValue())
+                .body("access_token", notNullValue())
                 .cookie("Authorization", notNullValue());
     }
 
@@ -61,12 +61,12 @@ class AuthenticationResourceTest {
         String email = "get-" + UUID.randomUUID() + "@example.com";
         SignUpRequest signUp = new SignUpRequest();
         signUp.setEmail(email);
-        signUp.setPassword("pass123");
+        signUp.setPassword("pass1234");
         given().contentType(ContentType.JSON).body(signUp).when().post("/users");
 
         AuthenticateRequest auth = new AuthenticateRequest();
         auth.setEmail(email);
-        auth.setPassword("pass123");
+        auth.setPassword("pass1234");
         String cookie = given().contentType(ContentType.JSON).body(auth)
                 .when().post("/users/authenticate").then().extract().cookie("Authorization");
 
@@ -113,7 +113,9 @@ class AuthenticationResourceTest {
                 .when().post("/users");
 
         // then
-        response.then().statusCode(409);
+        response.then().statusCode(409)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("EMAIL_ALREADY_EXISTS"));
     }
 
     @Test
@@ -126,7 +128,43 @@ class AuthenticationResourceTest {
                 .when().post("/users");
 
         // then
-        response.then().statusCode(400);
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void signUp_passwordTooShort_returns400() {
+        // given
+        SignUpRequest request = new SignUpRequest();
+        request.setEmail("valid-" + UUID.randomUUID() + "@example.com");
+        request.setPassword("abc12");
+
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/users");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void signUp_invalidEmailFormat_returns400() {
+        // given
+        SignUpRequest request = new SignUpRequest();
+        request.setEmail("not-an-email");
+        request.setPassword("validpassword123");
+
+        // when
+        var response = given().contentType(ContentType.JSON).body(request)
+                .when().post("/users");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("VALIDATION_ERROR"));
     }
 
     @Test
@@ -135,6 +173,8 @@ class AuthenticationResourceTest {
         var response = given().when().get("/users/anyone@example.com");
 
         // then
-        response.then().statusCode(401);
+        response.then().statusCode(401)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("INVALID_TOKEN"));
     }
 }
