@@ -2,41 +2,76 @@
 
 Covers all Quarkus services (Quarkus 3.17.6, Java 21). The API gateway is Spring Boot — see `ecommerce-api-gateway/CLAUDE.md`.
 
-## Build Commands
-
-```bash
-# From backend/ directory
-./mvnw clean package -DskipTests          # build all services
-./mvnw clean package -DskipTests -pl products-service   # single service
-
-# Quarkus dev mode (hot reload, runs on :8080 by default)
-./mvnw quarkus:dev -pl products-service
-```
-
 ## Package Conventions
 
 All DTOs (request/response objects, value objects, commands) live in `boundary/dto/` within each service or shared-api module. The `entity/` package is reserved exclusively for persistence-annotated domain objects (Panache entities and their embedded value objects).
 
 Kafka event payloads live in `control/events/` — they are messaging objects, not HTTP DTOs, so they stay in the control layer.
 
+## JSON Serialization
+
+All HTTP API JSON must use **snake_case** field names, omit **null** fields, and format dates as **ISO-8601 strings** (never timestamps).
+
+### JSON-B services (all Quarkus HTTP endpoints)
+
+Both the naming strategy and null omission must be set via `CustomJsonbConfigCustomizer` in `boundary/` — there are no equivalent `application.properties` keys for these in Quarkus 3.17.6:
+```java
+@Singleton
+public class CustomJsonbConfigCustomizer implements JsonbConfigCustomizer {
+    @Override
+    public void customize(JsonbConfig config) {
+        config.withPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CASE_WITH_UNDERSCORES);
+        config.withNullValues(false);
+    }
+}
+```
+
+JSON-B defaults to ISO-8601 dates — no extra config needed.
+
+### Jackson services (REST clients in shared API modules, price-service HTTP)
+
+Configure in `application.properties`:
+```properties
+quarkus.jackson.property-naming-strategy=SNAKE_CASE
+quarkus.jackson.serialization-inclusion=NON_NULL
+quarkus.jackson.write-dates-as-timestamps=false
+quarkus.jackson.fail-on-unknown-properties=false
+```
+
+### Kafka events
+
+`JsonbSerializer` and `JsonbDeserializer` (used in all Kafka channels) create their own plain Jsonb instance, independent of the CDI-managed one. Kafka event field names therefore remain camelCase regardless of the JSON-B naming strategy configured for HTTP. Do not rely on `LOWER_CASE_WITH_UNDERSCORES` applying to Kafka payloads — use consistent camelCase in `control/events/` classes.
+
+### Annotation exceptions
+
+`@JsonbProperty` / `@JsonProperty` are only permitted to override the naming for a specific field that must deviate from the global strategy (rare). Never add them just to reproduce what the strategy already does.
+
 ## Exception Handling
 
 All Quarkus services use a two-tier exception model. **Never use try-catch in resource classes.**
 
 **Functional exceptions** — known domain errors with a specific HTTP status:
-- Extend `FunctionalException` (abstract base in `control/exceptions/`, carries `Response.Status`)
+- Extend `FunctionalException` (abstract base in `control/exceptions/`, carries `Response.Status` and `errorCode`)
+- Constructor signature: `(Response.Status status, String errorCode, String message)`
 - All exception classes live in `control/exceptions/` when a service has more than one
-- Examples: `CartNotFoundException` (404), `CartEmptyException` (400)
+- Examples: `CartNotFoundException` (404, `CART_NOT_FOUND`), `CartEmptyException` (400, `CART_EMPTY`)
 - One class per error case; name describes the domain problem, not the HTTP code
+- `errorCode` is a SCREAMING_SNAKE_CASE string unique within the service — the frontend uses it to identify errors
 
 **Technical exceptions** — unexpected infrastructure or programming errors:
 - Let them propagate as `RuntimeException`; the global handler logs and returns 500
 
 **Global handler** — one `GlobalExceptionHandler` in `boundary/` per service:
-- `@ServerExceptionMapper` on `FunctionalException` → `{ type: "FUNCTIONAL", message }` + correct status
-- `@ServerExceptionMapper` on `Exception` → `{ type: "TECHNICAL", message: "An unexpected error occurred" }` + logs
+- `FunctionalException` → `{ type: "FUNCTIONAL", errorCode, message }` + correct status
+- `Exception` → `{ type: "TECHNICAL", errorCode: "INTERNAL_ERROR", message: "An unexpected error occurred" }` + logs
 
-**`ErrorResponse`** DTO lives in `boundary/dto/`: `{ String type, String message }`.
+**`ErrorResponse`** DTO lives in `boundary/dto/`: `{ String type, String errorCode, String message }`.
+
+## Boundary Validation
+
+Annotate request DTOs with Bean Validation constraints (`@NotNull`, `@Positive`, `@Size`, etc.) and use `@Valid` on the resource method parameter. Use constraints for structural/format rules (null checks, numeric ranges, string patterns). Reserve `FunctionalException` subclasses for domain errors that depend on application state (e.g., duplicate email, insufficient stock).
+
+When a service uses `@Valid` on a resource method, Resteasy intercepts `ConstraintViolationException` before `GlobalExceptionHandler` sees it. Add a dedicated `ConstraintViolationExceptionMapper implements ExceptionMapper<ConstraintViolationException>` in `boundary/` that returns `{ type: "FUNCTIONAL", errorCode: "VALIDATION_ERROR", message }` + 400. Services that do not use `@Valid` at the resource layer (e.g. `products-service`) do not need this second mapper — the `instanceof ConstraintViolationException` branch in `GlobalExceptionHandler` suffices.
 
 ## Reactive Stack Policy
 
@@ -67,15 +102,6 @@ Use blocking JAX-RS (`quarkus-resteasy`) and synchronous Panache for all HTTP en
 
 **Kafka serialization**: All Kafka producers use `io.quarkus.kafka.client.serialization.JsonbSerializer` (Jakarta JSON-B), not Jackson. Don't switch to `JsonSerializer` from the Kafka library.
 
-## Dev Profile
-
-When running with `./mvnw quarkus:dev`, the `%dev` profile activates automatically:
-- Kafka bootstrap: `localhost:9092`
-- MongoDB: `localhost:27017`
-- PostgreSQL: `localhost:5432`
-
-These are the local Docker Compose addresses. Ensure infrastructure containers are up before starting dev mode.
-
 ## Testing
 
 Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
@@ -94,61 +120,7 @@ Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
 
 **Kafka in tests** — use `KafkaTestResource` (backed by `org.testcontainers:kafka`, image `confluentinc/cp-kafka:7.6.1`). It starts a real broker and injects `kafka.bootstrap.servers`. **Never use `smallrye-reactive-messaging-in-memory`** — it is banned from all services. Any `@QuarkusTest` in a service that has Kafka channels must be annotated with `@QuarkusTestResource(KafkaTestResource.class)`.
 
-### Test Method Naming
-
-`action_context_expectedOutcome` — three underscore-separated camelCase segments, no `test` prefix, no `public` modifier.
-
-```java
-// good
-void createOrder_validProducts_returns201WithCalculatedPrice()
-void authenticate_wrongPassword_returns401()
-void getUsername_revokedToken_returnsEmpty()
-
-// bad
-public void testCreateOrder()
-void testAuthenticate_WrongPassword_Returns401()
-```
-
-### Test Body Structure
-
-Explicit `// given`, `// when`, `// then` comment blocks in every test. Omit `// given` only when there is genuinely no setup.
-
-```java
-@Test
-void confirmOrder_initiatedOrder_changesStatusToConfirmed() {
-    // given
-    Order order = new Order();
-    order.setStatus(OrderStatus.INITIATED);
-    order.persist();
-
-    // when
-    var response = given().when().post("/orders/" + order.id + "/confirm");
-
-    // then
-    response.then().statusCode(200).body("status", is("CONFIRMED"));
-}
-```
-
-### HTTP Test Split
-
-Separate the HTTP call from the assertions so `// when` and `// then` are distinct.
-
-```java
-// when
-var response = given().contentType(ContentType.JSON).body(request)
-        .when().post("/orders");
-
-// then
-response.then().statusCode(201).body("price", is(100.0f));
-```
-
-### One Behavior Per Test
-
-Do not combine create + update + delete in a single test method. Each test exercises exactly one scenario. Compound setup (e.g. creating a record before testing an update) belongs in `// given`, not as a separate test phase.
-
-### Class Modifiers
-
-Test classes are package-private (no `public`).
+See `docs/conventions/testing-conventions.md` for naming, body structure, and split conventions.
 
 ## Database Transaction Rules
 
@@ -178,21 +150,7 @@ Validate inputs and authorise the request *before* opening a transaction. Do not
 
 ## JPA / Entity Rules
 
-All JPA relationship fields (`@ManyToOne`, `@OneToOne`, `@OneToMany`, `@ManyToMany`) **must** declare `fetch = FetchType.LAZY` explicitly. `@ManyToOne` and `@OneToOne` default to `EAGER`, which causes silent N+1 queries.
-
-```java
-// good
-@ManyToOne(fetch = FetchType.LAZY)
-@JoinColumn(name = "parent_id")
-private Category parent;
-
-// bad — defaults to EAGER
-@ManyToOne
-@JoinColumn(name = "parent_id")
-private Category parent;
-```
-
-Enforce this rule with an ArchUnit test where possible so it becomes a CI gate.
+All JPA relationship fields (`@ManyToOne`, `@OneToOne`, `@OneToMany`, `@ManyToMany`) **must** declare `fetch = FetchType.LAZY` explicitly. `@ManyToOne` and `@OneToOne` default to `EAGER`, which causes silent N+1 queries. Enforce with an ArchUnit test where possible so it becomes a CI gate.
 
 ## Lombok Rules
 
