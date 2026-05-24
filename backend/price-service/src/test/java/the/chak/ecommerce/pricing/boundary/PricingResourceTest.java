@@ -5,11 +5,12 @@ import static org.hamcrest.Matchers.closeTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import java.util.List;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import jakarta.json.bind.Jsonb;
+import jakarta.json.bind.JsonbBuilder;
+import jakarta.json.bind.JsonbConfig;
+import jakarta.json.bind.config.PropertyNamingStrategy;
 import io.restassured.RestAssured;
 import io.restassured.config.JsonConfig;
-import io.restassured.config.ObjectMapperConfig;
 import io.restassured.path.json.config.JsonPathConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,16 +31,20 @@ import the.chak.ecommerce.pricing.control.KafkaPriceEventPublisher;
 @QuarkusTestResource(KafkaTestResource.class)
 class PricingResourceTest {
 
+    private static final Jsonb JSONB = JsonbBuilder.create(
+            new JsonbConfig().withPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CASE_WITH_UNDERSCORES));
+
     @InjectMock
     KafkaPriceEventPublisher publisher;
 
     @BeforeEach
     void configureRestAssured() {
         RestAssured.config = RestAssured.config()
-                .jsonConfig(JsonConfig.jsonConfig().numberReturnType(JsonPathConfig.NumberReturnType.DOUBLE))
-                .objectMapperConfig(ObjectMapperConfig.objectMapperConfig()
-                        .jackson2ObjectMapperFactory((cls, charset) ->
-                                new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)));
+                .jsonConfig(JsonConfig.jsonConfig().numberReturnType(JsonPathConfig.NumberReturnType.DOUBLE));
+    }
+
+    private String toJson(Object obj) {
+        return JSONB.toJson(obj);
     }
 
     @Test
@@ -60,7 +65,7 @@ class PricingResourceTest {
         request.setOrder(order);
 
         // when
-        var response = given().contentType(ContentType.JSON).body(request)
+        var response = given().contentType(ContentType.JSON).body(toJson(request))
                 .when().post("/pricing/calculate");
 
         // then
@@ -87,7 +92,7 @@ class PricingResourceTest {
         request.setOrder(order);
 
         // when
-        var response = given().contentType(ContentType.JSON).body(request)
+        var response = given().contentType(ContentType.JSON).body(toJson(request))
                 .when().post("/pricing/calculate");
 
         // then
@@ -105,7 +110,7 @@ class PricingResourceTest {
         request.setOrder(order);
 
         // when
-        var response = given().contentType(ContentType.JSON).body(request)
+        var response = given().contentType(ContentType.JSON).body(toJson(request))
                 .when().post("/pricing/calculate");
 
         // then
@@ -122,7 +127,7 @@ class PricingResourceTest {
         request.setOrder(null);
 
         // when
-        var response = given().contentType(ContentType.JSON).body(request)
+        var response = given().contentType(ContentType.JSON).body(toJson(request))
                 .when().post("/pricing/calculate");
 
         // then
