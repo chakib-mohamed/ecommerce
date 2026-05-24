@@ -2,16 +2,21 @@ package the.chak.ecommerce.pricing.boundary;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.closeTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import io.restassured.RestAssured;
 import io.restassured.config.JsonConfig;
+import io.restassured.config.ObjectMapperConfig;
 import io.restassured.path.json.config.JsonPathConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
@@ -30,11 +35,15 @@ class PricingResourceTest {
 
     @BeforeEach
     void configureRestAssured() {
-        RestAssured.config = RestAssured.config().jsonConfig(
-                JsonConfig.jsonConfig().numberReturnType(JsonPathConfig.NumberReturnType.DOUBLE));
+        RestAssured.config = RestAssured.config()
+                .jsonConfig(JsonConfig.jsonConfig().numberReturnType(JsonPathConfig.NumberReturnType.DOUBLE))
+                .objectMapperConfig(ObjectMapperConfig.objectMapperConfig()
+                        .jackson2ObjectMapperFactory((cls, charset) ->
+                                new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)));
     }
 
     @Test
+    @TestSecurity(user = "test-user")
     void calculatePrice_qtyAbove5_appliesDrlDiscount() {
         // given — qty=6 > 5 triggers DRL 5% reduction: 6 * 10.0 * 0.95 = 57.0
         ProductVO product = new ProductVO();
@@ -61,6 +70,7 @@ class PricingResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "test-user")
     void calculatePrice_withPromotion_appliesPercentageOff() {
         // given — qty=1, price=100.0, percentageOff=10: 1 * 100.0 * 0.90 = 90.0
         ProductVO product = new ProductVO();
@@ -85,6 +95,7 @@ class PricingResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "test-user")
     void calculatePrice_emptyProducts_returns400() {
         // given
         OrderDTO order = new OrderDTO();
@@ -98,10 +109,13 @@ class PricingResourceTest {
                 .when().post("/pricing/calculate");
 
         // then
-        response.then().statusCode(400);
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("INVALID_ORDER"));
     }
 
     @Test
+    @TestSecurity(user = "test-user")
     void calculatePrice_nullOrder_returns400() {
         // given
         PriceCalculationRequest request = new PriceCalculationRequest();
@@ -112,6 +126,8 @@ class PricingResourceTest {
                 .when().post("/pricing/calculate");
 
         // then
-        response.then().statusCode(400);
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("INVALID_ORDER"));
     }
 }
