@@ -120,7 +120,7 @@ Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
 
 **Kafka in tests** — use `KafkaTestResource` (backed by `org.testcontainers:kafka`, image `confluentinc/cp-kafka:7.6.1`). It starts a real broker and injects `kafka.bootstrap.servers`. **Never use `smallrye-reactive-messaging-in-memory`** — it is banned from all services. Any `@QuarkusTest` in a service that has Kafka channels must be annotated with `@QuarkusTestResource(KafkaTestResource.class)`.
 
-See `docs/conventions/testing-conventions.md` for naming, body structure, and split conventions.
+See `docs/conventions/testing-conventions.md` for naming, body structure, split conventions, and coverage requirements.
 
 ## Database Transaction Rules
 
