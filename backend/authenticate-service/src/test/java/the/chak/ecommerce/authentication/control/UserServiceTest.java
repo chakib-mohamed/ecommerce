@@ -2,6 +2,7 @@ package the.chak.ecommerce.authentication.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +12,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import the.chak.ecommerce.authentication.MongoDbTestResource;
 import the.chak.ecommerce.authentication.boundary.dto.AuthenticateRequest;
+import the.chak.ecommerce.authentication.control.exceptions.DuplicateEmailException;
 import the.chak.ecommerce.authentication.entity.User;
 
 @QuarkusTest
@@ -79,5 +81,24 @@ class UserServiceTest {
 
         // then
         assertFalse(result.isPresent());
+    }
+
+    @Test
+    void addUser_duplicateEmail_throwsDuplicateEmailException() {
+        // given
+        String email = "dup-" + UUID.randomUUID() + "@example.com";
+        User user = new User();
+        user.email = email;
+        user.password = "password123";
+        user.roles = List.of("USER");
+        userService.addUser(user);
+
+        User duplicate = new User();
+        duplicate.email = email;
+        duplicate.password = "anotherPassword";
+        duplicate.roles = List.of("USER");
+
+        // when / then
+        assertThrows(DuplicateEmailException.class, () -> userService.addUser(duplicate));
     }
 }
