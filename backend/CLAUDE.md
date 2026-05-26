@@ -110,6 +110,18 @@ Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
 ./mvnw test -pl products-service
 ```
 
+**Rule: never run `mvn test` or `mvn verify` from the parent `backend/` directory without `-pl`.** Always target one service at a time. Running all services in parallel saturates Docker (every service starts its own Testcontainers) and causes hangs or timeouts.
+
+```bash
+# Correct — one service at a time
+./mvnw test    -pl products-service
+./mvnw verify  -pl orders-service
+
+# Wrong — do not do this
+./mvnw test     # runs all services in parallel → Docker overload
+./mvnw verify   # same problem
+```
+
 **Rule: always use Testcontainers — never Quarkus Dev Services — for test infrastructure.**
 
 - Set `%test.quarkus.devservices.enabled=false` in every service's `src/test/resources/application.properties`.
