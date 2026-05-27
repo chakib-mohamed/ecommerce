@@ -1,4 +1,4 @@
-package the.chak.ecommerce.pricing.boundary;
+package the.chak.ecommerce.products.boundary;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
@@ -13,12 +13,12 @@ import io.restassured.filter.log.LogDetail;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
-import the.chak.ecommerce.pricing.KafkaTestResource;
-import the.chak.ecommerce.pricing.MongoDbTestResource;
+import the.chak.ecommerce.products.KafkaTestResource;
+import the.chak.ecommerce.products.StorageTestResource;
 
 @QuarkusTest
-@QuarkusTestResource(MongoDbTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
+@QuarkusTestResource(StorageTestResource.class)
 class HealthCheckTest {
 
     @BeforeAll
@@ -58,15 +58,5 @@ class HealthCheckTest {
                 .statusCode(200)
                 .contentType(ContentType.JSON)
                 .body("status", is("UP"));
-    }
-
-    @Test
-    void readiness_includes_mongodb_probe() {
-        given()
-                .when()
-                .get("/q/health/ready")
-                .then()
-                .statusCode(200)
-                .body("checks.find{it.name=='mongodb-connectivity'}.status", is("UP"));
     }
 }

@@ -1,4 +1,4 @@
-package the.chak.ecommerce.pricing.boundary;
+package the.chak.ecommerce.orders.boundary;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
@@ -13,11 +13,11 @@ import io.restassured.filter.log.LogDetail;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
-import the.chak.ecommerce.pricing.KafkaTestResource;
-import the.chak.ecommerce.pricing.MongoDbTestResource;
+import the.chak.ecommerce.orders.KafkaTestResource;
+import the.chak.ecommerce.orders.MongoTestResource;
 
 @QuarkusTest
-@QuarkusTestResource(MongoDbTestResource.class)
+@QuarkusTestResource(MongoTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
 class HealthCheckTest {
 
