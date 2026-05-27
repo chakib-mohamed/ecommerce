@@ -37,10 +37,10 @@ spec:
             ]
           imagePullPolicy: IfNotPresent
           livenessProbe:
-            httpGet: # make an HTTP request
-              port: 8080 # port to use
-              path: /actuator/health # endpoint to hit
-              scheme: HTTP # or HTTPS
+            httpGet:
+              port: 8080
+              path: /actuator/health/liveness
+              scheme: HTTP
             initialDelaySeconds: 20
             periodSeconds: 5
             timeoutSeconds: 1
@@ -50,10 +50,10 @@ spec:
               name: http
               protocol: TCP
           readinessProbe:
-            httpGet: # make an HTTP request
-              port: 8080 # port to use
-              path: /actuator/health # endpoint to hit
-              scheme: HTTP # or HTTPS
+            httpGet:
+              port: 8080
+              path: /actuator/health/readiness
+              scheme: HTTP
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 1
