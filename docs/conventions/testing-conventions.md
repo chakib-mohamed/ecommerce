@@ -74,3 +74,80 @@ JaCoCo enforces this at `mvn verify` — the build fails if any line in a matchi
 - Event payloads, exceptions, value objects, config classes
 
 When a public method cannot be covered without excessive test complexity (e.g. a private helper path that is genuinely unreachable), prefer extracting the uncoverable logic into a separate class rather than suppressing the rule.
+
+## Control Layer Unit Tests
+
+**Rule**: Control-layer services (`*Service` in `control/` packages) must use **plain JUnit 5 + Mockito unit tests**, not `@QuarkusTest`. This avoids container spin-up overhead and keeps unit tests focused on business logic.
+
+### Test Setup Pattern
+
+Use `@ExtendWith(MockitoExtension.class)` instead of Quarkus test annotations:
+
+```java
+@ExtendWith(MockitoExtension.class)
+class UserServiceTest {
+
+    @InjectMocks
+    UserService sut;
+
+    @Mock
+    EntityManager em;
+
+    MockedStatic<User> mockedUser;
+
+    @BeforeEach
+    void setUp() {
+        mockedUser = mockStatic(User.class);
+    }
+
+    @AfterEach
+    void teardown() {
+        mockedUser.close();
+    }
+}
+```
+
+### Mocking Panache Queries
+
+For services using Panache (MongoDB or JPA), mock static query methods with `MockedStatic`:
+
+```java
+// Mock a Panache query
+PanacheQuery<User> query = mock(PanacheQuery.class);
+when(query.list()).thenReturn(List.of(user));
+mockedUser.when(() -> User.find(anyString(), any(Map.class))).thenReturn(query);
+```
+
+### When to Keep Integration Tests
+
+**Boundary tests** (`*ResourceTest` in `boundary/` packages) stay as `@QuarkusTest` integration tests because they:
+- Test full HTTP stack behavior
+- Require real database state
+- Verify API contracts end-to-end
+
+**Keep Testcontainers only for**:
+- Boundary/resource tests (REST API validation)
+- Kafka consumer integration tests
+- Health check and probe tests
+
+### Rationale
+
+- **Speed**: Unit tests run in milliseconds; integration tests take seconds per service
+- **Isolation**: Mock external dependencies; test service logic in isolation
+- **Repeatability**: No container state pollution between test runs
+- **Cost**: Reduces Docker load during parallel test runs (no Testcontainers per unit test)
+
+Example: A service with 10 unit tests runs 10ms total vs. 100s with `@QuarkusTest` (containers + startup overhead).
+
+### Exception: Zero-Dependency Services
+
+Services with no external dependencies (pure logic, no I/O) can use plain `new ServiceClass()` in `@BeforeEach`:
+
+```java
+@BeforeEach
+void setUp() {
+    applyPromotionsService = new ApplyPromotionsService();
+}
+```
+
+No mocking framework needed for stateless calculation services.
