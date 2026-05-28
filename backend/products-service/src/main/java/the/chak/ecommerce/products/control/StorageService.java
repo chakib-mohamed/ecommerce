@@ -1,17 +1,12 @@
 package the.chak.ecommerce.products.control;
 
-import java.net.URI;
 import java.util.UUID;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -22,35 +17,14 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 @ApplicationScoped
 public class StorageService {
 
-    @ConfigProperty(name = "products.storage.endpoint")
-    String endpoint;
-
-    @ConfigProperty(name = "products.storage.region")
-    String region;
-
-    @ConfigProperty(name = "products.storage.access-key")
-    String accessKey;
-
-    @ConfigProperty(name = "products.storage.secret-key")
-    String secretKey;
+    @Inject
+    S3Client s3;
 
     @ConfigProperty(name = "products.images.bucket")
     String bucketName;
 
-    private S3Client s3;
-
     @PostConstruct
     void init() {
-        s3 = S3Client.builder()
-                .endpointOverride(URI.create(endpoint))
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(accessKey, secretKey)))
-                .serviceConfiguration(
-                        S3Configuration.builder().pathStyleAccessEnabled(true).build())
-                .httpClient(UrlConnectionHttpClient.create())
-                .build();
-
         try {
             s3.headBucket(HeadBucketRequest.builder().bucket(bucketName).build());
         } catch (NoSuchBucketException e) {
