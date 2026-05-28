@@ -11,12 +11,13 @@ public class MongoDbTestResource implements QuarkusTestResourceLifecycleManager 
 
     @Override
     public Map<String, String> start() {
-        container.start();
+        if (!container.isRunning()) {
+            container.start();
+        }
         return Map.of("quarkus.mongodb.connection-string", container.getConnectionString());
     }
 
     @Override
     public void stop() {
-        container.stop();
     }
 }

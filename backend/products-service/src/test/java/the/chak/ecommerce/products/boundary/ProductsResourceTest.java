@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -23,6 +24,16 @@ import the.chak.ecommerce.products.StorageTestResource;
 @QuarkusTestResource(StorageTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
 class ProductsResourceTest {
+
+    private String createdProductUuid;
+
+    @AfterEach
+    void cleanup() {
+        if (createdProductUuid != null) {
+            given().when().delete("/products/{id}", createdProductUuid);
+            createdProductUuid = null;
+        }
+    }
 
     static final String BASE64_IMAGE =
             "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -46,43 +57,41 @@ class ProductsResourceTest {
                 .when().post("/products");
 
         // then
-        String productUuid = response.then().statusCode(201)
+        createdProductUuid = response.then().statusCode(201)
                 .body("title", is("Integration Test Product"))
                 .body("description", is("Created by RestAssured"))
                 .body("price", is(123.45f))
                 .body("image_key", notNullValue())
                 .body("uuid", notNullValue())
                 .extract().path("uuid");
-        given().when().delete("/products/{id}", productUuid);
     }
 
     @Test
     void getProduct_existingProduct_returnsAllFields() {
         // given
-        String productUuid = given().contentType(ContentType.JSON)
+        createdProductUuid = given().contentType(ContentType.JSON)
                 .body(Map.of("title", "Get Test Product", "description", "desc",
                         "price", 10.0, "image", BASE64_IMAGE))
                 .when().post("/products").then().statusCode(201).extract().path("uuid");
 
         // when
-        var response = given().when().get("/products/{id}", productUuid);
+        var response = given().when().get("/products/{id}", createdProductUuid);
 
         // then
         response.then().statusCode(200)
-                .body("uuid", is(productUuid))
+                .body("uuid", is(createdProductUuid))
                 .body("title", is("Get Test Product"))
                 .body("description", is("desc"))
                 .body("price", is(10.0f))
                 .body("image_key", notNullValue())
                 .body("categories", notNullValue())
                 .body("promotions", notNullValue());
-        given().when().delete("/products/{id}", productUuid);
     }
 
     @Test
     void listProducts_withExistingProduct_returnsNonEmptyList() {
         // given
-        String productUuid = given().contentType(ContentType.JSON)
+        createdProductUuid = given().contentType(ContentType.JSON)
                 .body(Map.of("title", "List Test Product", "description", "desc",
                         "price", 5.0, "image", BASE64_IMAGE))
                 .when().post("/products").then().statusCode(201).extract().path("uuid");
@@ -92,7 +101,6 @@ class ProductsResourceTest {
 
         // then
         response.then().statusCode(200).body("size()", greaterThan(0));
-        given().when().delete("/products/{id}", productUuid);
     }
 
     @Test
@@ -114,14 +122,14 @@ class ProductsResourceTest {
     @Test
     void updateProduct_existingProduct_returns200WithUpdatedFields() {
         // given
-        String productUuid = given().contentType(ContentType.JSON)
+        createdProductUuid = given().contentType(ContentType.JSON)
                 .body(Map.of("title", "To Be Updated", "description", "Original description",
                         "price", 10.0, "image", BASE64_IMAGE))
                 .when().post("/products").then().statusCode(201).extract().path("uuid");
 
         // when
         var response = given().contentType(ContentType.JSON)
-                .body(Map.of("uuid", productUuid, "title", "Updated Title",
+                .body(Map.of("uuid", createdProductUuid, "title", "Updated Title",
                         "description", "Updated description", "price", 20.0, "image", BASE64_IMAGE))
                 .when().put("/products");
 
@@ -129,17 +137,16 @@ class ProductsResourceTest {
         response.then().statusCode(200)
                 .body("title", is("Updated Title"))
                 .body("price", is(20.0f));
-        given().when().get("/products/{id}", productUuid).then().statusCode(200)
+        given().when().get("/products/{id}", createdProductUuid).then().statusCode(200)
                 .body("title", is("Updated Title"))
                 .body("price", is(20.0f));
-        given().when().delete("/products/{id}", productUuid);
     }
 
     @Test
     void searchProducts_exactTitleMatch_returnsSingleResult() {
         // given
         String title = "Searchable Product " + UUID.randomUUID();
-        String productUuid = given().contentType(ContentType.JSON)
+        createdProductUuid = given().contentType(ContentType.JSON)
                 .body(Map.of("title", title, "description", "Searchable description", "price", 50.0))
                 .when().post("/products").then().statusCode(201).extract().path("uuid");
 
@@ -152,8 +159,7 @@ class ProductsResourceTest {
         response.then().statusCode(200)
                 .body("size()", is(1))
                 .body("[0].title", is(title))
-                .body("[0].uuid", is(productUuid));
-        given().when().delete("/products/{id}", productUuid);
+                .body("[0].uuid", is(createdProductUuid));
     }
 
     @Test
@@ -181,7 +187,7 @@ class ProductsResourceTest {
                 .body(Map.of("title", "Image Test Product", "description", "Testing image retrieval",
                         "price", 9.99, "image", BASE64_IMAGE))
                 .when().post("/products").then().statusCode(201).extract();
-        String productUuid = createResponse.path("uuid");
+        createdProductUuid = createResponse.path("uuid");
         String imageKey = createResponse.path("image_key");
 
         // when
@@ -193,6 +199,5 @@ class ProductsResourceTest {
                 .extract().asByteArray();
         assertNotNull(downloadedImage);
         assertTrue(downloadedImage.length > 0);
-        given().when().delete("/products/{id}", productUuid);
     }
 }

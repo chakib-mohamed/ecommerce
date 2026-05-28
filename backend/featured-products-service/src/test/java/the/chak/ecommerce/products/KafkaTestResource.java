@@ -12,12 +12,31 @@ public class KafkaTestResource implements QuarkusTestResourceLifecycleManager {
 
     @Override
     public Map<String, String> start() {
-        container.start();
-        return Map.of("kafka.bootstrap.servers", container.getBootstrapServers());
+        if (!container.isRunning()) {
+            container.start();
+            createTopics();
+        }
+        String servers = container.getBootstrapServers();
+        return Map.of(
+                "kafka.bootstrap.servers", servers,
+                "mp.messaging.connector.smallrye-kafka.bootstrap.servers", servers
+        );
+    }
+
+    private void createTopics() {
+        try {
+            container.execInContainer("kafka-topics", "--create", "--bootstrap-server", "localhost:9092",
+                    "--topic", "product-updated", "--if-not-exists", "--partitions", "1", "--replication-factor", "1")
+                    .getExitCode();
+            container.execInContainer("kafka-topics", "--create", "--bootstrap-server", "localhost:9092",
+                    "--topic", "product-deleted", "--if-not-exists", "--partitions", "1", "--replication-factor", "1")
+                    .getExitCode();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create Kafka topics", e);
+        }
     }
 
     @Override
     public void stop() {
-        container.stop();
     }
 }

@@ -108,7 +108,7 @@
         </configuration>
       </plugin>
 
-      <!-- JaCoCo coverage — 100% line coverage on control/*Service classes -->
+      <!-- JaCoCo coverage — 100% branch coverage on control/*Service classes and boundary resources -->
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
@@ -131,7 +131,21 @@
                   </includes>
                   <limits>
                     <limit>
-                      <counter>LINE</counter>
+                      <counter>BRANCH</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>1.0</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+                <rule>
+                  <element>CLASS</element>
+                  <includes>
+                    <include>the/chak/ecommerce/*/boundary/*Resource</include>
+                    <include>the/chak/ecommerce/*/boundary/*Controller</include>
+                  </includes>
+                  <limits>
+                    <limit>
+                      <counter>BRANCH</counter>
                       <value>COVEREDRATIO</value>
                       <minimum>1.0</minimum>
                     </limit>

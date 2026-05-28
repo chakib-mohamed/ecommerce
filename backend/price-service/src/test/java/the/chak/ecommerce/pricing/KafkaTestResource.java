@@ -12,12 +12,13 @@ public class KafkaTestResource implements QuarkusTestResourceLifecycleManager {
 
     @Override
     public Map<String, String> start() {
-        container.start();
+        if (!container.isRunning()) {
+            container.start();
+        }
         return Map.of("kafka.bootstrap.servers", container.getBootstrapServers());
     }
 
     @Override
     public void stop() {
-        container.stop();
     }
 }

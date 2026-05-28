@@ -16,12 +16,14 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.products.KafkaTestResource;
+import the.chak.ecommerce.products.StorageTestResource;
 import the.chak.ecommerce.products.boundary.dto.Criteria;
 import the.chak.ecommerce.products.control.exceptions.CategoryAlreadyExistsException;
 import the.chak.ecommerce.products.entity.Category;
 
 @QuarkusTest
 @QuarkusTestResource(KafkaTestResource.class)
+@QuarkusTestResource(StorageTestResource.class)
 @TestTransaction
 class CategoryServiceTest {
 

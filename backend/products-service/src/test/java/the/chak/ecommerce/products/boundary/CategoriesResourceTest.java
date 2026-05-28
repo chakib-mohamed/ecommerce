@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -15,10 +16,22 @@ import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
 import the.chak.ecommerce.products.KafkaTestResource;
+import the.chak.ecommerce.products.StorageTestResource;
 
 @QuarkusTest
 @QuarkusTestResource(KafkaTestResource.class)
+@QuarkusTestResource(StorageTestResource.class)
 class CategoriesResourceTest {
+
+    private Integer createdCategoryId;
+
+    @AfterEach
+    void cleanup() {
+        if (createdCategoryId != null) {
+            given().when().delete("/categories/{id}", createdCategoryId);
+            createdCategoryId = null;
+        }
+    }
 
     static {
         RestAssured.filters(new RequestLoggingFilter(LogDetail.ALL),
@@ -36,17 +49,16 @@ class CategoriesResourceTest {
                 .when().post("/categories");
 
         // then
-        Integer id = response.then().statusCode(201)
+        createdCategoryId = response.then().statusCode(201)
                 .body("label", is(label))
                 .body("id", notNullValue())
                 .extract().path("id");
-        given().when().delete("/categories/{id}", id);
     }
 
     @Test
     void getCategories_existingCategory_returnsNonEmptyList() {
         // given
-        Integer id = given().contentType(ContentType.JSON)
+        createdCategoryId = given().contentType(ContentType.JSON)
                 .body(Map.of("label", "Category-" + UUID.randomUUID()))
                 .when().post("/categories").then().statusCode(201).extract().path("id");
 
@@ -55,31 +67,29 @@ class CategoriesResourceTest {
 
         // then
         response.then().statusCode(200).body("size()", greaterThan(0));
-        given().when().delete("/categories/{id}", id);
     }
 
     @Test
     void updateCategory_existingCategory_returns200WithNewLabel() {
         // given
-        Integer id = given().contentType(ContentType.JSON)
+        createdCategoryId = given().contentType(ContentType.JSON)
                 .body(Map.of("label", "To Be Updated-" + UUID.randomUUID()))
                 .when().post("/categories").then().statusCode(201).extract().path("id");
 
         // when
         var response = given().contentType(ContentType.JSON)
-                .body(Map.of("id", id, "label", "Updated Category Label"))
+                .body(Map.of("id", createdCategoryId, "label", "Updated Category Label"))
                 .when().put("/categories");
 
         // then
         response.then().statusCode(200).body("label", is("Updated Category Label"));
-        given().when().delete("/categories/{id}", id);
     }
 
     @Test
     void searchCategories_exactLabelMatch_returnsSingleResult() {
         // given
         String label = "Searchable-" + UUID.randomUUID();
-        Integer id = given().contentType(ContentType.JSON)
+        createdCategoryId = given().contentType(ContentType.JSON)
                 .body(Map.of("label", label))
                 .when().post("/categories").then().statusCode(201).extract().path("id");
 
@@ -92,14 +102,13 @@ class CategoriesResourceTest {
         response.then().statusCode(200)
                 .body("size()", is(1))
                 .body("[0].label", is(label));
-        given().when().delete("/categories/{id}", id);
     }
 
     @Test
     void createCategory_duplicateLabel_returns400() {
         // given
         String label = "Duplicate-" + UUID.randomUUID();
-        Integer id = given().contentType(ContentType.JSON)
+        createdCategoryId = given().contentType(ContentType.JSON)
                 .body(Map.of("label", label))
                 .when().post("/categories").then().statusCode(201).extract().path("id");
 
@@ -112,7 +121,6 @@ class CategoriesResourceTest {
         response.then().statusCode(400)
                 .body("type", is("FUNCTIONAL"))
                 .body("errorCode", is("CATEGORY_ALREADY_EXISTS"));
-        given().when().delete("/categories/{id}", id);
     }
 
     @Test

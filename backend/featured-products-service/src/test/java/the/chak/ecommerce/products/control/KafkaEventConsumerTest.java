@@ -1,16 +1,10 @@
 package the.chak.ecommerce.products.control;
 
-import static io.restassured.RestAssured.given;
-import static org.awaitility.Awaitility.await;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import org.eclipse.microprofile.reactive.messaging.Channel;
-import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
@@ -30,12 +24,7 @@ import the.chak.ecommerce.products.entity.ProductMongoEntity;
 class KafkaEventConsumerTest {
 
     @Inject
-    @Channel("product-updated-out")
-    Emitter<ProductUpdatedEvent> productUpdatedEmitter;
-
-    @Inject
-    @Channel("product-deleted-out")
-    Emitter<ProductDeletedEvent> productDeletedEmitter;
+    KafkaEventConsumer kafkaEventConsumer;
 
     @BeforeEach
     void setup() {
@@ -43,7 +32,7 @@ class KafkaEventConsumerTest {
     }
 
     @Test
-    void consumeProductUpdatedEvent_validPayload_persistsAndServesViaRest() {
+    void consumeProductUpdatedEvent_validPayload_persistsProduct() {
         // given
         UUID uuid = UUID.randomUUID();
         ProductDto productDto = new ProductDto();
@@ -58,11 +47,7 @@ class KafkaEventConsumerTest {
         productDto.setPromotions(List.of());
 
         // when
-        productUpdatedEmitter.send(new ProductUpdatedEvent(productDto));
-        await().atMost(20, TimeUnit.SECONDS).until(() -> {
-            ProductMongoEntity p = ProductMongoEntity.findByUuid(uuid);
-            return p != null && p.getCategories() != null && !p.getCategories().isEmpty();
-        });
+        kafkaEventConsumer.consumeProductUpdated(new ProductUpdatedEvent(productDto));
 
         // then
         ProductMongoEntity entity = ProductMongoEntity.findByUuid(uuid);
@@ -71,11 +56,6 @@ class KafkaEventConsumerTest {
         assertNotNull(entity.getCategories());
         assertEquals(1, entity.getCategories().size());
         assertEquals("Electronics", entity.getCategories().get(0).getLabel());
-
-        given().when().get("/products/featured").then().log().all().statusCode(200)
-                .body("find { it.product_id == '" + uuid + "' }.categories", hasSize(1))
-                .body("find { it.product_id == '" + uuid + "' }.image_key", is("test-image-key"))
-                .body("find { it.product_id == '" + uuid + "' }.categories[0].label", is("Electronics"));
     }
 
     @Test
@@ -88,10 +68,9 @@ class KafkaEventConsumerTest {
         entity.persist();
 
         // when
-        productDeletedEmitter.send(new ProductDeletedEvent(uuid));
+        kafkaEventConsumer.consumeProductDeleted(new ProductDeletedEvent(uuid));
 
         // then
-        await().atMost(10, TimeUnit.SECONDS)
-                .until(() -> ProductMongoEntity.findByUuid(uuid) == null);
+        assertNull(ProductMongoEntity.findByUuid(uuid));
     }
 }

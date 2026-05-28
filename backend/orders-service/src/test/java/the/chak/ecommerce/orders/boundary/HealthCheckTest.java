@@ -15,10 +15,12 @@ import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
 import the.chak.ecommerce.orders.KafkaTestResource;
 import the.chak.ecommerce.orders.MongoTestResource;
+import the.chak.ecommerce.orders.RedisTestResource;
 
 @QuarkusTest
 @QuarkusTestResource(MongoTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
+@QuarkusTestResource(RedisTestResource.class)
 class HealthCheckTest {
 
     @BeforeAll

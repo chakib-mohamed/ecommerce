@@ -14,7 +14,9 @@ public class StorageTestResource implements QuarkusTestResourceLifecycleManager 
 
     @Override
     public Map<String, String> start() {
-        localstack.start();
+        if (!localstack.isRunning()) {
+            localstack.start();
+        }
         return Map.of(
                 "products.storage.endpoint",
                 localstack.getEndpointOverride(Service.S3).toString(),
@@ -26,6 +28,5 @@ public class StorageTestResource implements QuarkusTestResourceLifecycleManager 
 
     @Override
     public void stop() {
-        localstack.stop();
     }
 }

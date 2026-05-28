@@ -13,13 +13,14 @@ public class RedisTestResource implements QuarkusTestResourceLifecycleManager {
 
     @Override
     public Map<String, String> start() {
-        REDIS.start();
+        if (!REDIS.isRunning()) {
+            REDIS.start();
+        }
         return Map.of("quarkus.redis.hosts",
                 "redis://localhost:" + REDIS.getMappedPort(6379));
     }
 
     @Override
     public void stop() {
-        REDIS.stop();
     }
 }

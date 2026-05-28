@@ -10,11 +10,13 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.products.KafkaTestResource;
+import the.chak.ecommerce.products.StorageTestResource;
 import the.chak.ecommerce.products.control.exceptions.PromotionNotFoundException;
 import the.chak.ecommerce.products.entity.Promotion;
 
 @QuarkusTest
 @QuarkusTestResource(KafkaTestResource.class)
+@QuarkusTestResource(StorageTestResource.class)
 @TestTransaction
 class PromotionServiceTest {
 
