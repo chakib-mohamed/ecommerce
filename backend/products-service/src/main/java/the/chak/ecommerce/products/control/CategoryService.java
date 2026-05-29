@@ -13,6 +13,7 @@ import jakarta.ws.rs.BadRequestException;
 import the.chak.ecommerce.products.boundary.dto.Criteria;
 import the.chak.ecommerce.products.control.exceptions.CategoryAlreadyExistsException;
 import the.chak.ecommerce.products.entity.Category;
+import the.chak.ecommerce.products.repository.CategoryRepository;
 
 @Transactional
 @ApplicationScoped
@@ -23,23 +24,26 @@ public class CategoryService {
     @Inject
     EntityManager em;
 
+    @Inject
+    CategoryRepository categoryRepository;
+
     public Category saveCategory(Category category) {
         if (!findByCriteria(Map.of("label", new Criteria(Criteria.Operator.EQUALS, category.getLabel()))).isEmpty()) {
             throw new CategoryAlreadyExistsException(category.getLabel());
         }
-        category.persist();
+        categoryRepository.persist(category);
         return category;
     }
 
     public void updateCategory(Category category) {
-        var existing = Category.findById(category.id);
+        var existing = categoryRepository.findById(category.id);
         if (existing != null) {
             em.merge(category);
         }
     }
 
     public void deleteCategory(Long categoryID) {
-        Category.deleteById(categoryID);
+        categoryRepository.deleteById(categoryID);
     }
 
     public List<Category> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {
@@ -52,7 +56,7 @@ public class CategoryService {
                     .append(criteria.getOperator().getValue()).append(" :").append(key);
         });
 
-        return Category.find(query.toString(),
+        return categoryRepository.find(query.toString(),
                         params.entrySet().stream().collect(
                                 Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValue())))
                 .page(pageIndex, pageSize)
@@ -69,7 +73,7 @@ public class CategoryService {
                     .append(criteria.getOperator().getValue()).append(" :").append(key);
         });
 
-        return Category.find(query.toString(),
+        return categoryRepository.find(query.toString(),
                         params.entrySet().stream().collect(
                                 Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValue())))
                 .list();

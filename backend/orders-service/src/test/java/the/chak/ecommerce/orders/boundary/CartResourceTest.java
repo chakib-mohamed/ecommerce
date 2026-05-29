@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.control.OrderService;
@@ -24,6 +23,8 @@ import the.chak.ecommerce.orders.entity.CartItem;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.KafkaTestResource;
 import the.chak.ecommerce.orders.MongoTestResource;
+import the.chak.ecommerce.orders.RedisTestResource;
+import the.chak.ecommerce.orders.repository.CartRepository;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -31,10 +32,12 @@ import io.quarkus.test.security.TestSecurity;
 import io.quarkus.test.security.jwt.Claim;
 import io.quarkus.test.security.jwt.JwtSecurity;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
 
 @QuarkusTest
 @QuarkusTestResource(MongoTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
+@QuarkusTestResource(RedisTestResource.class)
 class CartResourceTest {
 
     static final String USER_ID = "test-user-123";
@@ -45,9 +48,12 @@ class CartResourceTest {
     @InjectMock
     OrderService orderService;
 
+    @Inject
+    CartRepository cartRepository;
+
     @BeforeEach
     void cleanup() {
-        Cart.deleteAll();
+        cartRepository.deleteAll();
         when(priceCacheService.getPrice(anyString())).thenReturn(null);
     }
 
@@ -127,7 +133,7 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 3)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
 
         // when
         var response = given().contentType(ContentType.JSON)
@@ -160,7 +166,7 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 3)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
 
         // when
         var response = given().when().get("/cart");
@@ -182,7 +188,7 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 3)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
 
         // when
         var response = given().contentType(ContentType.JSON)
@@ -202,7 +208,7 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 3)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
 
         // when
         var response = given().contentType(ContentType.JSON)
@@ -224,14 +230,14 @@ class CartResourceTest {
                 new CartItem("prod-1", 2),
                 new CartItem("prod-2", 1)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
 
         // when
         var response = given().when().delete("/cart/items/prod-1");
 
         // then
         response.then().statusCode(204);
-        Cart updated = Cart.findByUserId(USER_ID).orElseThrow();
+        Cart updated = cartRepository.findByUserId(USER_ID).orElseThrow();
         assertEquals(1, updated.items.size());
         assertEquals("prod-2", updated.items.get(0).getProductId());
     }
@@ -245,7 +251,7 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 2)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
 
         // when
         var response = given().when().delete("/cart/items/prod-999");
@@ -263,14 +269,14 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 2)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
 
         // when
         var response = given().when().delete("/cart");
 
         // then
         response.then().statusCode(204);
-        assertTrue(Cart.findByUserId(USER_ID).isEmpty());
+        assertTrue(cartRepository.findByUserId(USER_ID).isEmpty());
     }
 
     @Test
@@ -293,7 +299,7 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 3)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
         when(priceCacheService.getPrice("prod-1")).thenReturn(25.0);
 
         // when
@@ -314,7 +320,7 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 2)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
 
         doAnswer(inv -> {
             Order o = inv.getArgument(0);
@@ -330,7 +336,7 @@ class CartResourceTest {
         response.then().statusCode(201)
                 .body("user_id", is(USER_ID))
                 .body("status", is("INITIATED"));
-        assertTrue(Cart.findByUserId(USER_ID).isEmpty());
+        assertTrue(cartRepository.findByUserId(USER_ID).isEmpty());
     }
 
     @Test
@@ -353,7 +359,7 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>();
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
 
         // when
         var response = given().when().post("/cart/checkout");
@@ -371,7 +377,7 @@ class CartResourceTest {
         cart.userId = USER_ID;
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 1)));
         cart.updatedAt = Instant.now();
-        cart.persist();
+        cartRepository.persist(cart);
         doThrow(new RuntimeException("pricing service down")).when(orderService).saveOrder(any());
 
         // when
@@ -379,6 +385,6 @@ class CartResourceTest {
 
         // then
         response.then().statusCode(500).body("type", is("TECHNICAL")).body("error_code", is("INTERNAL_ERROR"));
-        assertTrue(Cart.findByUserId(USER_ID).isPresent());
+        assertTrue(cartRepository.findByUserId(USER_ID).isPresent());
     }
 }

@@ -1,6 +1,7 @@
 package the.chak.ecommerce.products.control;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import the.chak.ecommerce.products.boundary.dto.CategoryDto;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
@@ -10,6 +11,7 @@ import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 import the.chak.ecommerce.products.entity.EmbeddedCategory;
 import the.chak.ecommerce.products.entity.EmbeddedPromotion;
 import the.chak.ecommerce.products.entity.ProductMongoEntity;
+import the.chak.ecommerce.products.repository.ProductMongoRepository;
 
 import java.util.List;
 import java.util.Map;
@@ -20,21 +22,28 @@ public class ProductService {
 
     private static final Logger LOG = Logger.getLogger(ProductService.class);
 
+    @Inject
+    ProductMongoRepository productMongoRepository;
+
     public void onProductUpdated(ProductUpdatedEvent productUpdatedEvent) {
         LOG.debug("onProductUpdated received: " + productUpdatedEvent);
         ProductMongoEntity productMongoEntity =
                 mapProductToProductMongoEntity(productUpdatedEvent.getProduct());
-        productMongoEntity.persistOrUpdate();
+        productMongoRepository.persistOrUpdate(productMongoEntity);
     }
 
     public void onProductDeleted(ProductDeletedEvent productDeletedEvent) {
         LOG.debug("onProductDeleted received: " + productDeletedEvent);
-        ProductMongoEntity.delete("productID= :productID",
+        productMongoRepository.delete("productID = :productID",
                 Map.of("productID", productDeletedEvent.getProductUuid()));
     }
 
+    public List<ProductMongoEntity> listProducts(int pageIndex, int pageSize) {
+        return productMongoRepository.findAll().page(pageIndex, pageSize).list();
+    }
+
     private ProductMongoEntity mapProductToProductMongoEntity(ProductDto product) {
-        ProductMongoEntity productMongoEntity = ProductMongoEntity.findByUuid(product.getUuid());
+        ProductMongoEntity productMongoEntity = productMongoRepository.findByUuid(product.getUuid());
         if (productMongoEntity == null) {
             productMongoEntity = new ProductMongoEntity();
         }

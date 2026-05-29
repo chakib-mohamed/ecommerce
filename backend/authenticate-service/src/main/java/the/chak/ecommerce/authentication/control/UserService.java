@@ -3,32 +3,37 @@ package the.chak.ecommerce.authentication.control;
 import java.util.Optional;
 import org.mindrot.jbcrypt.BCrypt;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import the.chak.ecommerce.authentication.boundary.dto.AuthenticateRequest;
 import the.chak.ecommerce.authentication.control.exceptions.DuplicateEmailException;
 import the.chak.ecommerce.authentication.entity.User;
+import the.chak.ecommerce.authentication.repository.UserRepository;
 
 @ApplicationScoped
 public class UserService {
 
     private static final String DUMMY_HASH = BCrypt.hashpw("dummy", BCrypt.gensalt());
 
+    @Inject
+    UserRepository userRepository;
+
     public Optional<User> authenticateUser(AuthenticateRequest request) {
-        User user = User.find("email", request.getEmail()).firstResult();
-        String hash = user != null ? user.getPassword() : DUMMY_HASH;
+        Optional<User> user = userRepository.findByEmail(request.getEmail());
+        String hash = user.isPresent() ? user.get().getPassword() : DUMMY_HASH;
         boolean matched = BCrypt.checkpw(request.getPassword(), hash);
-        return (user != null && matched) ? Optional.of(user) : Optional.empty();
+        return (user.isPresent() && matched) ? user : Optional.empty();
     }
 
     public Optional<User> findUser(String email) {
-        return Optional.ofNullable(User.find("email", email).firstResult());
+        return userRepository.findByEmail(email);
     }
 
     public User addUser(User user) {
-        if (User.find("email", user.getEmail()).count() > 0) {
+        if (userRepository.countByEmail(user.getEmail()) > 0) {
             throw new DuplicateEmailException(user.getEmail());
         }
         user.setPassword(BCrypt.hashpw(user.getPassword(), BCrypt.gensalt()));
-        user.persist();
+        userRepository.persistOrUpdate(user);
         return user;
     }
 }

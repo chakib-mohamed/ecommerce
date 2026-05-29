@@ -17,6 +17,7 @@ import the.chak.ecommerce.products.boundary.dto.Criteria;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.products.entity.Product;
+import the.chak.ecommerce.products.repository.ProductRepository;
 
 @ApplicationScoped
 public class ProductService {
@@ -30,6 +31,9 @@ public class ProductService {
     EntityManager em;
 
     @Inject
+    ProductRepository productRepository;
+
+    @Inject
     Event<ProductDeletedEvent> productDeletedEvent;
 
     @Inject
@@ -37,13 +41,13 @@ public class ProductService {
 
     @Transactional
     public Optional<Product> getProductWithAssociations(UUID uuid) {
-        var maybeProduct = Product.<Product>find(
+        var maybeProduct = productRepository.<Product>find(
                         "from Product p left join fetch p.promotions where p.uuid = ?1", uuid)
                 .firstResultOptional();
         if (maybeProduct.isEmpty()) return Optional.empty();
         Product product = maybeProduct.get();
         // Second query loads categories via the session cache — avoids MultipleBagFetchException
-        Product.find("from Product p left join fetch p.categories where p.id = ?1", product.id)
+        productRepository.find("from Product p left join fetch p.categories where p.id = ?1", product.id)
                 .firstResult();
         return Optional.of(product);
     }
@@ -66,11 +70,11 @@ public class ProductService {
 
     @Transactional
     void persistProduct(Product product) {
-        product.persist();
+        productRepository.persist(product);
     }
 
     public Product updateProduct(Product product, byte[] imageBytes) {
-        var existing = Product.<Product>find("uuid", product.getUuid()).firstResult();
+        var existing = productRepository.<Product>find("uuid", product.getUuid()).firstResult();
         if (existing == null) {
             throw new ProductNotFoundException(product.getUuid());
         }
@@ -110,17 +114,17 @@ public class ProductService {
 
     @Transactional
     String deleteProductRecord(UUID uuid) {
-        var product = Product.<Product>find("uuid", uuid).firstResult();
+        var product = productRepository.<Product>find("uuid", uuid).firstResult();
         if (product == null) return null;
         String imageKey = product.getImageKey();
-        product.delete();
+        productRepository.delete(product);
         productDeletedEvent.fire(new ProductDeletedEvent(product.getUuid()));
         return imageKey;
     }
 
     @Transactional
     public void updatePrice(String productId, Double newPrice) {
-        Product product = Product.<Product>find("uuid", UUID.fromString(productId)).firstResult();
+        Product product = productRepository.<Product>find("uuid", UUID.fromString(productId)).firstResult();
         if (product == null) {
             LOG.warnf("Price-changed event for unknown product %s — discarding", productId);
             return;
@@ -130,13 +134,13 @@ public class ProductService {
 
     @Transactional
     public List<Product> getProducts(int pageIndex, int pageSize) {
-        List<Product> products = Product
+        List<Product> products = productRepository
                 .<Product>find("from Product p left join fetch p.promotions")
                 .page(pageIndex, pageSize).list();
         if (products.isEmpty()) return List.of();
         // Second query initializes categories via the session cache — avoids MultipleBagFetchException
         List<Long> ids = products.stream().map(p -> p.id).toList();
-        Product.find("from Product p left join fetch p.categories where p.id in ?1", ids).list();
+        productRepository.find("from Product p left join fetch p.categories where p.id in ?1", ids).list();
         return products;
     }
 
@@ -150,7 +154,7 @@ public class ProductService {
                     .append(criteria.getOperator().getValue()).append(" :").append(key);
         });
 
-        return Product
+        return productRepository
                 .find(query.toString(),
                         params.entrySet().stream().collect(
                                 Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValue())))

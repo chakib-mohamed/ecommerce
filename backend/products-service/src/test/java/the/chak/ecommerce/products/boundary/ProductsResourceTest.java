@@ -69,10 +69,12 @@ class ProductsResourceTest {
     @Test
     void getProduct_existingProduct_returnsAllFields() {
         // given
-        createdProductUuid = given().contentType(ContentType.JSON)
+        var createResponse = given().contentType(ContentType.JSON)
                 .body(Map.of("title", "Get Test Product", "description", "desc",
                         "price", 10.0, "image", BASE64_IMAGE))
-                .when().post("/products").then().statusCode(201).extract().path("uuid");
+                .when().post("/products");
+        
+        createdProductUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when
         var response = given().when().get("/products/{id}", createdProductUuid);
@@ -91,10 +93,12 @@ class ProductsResourceTest {
     @Test
     void listProducts_withExistingProduct_returnsNonEmptyList() {
         // given
-        createdProductUuid = given().contentType(ContentType.JSON)
+        var createResponse = given().contentType(ContentType.JSON)
                 .body(Map.of("title", "List Test Product", "description", "desc",
                         "price", 5.0, "image", BASE64_IMAGE))
-                .when().post("/products").then().statusCode(201).extract().path("uuid");
+                .when().post("/products");
+        
+        createdProductUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when
         var response = given().when().get("/products");
@@ -106,10 +110,12 @@ class ProductsResourceTest {
     @Test
     void deleteProduct_existingProduct_removesProduct() {
         // given
-        String productUuid = given().contentType(ContentType.JSON)
+        var createResponse = given().contentType(ContentType.JSON)
                 .body(Map.of("title", "Delete Test Product", "description", "desc",
                         "price", 5.0, "image", BASE64_IMAGE))
-                .when().post("/products").then().statusCode(201).extract().path("uuid");
+                .when().post("/products");
+        
+        String productUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when
         var response = given().when().delete("/products/{id}", productUuid);
@@ -122,10 +128,12 @@ class ProductsResourceTest {
     @Test
     void updateProduct_existingProduct_returns200WithUpdatedFields() {
         // given
-        createdProductUuid = given().contentType(ContentType.JSON)
+        var createResponse = given().contentType(ContentType.JSON)
                 .body(Map.of("title", "To Be Updated", "description", "Original description",
                         "price", 10.0, "image", BASE64_IMAGE))
-                .when().post("/products").then().statusCode(201).extract().path("uuid");
+                .when().post("/products");
+        
+        createdProductUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when
         var response = given().contentType(ContentType.JSON)
@@ -137,6 +145,7 @@ class ProductsResourceTest {
         response.then().statusCode(200)
                 .body("title", is("Updated Title"))
                 .body("price", is(20.0f));
+        
         given().when().get("/products/{id}", createdProductUuid).then().statusCode(200)
                 .body("title", is("Updated Title"))
                 .body("price", is(20.0f));
@@ -146,9 +155,11 @@ class ProductsResourceTest {
     void searchProducts_exactTitleMatch_returnsSingleResult() {
         // given
         String title = "Searchable Product " + UUID.randomUUID();
-        createdProductUuid = given().contentType(ContentType.JSON)
+        var createResponse = given().contentType(ContentType.JSON)
                 .body(Map.of("title", title, "description", "Searchable description", "price", 50.0))
-                .when().post("/products").then().statusCode(201).extract().path("uuid");
+                .when().post("/products");
+        
+        createdProductUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when
         var response = given().contentType(ContentType.JSON)

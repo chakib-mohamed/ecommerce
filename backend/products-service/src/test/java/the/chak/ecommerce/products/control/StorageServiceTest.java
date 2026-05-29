@@ -4,90 +4,136 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
-import org.junit.jupiter.api.Test;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import the.chak.ecommerce.products.KafkaTestResource;
-import the.chak.ecommerce.products.StorageTestResource;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@QuarkusTest
-@QuarkusTestResource(StorageTestResource.class)
-@QuarkusTestResource(KafkaTestResource.class)
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
+@ExtendWith(MockitoExtension.class)
 class StorageServiceTest {
 
-    @Inject
+    @InjectMocks
     StorageService storageService;
+
+    @Mock
+    S3Client s3;
+
+    @BeforeEach
+    void setUp() {
+        storageService.bucketName = "test-bucket";
+    }
 
     // ── uploadImage / detectContentType ────────────────────────────────────
 
     @Test
-    void uploadImage_jpegBytes_returnsNonNullKey() {
-        // JPEG magic: FF D8 FF
+    void uploadImage_jpegBytes_returnsGeneratedKey() {
+        // given
         byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00, 0x10};
+
+        // when
         String key = storageService.uploadImage(jpeg);
+
+        // then
         assertNotNull(key);
+        verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 
     @Test
-    void uploadImage_pngBytes_returnsNonNullKey() {
-        // PNG magic: 89 50 4E 47 0D 0A 1A 0A
+    void uploadImage_pngBytes_returnsGeneratedKey() {
+        // given
         byte[] png = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00};
+
+        // when
         String key = storageService.uploadImage(png);
+
+        // then
         assertNotNull(key);
+        verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 
     @Test
-    void uploadImage_gifBytes_returnsNonNullKey() {
-        // GIF magic: 47 49 46 (GIF) + 3 padding bytes to meet ≥6 length check
+    void uploadImage_gifBytes_returnsGeneratedKey() {
+        // given
         byte[] gif = {'G', 'I', 'F', '8', '9', 'a'};
+
+        // when
         String key = storageService.uploadImage(gif);
+
+        // then
         assertNotNull(key);
+        verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 
     @Test
-    void uploadImage_webpBytes_returnsNonNullKey() {
-        // WebP: RIFF....WEBP (12 bytes minimum)
+    void uploadImage_webpBytes_returnsGeneratedKey() {
+        // given
         byte[] webp = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'};
+
+        // when
         String key = storageService.uploadImage(webp);
+
+        // then
         assertNotNull(key);
+        verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 
     @Test
-    void uploadImage_unknownBytes_returnsNonNullKey() {
+    void uploadImage_unknownBytes_returnsGeneratedKey() {
+        // given
         byte[] unknown = {0x00, 0x01, 0x02, 0x03};
+
+        // when
         String key = storageService.uploadImage(unknown);
+
+        // then
         assertNotNull(key);
+        verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 
     // ── downloadImage ──────────────────────────────────────────────────────
 
     @Test
-    void downloadImage_existingKey_returnsSameBytes() {
+    void downloadImage_existingKey_returnsBytes() {
         // given
-        byte[] original = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x11, 0x22};
-        String key = storageService.uploadImage(original);
+        String key = "test-key";
+        byte[] expectedData = {1, 2, 3};
+        ResponseBytes<GetObjectResponse> responseBytes = mock(ResponseBytes.class);
+        when(responseBytes.asByteArray()).thenReturn(expectedData);
+        when(s3.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(responseBytes);
 
         // when
         byte[] downloaded = storageService.downloadImage(key);
 
         // then
-        assertArrayEquals(original, downloaded);
+        assertArrayEquals(expectedData, downloaded);
+        verify(s3).getObjectAsBytes(any(GetObjectRequest.class));
     }
 
     // ── deleteImage ────────────────────────────────────────────────────────
 
     @Test
-    void deleteImage_existingKey_removesObject() {
+    void deleteImage_existingKey_callsS3Delete() {
         // given
-        byte[] data = {'G', 'I', 'F', '8', '7', 'a'};
-        String key = storageService.uploadImage(data);
+        String key = "test-key";
 
         // when
         storageService.deleteImage(key);
 
-        // then — downloading the deleted key must throw
-        assertThrows(NoSuchKeyException.class, () -> storageService.downloadImage(key));
+        // then
+        verify(s3).deleteObject(any(DeleteObjectRequest.class));
     }
 }

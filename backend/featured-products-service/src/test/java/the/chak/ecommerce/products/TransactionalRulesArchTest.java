@@ -22,7 +22,7 @@ class TransactionalRulesArchTest {
         noClasses()
                 .that().resideInAPackage("..boundary..")
                 .should().beAnnotatedWith("jakarta.transaction.Transactional")
-                .as("@Transactional must not appear on boundary classes — use control layer")
+                .as("@Transactional must not appear on boundary classes - use control layer")
                 .allowEmptyShould(true)
                 .check(classes);
     }
@@ -32,7 +32,7 @@ class TransactionalRulesArchTest {
         noClasses()
                 .that().resideInAPackage("..entity..")
                 .should().beAnnotatedWith("jakarta.transaction.Transactional")
-                .as("@Transactional must not appear on entity classes — use control layer")
+                .as("@Transactional must not appear on entity classes - use control layer")
                 .allowEmptyShould(true)
                 .check(classes);
     }
@@ -42,7 +42,7 @@ class TransactionalRulesArchTest {
         noMethods()
                 .that().areDeclaredInClassesThat().resideInAPackage("..boundary..")
                 .should().beAnnotatedWith("jakarta.transaction.Transactional")
-                .as("@Transactional must not appear on boundary methods — use control layer")
+                .as("@Transactional must not appear on boundary methods - use control layer")
                 .allowEmptyShould(true)
                 .check(classes);
     }
@@ -52,7 +52,7 @@ class TransactionalRulesArchTest {
         noMethods()
                 .that().areDeclaredInClassesThat().resideInAPackage("..entity..")
                 .should().beAnnotatedWith("jakarta.transaction.Transactional")
-                .as("@Transactional must not appear on entity methods — use control layer")
+                .as("@Transactional must not appear on entity methods - use control layer")
                 .allowEmptyShould(true)
                 .check(classes);
     }

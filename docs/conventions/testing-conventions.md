@@ -60,14 +60,19 @@ Test classes are package-private (no `public`).
 
 ## Coverage
 
-Every class named `*Service` in a `control/` package must have **100% line coverage**.
-JaCoCo enforces this at `mvn verify` — the build fails if any line in a matching class is uncovered.
+Two class groups must have **100% branch coverage**:
+- `control/*Service`
+- `boundary/*Resource` and `boundary/*Controller`
 
-**In scope** (caught by the `*Service` name pattern):
+JaCoCo enforces this at `mvn verify` (the `check` rule in `backend/pom.xml`, `BRANCH` counter at
+`1.0`) — the build fails if any branch in a matching class is uncovered.
+
+**In scope** (caught by the name patterns):
 - Domain services: `UserService`, `CartService`, `OrderService`, `PriceService`, `ApplyPromotionsService`, etc.
 - Infrastructure services that follow the `*Service` naming convention: `StorageService`, `PriceCacheService`, etc.
+- REST endpoints: `*Resource` and `*Controller` classes in `boundary/`.
 
-**Out of scope** (not named `*Service`):
+**Out of scope** (not matched by the patterns):
 - Kafka producers/consumers: `KafkaEventPublisher`, `KafkaEventConsumer`, `PriceChangedConsumer`
 - REST clients: `ProductsApiClient`, `PricingApiClient`
 - Initializers: `CartIndexInitializer`, `PriceIndexInitializer`
@@ -77,67 +82,57 @@ When a public method cannot be covered without excessive test complexity (e.g. a
 
 ## Control Layer Unit Tests
 
-**Rule**: Control-layer services (`*Service` in `control/` packages) must use **plain JUnit 5 + Mockito unit tests**, not `@QuarkusTest`. This avoids container spin-up overhead and keeps unit tests focused on business logic.
+**Rule**: Control-layer services (`*Service` in `control/` packages) must use **plain JUnit 5 + Mockito unit tests**, not `@QuarkusTest`. This avoids container spin-up overhead and keeps unit tests focused on business logic. Enforced by `ControlTestRulesArchTest` (ArchUnit) in every service — a `@QuarkusTest` on a `control/*ServiceTest` fails the build.
 
 ### Test Setup Pattern
 
-Use `@ExtendWith(MockitoExtension.class)` instead of Quarkus test annotations:
+Use `@ExtendWith(MockitoExtension.class)` instead of Quarkus test annotations. Inject the service
+with `@InjectMocks` and its collaborators with `@Mock`:
 
 ```java
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
-    @InjectMocks
-    UserService sut;
-
     @Mock
-    EntityManager em;
+    UserRepository userRepository;
 
-    MockedStatic<User> mockedUser;
+    @InjectMocks
+    UserService userService;
 
-    @BeforeEach
-    void setUp() {
-        mockedUser = mockStatic(User.class);
-    }
+    @Test
+    void addUser_newEmail_hashesPasswordAndPersists() {
+        // given
+        User user = new User();
+        user.email = "test@example.com";
+        user.password = "password123";
+        when(userRepository.countByEmail(user.email)).thenReturn(0L);
 
-    @AfterEach
-    void teardown() {
-        mockedUser.close();
+        // when
+        User result = userService.addUser(user);
+
+        // then
+        assertTrue(BCrypt.checkpw("password123", result.password));
+        verify(userRepository).persistOrUpdate(user);
     }
 }
 ```
 
-### Mocking Panache Queries
+### Mocking Panache Data Access
 
-For services using Panache (MongoDB or JPA), mock static query methods with `MockedStatic`:
-
-```java
-// Mock a Panache query
-PanacheQuery<User> query = mock(PanacheQuery.class);
-when(query.list()).thenReturn(List.of(user));
-mockedUser.when(() -> User.find(anyString(), any(Map.class))).thenReturn(query);
-```
+Panache data access goes through an injected `*Repository` bean (`UserRepository`,
+`OrderRepository`, `CartRepository`, …), not static entity methods. Mock the repository like any
+other collaborator — stub its query methods with `when(...)` and assert writes with `verify(...)`.
+No `MockedStatic` is needed.
 
 ### When to Keep Integration Tests
 
-**Boundary tests** (`*ResourceTest` in `boundary/` packages) stay as `@QuarkusTest` integration tests because they:
-- Test full HTTP stack behavior
-- Require real database state
-- Verify API contracts end-to-end
+**Boundary tests** (`*ResourceTest` in `boundary/` packages) stay as `@QuarkusTest` integration
+tests — they exercise the full HTTP stack, real database state, and end-to-end API contracts.
+Testcontainers (and the Kafka test resource) apply to these tests only; see `backend/CLAUDE.md`
+for the infrastructure rules.
 
-**Keep Testcontainers only for**:
-- Boundary/resource tests (REST API validation)
-- Kafka consumer integration tests
-- Health check and probe tests
-
-### Rationale
-
-- **Speed**: Unit tests run in milliseconds; integration tests take seconds per service
-- **Isolation**: Mock external dependencies; test service logic in isolation
-- **Repeatability**: No container state pollution between test runs
-- **Cost**: Reduces Docker load during parallel test runs (no Testcontainers per unit test)
-
-Example: A service with 10 unit tests runs 10ms total vs. 100s with `@QuarkusTest` (containers + startup overhead).
+**Rationale**: control unit tests run in-process in milliseconds with no container spin-up, and
+mock collaborators to test business logic in isolation without cross-run container state.
 
 ### Exception: Zero-Dependency Services
 
@@ -151,3 +146,33 @@ void setUp() {
 ```
 
 No mocking framework needed for stateless calculation services.
+
+## QuarkusTest Performance: One Application Boot Per Service
+
+Quarkus reuses a single running application across all `@QuarkusTest` classes — **but only while
+the test configuration is identical**. A class that declares a different set of
+`@QuarkusTestResource`s, adds a `@TestProfile`, or overrides config forces Quarkus to shut down and
+restart the application. Each restart costs seconds, and restarts are the dominant cost of the suite.
+
+**Rule**: within a service, every `@QuarkusTest` class must use the **identical** set of
+`@QuarkusTestResource`s — the full union the service needs (e.g. `MongoTestResource` +
+`KafkaTestResource`). Declare that same set on every `@QuarkusTest` class, even one that exercises
+only part of it. Never give one class a subset and another a superset — that mismatch alone forces
+an extra boot.
+
+```java
+// bad — different resource sets across classes → Quarkus restarts between them
+@QuarkusTest @QuarkusTestResource(MongoTestResource.class) @QuarkusTestResource(KafkaTestResource.class)
+class OrdersResourceTest { }
+
+@QuarkusTest @QuarkusTestResource(MongoTestResource.class) @QuarkusTestResource(KafkaTestResource.class)
+@QuarkusTestResource(RedisTestResource.class)   // extra resource → second boot
+class HealthCheckTest { }
+```
+
+To keep the set identical in one place, centralize it: a shared abstract base class carrying the
+`@QuarkusTestResource` annotations that every `@QuarkusTest` extends, or a custom meta-annotation
+(`@QuarkusTest` + the resources) applied to each class. The set then changes once, not per file.
+
+Avoid `@TestProfile` and per-class config overrides unless a scenario genuinely needs a different
+configuration — an isolated profile is a deliberate extra app boot, not a default.

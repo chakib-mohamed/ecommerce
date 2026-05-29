@@ -17,6 +17,7 @@ import the.chak.ecommerce.products.boundary.dto.ProductDto;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 import the.chak.ecommerce.products.entity.ProductMongoEntity;
+import the.chak.ecommerce.products.repository.ProductMongoRepository;
 
 @QuarkusTest
 @QuarkusTestResource(MongoDbTestResource.class)
@@ -26,9 +27,12 @@ class KafkaEventConsumerTest {
     @Inject
     KafkaEventConsumer kafkaEventConsumer;
 
+    @Inject
+    ProductMongoRepository productMongoRepository;
+
     @BeforeEach
     void setup() {
-        ProductMongoEntity.deleteAll();
+        productMongoRepository.deleteAll();
     }
 
     @Test
@@ -50,7 +54,7 @@ class KafkaEventConsumerTest {
         kafkaEventConsumer.consumeProductUpdated(new ProductUpdatedEvent(productDto));
 
         // then
-        ProductMongoEntity entity = ProductMongoEntity.findByUuid(uuid);
+        ProductMongoEntity entity = productMongoRepository.findByUuid(uuid);
         assertNotNull(entity);
         assertEquals("test-image-key", entity.getImage());
         assertNotNull(entity.getCategories());
@@ -65,12 +69,12 @@ class KafkaEventConsumerTest {
         ProductMongoEntity entity = new ProductMongoEntity();
         entity.setProductID(uuid);
         entity.setDescription("Delete Me");
-        entity.persist();
+        productMongoRepository.persist(entity);
 
         // when
         kafkaEventConsumer.consumeProductDeleted(new ProductDeletedEvent(uuid));
 
         // then
-        assertNull(ProductMongoEntity.findByUuid(uuid));
+        assertNull(productMongoRepository.findByUuid(uuid));
     }
 }

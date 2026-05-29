@@ -4,58 +4,68 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import io.quarkus.test.InjectMock;
-import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
-import org.junit.jupiter.api.BeforeEach;
+import io.quarkus.mongodb.panache.PanacheQuery;
 import org.junit.jupiter.api.Test;
-import the.chak.ecommerce.pricing.KafkaTestResource;
-import the.chak.ecommerce.pricing.MongoDbTestResource;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import the.chak.ecommerce.pricing.control.events.PriceChangedEvent;
 import the.chak.ecommerce.pricing.control.exceptions.InvalidPriceException;
 import the.chak.ecommerce.pricing.entity.Price;
+import the.chak.ecommerce.pricing.repository.PriceRepository;
 
-@QuarkusTest
-@QuarkusTestResource(MongoDbTestResource.class)
-@QuarkusTestResource(KafkaTestResource.class)
+@ExtendWith(MockitoExtension.class)
 class PriceServiceTest {
 
-    @Inject
+    @InjectMocks
     PriceService priceService;
 
-    @InjectMock
+    @Mock
     KafkaPriceEventPublisher publisher;
 
-    @BeforeEach
-    void cleanup() {
-        Price.deleteAll();
-    }
+    @Mock
+    PriceRepository priceRepository;
 
-    // ── update validation ──────────────────────────────────────────────────
+    // -- update validation --------
 
     @Test
     void update_nullPrice_throwsInvalidPriceException() {
+        // given
+
+        // when & then
         assertThrows(InvalidPriceException.class, () -> priceService.update("prod-1", null));
     }
 
     @Test
     void update_zeroPrice_throwsInvalidPriceException() {
+        // given
+
+        // when & then
         assertThrows(InvalidPriceException.class, () -> priceService.update("prod-1", 0.0));
     }
 
     @Test
     void update_negativePrice_throwsInvalidPriceException() {
+        // given
+
+        // when & then
         assertThrows(InvalidPriceException.class, () -> priceService.update("prod-1", -5.0));
     }
 
-    // ── update persistence ─────────────────────────────────────────────────
+    // -- update persistence --------
 
     @Test
     void update_newProductId_createsEntityAndPublishesEvent() {
         // given
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResult()).thenReturn(null);
+        when(priceRepository.find("productId", "prod-new")).thenReturn(query);
+
         // when
         Price result = priceService.update("prod-new", 25.0);
 
@@ -63,21 +73,29 @@ class PriceServiceTest {
         assertNotNull(result);
         assertEquals("prod-new", result.productId);
         assertEquals(25.0, result.price, 0.001);
-        assertEquals(1L, Price.count());
+        verify(priceRepository).persistOrUpdate(any(Price.class));
         verify(publisher).publish(any(PriceChangedEvent.class));
     }
 
     @Test
     void update_existingProductId_updatesEntityAndPublishesEvent() {
-        // given — create initial entry
-        priceService.update("prod-exist", 10.0);
+        // given
+        Price existingPrice = new Price();
+        existingPrice.productId = "prod-exist";
+        existingPrice.price = 10.0;
 
-        // when — update the same product
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResult()).thenReturn(existingPrice);
+        when(priceRepository.find("productId", "prod-exist")).thenReturn(query);
+
+        // when
         Price result = priceService.update("prod-exist", 20.0);
 
-        // then — still one document, price updated
+        // then
+        assertNotNull(result);
+        assertEquals("prod-exist", result.productId);
         assertEquals(20.0, result.price, 0.001);
-        assertEquals(1L, Price.count());
-        verify(publisher, org.mockito.Mockito.times(2)).publish(any(PriceChangedEvent.class));
+        verify(priceRepository).persistOrUpdate(any(Price.class));
+        verify(publisher).publish(any(PriceChangedEvent.class));
     }
 }

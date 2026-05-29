@@ -1,6 +1,5 @@
 package the.chak.ecommerce.products.entity;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -13,7 +12,11 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-public class Product extends PanacheEntity {
+public class Product {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
 
     private UUID uuid;
     private String description;

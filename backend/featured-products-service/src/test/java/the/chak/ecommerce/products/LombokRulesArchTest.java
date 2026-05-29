@@ -22,7 +22,7 @@ class LombokRulesArchTest {
         // given
         ArchRule rule = noClasses()
                 .should().beAnnotatedWith("lombok.Data")
-                .as("@Data is banned — use @Getter/@Setter explicitly per class type")
+                .as("@Data is banned - use @Getter/@Setter explicitly per class type")
                 .allowEmptyShould(true);
 
         // then
@@ -61,7 +61,7 @@ class LombokRulesArchTest {
         ArchRule rule = noClasses()
                 .that().haveSimpleNameEndingWith("Config")
                 .should().beAnnotatedWith("lombok.Setter")
-                .as("Config beans must be immutable after injection — no @Setter allowed")
+                .as("Config beans must be immutable after injection - no @Setter allowed")
                 .allowEmptyShould(true);
 
         // then
@@ -74,7 +74,7 @@ class LombokRulesArchTest {
         ArchRule rule = noClasses()
                 .that().areAssignableTo(io.quarkus.mongodb.panache.PanacheMongoEntity.class)
                 .should().beAnnotatedWith("lombok.Getter")
-                .as("Panache MongoDB entities use public fields — Lombok @Getter is redundant")
+                .as("Panache MongoDB entities use public fields - Lombok @Getter is redundant")
                 .allowEmptyShould(true);
 
         // then
@@ -87,7 +87,7 @@ class LombokRulesArchTest {
         ArchRule rule = noClasses()
                 .that().areAssignableTo(io.quarkus.mongodb.panache.PanacheMongoEntity.class)
                 .should().beAnnotatedWith("lombok.Setter")
-                .as("Panache MongoDB entities use public fields — Lombok @Setter is redundant")
+                .as("Panache MongoDB entities use public fields - Lombok @Setter is redundant")
                 .allowEmptyShould(true);
 
         // then

@@ -89,3 +89,11 @@ Each task in `docs/tasks/` must be implemented in its own dedicated Claude Code 
 ## Branch Naming
 
 Use `feature/`, `fix/`, or `chore/` prefixes — e.g., `feature/add-cart`, `fix/auth-token-refresh`, `chore/update-deps`.
+
+## Git Push Policy
+
+**Never push to a remote without explicit user approval.** `git push` (and any push-equivalent such as `git push --force`, `gh pr merge`, or creating/pushing a PR branch) is always a manual, user-approved step.
+
+- Do not push automatically after committing, even when the user approved the commit — committing and pushing are separate approvals.
+- When work is ready to push, stop and ask; state the branch and remote, and wait for an explicit go-ahead.
+- Approval for one push does not carry over to later pushes — ask each time.

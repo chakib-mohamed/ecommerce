@@ -29,6 +29,9 @@ public class OrderService {
     @RestClient
     PricingApiClient pricingApiClient;
 
+    @Inject
+    the.chak.ecommerce.orders.repository.OrderRepository orderRepository;
+
     public Order saveOrder(Order order) {
         order.setCreationDate(LocalDateTime.now());
         order.setStatus(OrderStatus.INITIATED);
@@ -61,7 +64,7 @@ public class OrderService {
         PricingResult result = pricingApiClient.calculatePrice(pricingOrder).readEntity(PricingResult.class);
         order.setPrice(result.getOrder().getPrice());
         order.setProcessID(result.getId());
-        order.persist();
+        orderRepository.persist(order);
         return order;
     }
 
@@ -81,7 +84,7 @@ public class OrderService {
             params.put("userID", searchOrdersCommand.getUserID());
         }
 
-        var panacheQuery = Order.find(query, params);
+        var panacheQuery = orderRepository.find(query, params);
 
         if (searchOrdersCommand.getLimit() != null && searchOrdersCommand.getOffset() != null) {
             panacheQuery
@@ -96,12 +99,24 @@ public class OrderService {
     }
 
     public Order confirmOrder(String orderId) {
-        Order order = Order.findById(new org.bson.types.ObjectId(orderId));
+        Order order = orderRepository.findById(new org.bson.types.ObjectId(orderId));
         if (order == null) {
             return null;
         }
         order.setStatus(OrderStatus.CONFIRMED);
-        order.update();
+        orderRepository.persistOrUpdate(order);
         return order;
+    }
+
+    public Optional<Order> findById(String orderId) {
+        return Optional.ofNullable(orderRepository.findById(new org.bson.types.ObjectId(orderId)));
+    }
+
+    public void updateOrder(Order order) {
+        orderRepository.persistOrUpdate(order);
+    }
+
+    public void deleteOrder(Order order) {
+        orderRepository.delete(order);
     }
 }

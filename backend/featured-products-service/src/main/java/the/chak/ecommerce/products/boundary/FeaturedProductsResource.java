@@ -9,12 +9,15 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import the.chak.ecommerce.products.boundary.dto.ProductMongoEntityDto;
 import the.chak.ecommerce.products.boundary.mapper.ProductMapper;
-import the.chak.ecommerce.products.entity.ProductMongoEntity;
+import the.chak.ecommerce.products.control.ProductService;
 
 import java.util.List;
 
 @Path("/products/featured")
 public class FeaturedProductsResource {
+
+    @Inject
+    ProductService productService;
 
     @Inject
     ProductMapper productMapper;
@@ -25,8 +28,7 @@ public class FeaturedProductsResource {
             @QueryParam("pageIndex") @DefaultValue("0") int pageIndex,
             @QueryParam("pageSize") @DefaultValue("10") int pageSize) {
 
-        return ProductMongoEntity.<ProductMongoEntity>findAll()
-                .page(pageIndex, pageSize).list()
+        return productService.listProducts(pageIndex, pageSize)
                 .stream().map(productMapper::toDto).toList();
     }
 }

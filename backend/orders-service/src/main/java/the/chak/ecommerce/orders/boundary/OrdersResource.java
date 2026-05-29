@@ -2,7 +2,6 @@ package the.chak.ecommerce.orders.boundary;
 
 import static java.util.stream.Collectors.toList;
 import java.util.List;
-import org.bson.types.ObjectId;
 import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
@@ -49,44 +48,47 @@ public class OrdersResource implements OrdersApi {
     }
 
     public Response updateOrder(OrderRequest orderRequest) {
-        Order existing = Order.findById(new ObjectId(orderRequest.getId()));
-        if (existing == null) {
+        var existing = orderService.findById(orderRequest.getId());
+        if (existing.isEmpty()) {
             return Response.status(404).build();
         }
-        String userId = sec.getUserPrincipal().getName();
-        if (!userId.equals(existing.getUserID())) {
-            return Response.status(Response.Status.FORBIDDEN).build();
-        }
-        orderMapper.updateOrderFromRequest(orderRequest, existing);
-        existing.update();
-        return Response.ok(existing).status(200).build();
-    }
-
-    public Response deleteOrder(String orderID) {
-        Order order = Order.findById(new ObjectId(orderID));
-        if (order == null) {
-            return Response.status(404).build();
-        }
+        Order order = existing.get();
         String userId = sec.getUserPrincipal().getName();
         if (!userId.equals(order.getUserID())) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
-        order.delete();
-        return Response.ok().status(200).build();
+        orderMapper.updateOrderFromRequest(orderRequest, order);
+        orderService.updateOrder(order);
+        return Response.ok(order).status(200).build();
     }
 
-    public Response confirmOrder(String orderID) {
-        Order existing = Order.findById(new ObjectId(orderID));
-        if (existing == null) {
+    public Response deleteOrder(String orderID) {
+        var order = orderService.findById(orderID);
+        if (order.isEmpty()) {
             return Response.status(404).build();
         }
+        Order existing = order.get();
         String userId = sec.getUserPrincipal().getName();
         if (!userId.equals(existing.getUserID())) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
-        Order order = orderService.confirmOrder(orderID);
-        OrderDTO orderDTO = orderMapper.orderToOrderDto(order);
+        orderService.deleteOrder(existing);
+        return Response.ok().status(200).build();
+    }
+
+    public Response confirmOrder(String orderID) {
+        var existing = orderService.findById(orderID);
+        if (existing.isEmpty()) {
+            return Response.status(404).build();
+        }
+        Order order = existing.get();
+        String userId = sec.getUserPrincipal().getName();
+        if (!userId.equals(order.getUserID())) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+        Order confirmed = orderService.confirmOrder(orderID);
+        OrderDTO orderDTO = orderMapper.orderToOrderDto(confirmed);
         orderEmitter.send(orderDTO);
-        return Response.ok(order).status(200).build();
+        return Response.ok(confirmed).status(200).build();
     }
 }

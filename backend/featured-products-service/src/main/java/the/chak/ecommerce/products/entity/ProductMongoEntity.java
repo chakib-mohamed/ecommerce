@@ -2,14 +2,16 @@ package the.chak.ecommerce.products.entity;
 
 import java.util.List;
 import java.util.UUID;
-import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import io.quarkus.mongodb.panache.common.MongoEntity;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import org.bson.types.ObjectId;
 
-@Data
-@lombok.EqualsAndHashCode(callSuper = true)
+@Getter
+@Setter
 @MongoEntity(collection = "product")
-public class ProductMongoEntity extends PanacheMongoEntity {
+public class ProductMongoEntity {
+    public ObjectId id;
     private UUID productID;
     private String description;
     private String image;
@@ -18,8 +20,4 @@ public class ProductMongoEntity extends PanacheMongoEntity {
 
     private List<EmbeddedPromotion> promotions;
     private List<EmbeddedCategory> categories;
-
-    public static ProductMongoEntity findByUuid(UUID productID) {
-        return find("productID", productID).firstResult();
-    }
 }

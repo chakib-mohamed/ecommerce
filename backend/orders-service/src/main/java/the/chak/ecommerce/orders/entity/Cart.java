@@ -1,20 +1,16 @@
 package the.chak.ecommerce.orders.entity;
 
-import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import io.quarkus.mongodb.panache.common.MongoEntity;
+import org.bson.types.ObjectId;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @MongoEntity(collection = "carts")
-public class Cart extends PanacheMongoEntity {
+public class Cart {
+    public ObjectId id;
     public String userId;
     public List<CartItem> items = new ArrayList<>();
     public Instant updatedAt;
-
-    public static Optional<Cart> findByUserId(String userId) {
-        return find("userId", userId).firstResultOptional();
-    }
 }

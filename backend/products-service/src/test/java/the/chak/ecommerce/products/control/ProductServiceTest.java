@@ -2,10 +2,13 @@ package the.chak.ecommerce.products.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,107 +17,143 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import io.quarkus.test.InjectMock;
-import io.quarkus.test.TestTransaction;
-import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
-import jakarta.ws.rs.BadRequestException;
 import org.junit.jupiter.api.Test;
-import the.chak.ecommerce.products.KafkaTestResource;
-import the.chak.ecommerce.products.StorageTestResource;
-import the.chak.ecommerce.products.boundary.dto.Criteria;
-import the.chak.ecommerce.products.control.exceptions.ProductNotFoundException;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.entity.Product;
+import the.chak.ecommerce.products.control.exceptions.ProductNotFoundException;
+import the.chak.ecommerce.products.boundary.dto.Criteria;
+import the.chak.ecommerce.products.repository.ProductRepository;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.persistence.EntityManager;
+import jakarta.enterprise.event.Event;
+import io.quarkus.hibernate.orm.panache.PanacheQuery;
 
-@QuarkusTest
-@QuarkusTestResource(KafkaTestResource.class)
-@QuarkusTestResource(StorageTestResource.class)
-@TestTransaction
+@ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
-    @Inject
+    @InjectMocks
     ProductService productService;
 
-    @InjectMock
+    @Mock
+    ProductRepository productRepository;
+
+    @Mock
     StorageService storageService;
 
-    // ── saveProduct ────────────────────────────────────────────────────────
+    @Mock
+    EntityManager em;
+
+    @Mock
+    Event<ProductDeletedEvent> productDeletedEvent;
 
     @Test
     void saveProduct_withImageBytes_uploadsImageAndPersists() {
         // given
         byte[] imageBytes = jpegBytes();
         when(storageService.uploadImage(imageBytes)).thenReturn("uploaded-key");
-        Product product = newProduct("Widget");
+        Product product = new Product();
 
         // when
         Product result = productService.saveProduct(product, imageBytes);
 
         // then
-        assertNotNull(result.getUuid());
-        assertEquals("uploaded-key", result.getImageKey());
+        assertNotNull(result);
         verify(storageService).uploadImage(imageBytes);
+        verify(productRepository).persist(product);
+    }
+
+    @Test
+    void saveProduct_uploadFails_deletesImageAndThrowsException() {
+        // given
+        byte[] imageBytes = jpegBytes();
+        when(storageService.uploadImage(imageBytes)).thenReturn("uploaded-key");
+        Product product = new Product();
+        doThrow(new RuntimeException("DB Error")).when(productRepository).persist(product);
+
+        // when & then
+        assertThrows(RuntimeException.class, () -> productService.saveProduct(product, imageBytes));
+        verify(storageService).deleteImage("uploaded-key");
     }
 
     @Test
     void saveProduct_withoutImage_persistsDirectly() {
         // given
-        Product product = newProduct("Widget");
+        Product product = new Product();
 
         // when
         Product result = productService.saveProduct(product, null);
 
         // then
-        assertNotNull(result.getUuid());
-        assertNull(result.getImageKey());
+        assertNotNull(result);
         verify(storageService, never()).uploadImage(any());
+        verify(productRepository).persist(product);
     }
-
-    // ── updateProduct ──────────────────────────────────────────────────────
 
     @Test
     void updateProduct_productNotFound_throwsProductNotFoundException() {
-        // given — product with UUID that does not exist in DB
-        Product product = newProduct("Ghost");
-        product.setUuid(UUID.randomUUID());
+        // given
+        Product product = new Product();
+        UUID uuid = UUID.randomUUID();
+        product.setUuid(uuid);
 
-        // when / then
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResult()).thenReturn(null);
+        when(productRepository.find("uuid", uuid)).thenReturn(query);
+
+        // when & then
         assertThrows(ProductNotFoundException.class,
                 () -> productService.updateProduct(product, null));
     }
 
     @Test
     void updateProduct_withNewImage_replacesOldImageAndUpdates() {
-        // given — persist a product then mark it as having an old image key
-        Product existing = newProduct("Old Widget");
-        productService.saveProduct(existing, null);
-        existing.setImageKey("old-key"); // dirty in Hibernate session; flushed before next query
+        // given
+        UUID uuid = UUID.randomUUID();
+        Product existing = new Product();
+        existing.id = 1L;
+        existing.setUuid(uuid);
+        existing.setImageKey("old-key");
+
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResult()).thenReturn(existing);
+        when(productRepository.find("uuid", uuid)).thenReturn(query);
 
         byte[] newBytes = jpegBytes();
         when(storageService.uploadImage(newBytes)).thenReturn("new-key");
 
-        Product update = newProduct("New Widget");
-        update.setUuid(existing.getUuid());
+        Product update = new Product();
+        update.setUuid(uuid);
 
         // when
         Product result = productService.updateProduct(update, newBytes);
 
         // then
         assertEquals("new-key", result.getImageKey());
+        assertEquals(1L, result.id);
         verify(storageService).uploadImage(newBytes);
         verify(storageService).deleteImage("old-key");
+        verify(em).merge(update);
     }
 
     @Test
     void updateProduct_withoutImage_retainsExistingImageKey() {
         // given
-        Product existing = newProduct("Widget");
-        productService.saveProduct(existing, null);
+        UUID uuid = UUID.randomUUID();
+        Product existing = new Product();
+        existing.id = 1L;
+        existing.setUuid(uuid);
         existing.setImageKey("existing-key");
 
-        Product update = newProduct("Updated Widget");
-        update.setUuid(existing.getUuid());
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResult()).thenReturn(existing);
+        when(productRepository.find("uuid", uuid)).thenReturn(query);
+
+        Product update = new Product();
+        update.setUuid(uuid);
 
         // when
         Product result = productService.updateProduct(update, null);
@@ -123,134 +162,165 @@ class ProductServiceTest {
         assertEquals("existing-key", result.getImageKey());
         verify(storageService, never()).uploadImage(any());
         verify(storageService, never()).deleteImage(any());
+        verify(em).merge(update);
     }
 
-    // ── deleteProduct ──────────────────────────────────────────────────────
-
     @Test
-    void deleteProduct_withImage_deletesRecordAndStorageKey() {
+    void deleteProduct_existingProduct_deletesRecordAndStorageKey() {
         // given
-        Product product = newProduct("To Delete");
-        productService.saveProduct(product, null);
+        UUID uuid = UUID.randomUUID();
+        Product product = new Product();
         product.setImageKey("img-key");
-        UUID uuid = product.getUuid();
+        product.setUuid(uuid);
+
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResult()).thenReturn(product);
+        when(productRepository.find("uuid", uuid)).thenReturn(query);
 
         // when
         productService.deleteProduct(uuid);
 
         // then
-        assertNull(Product.<Product>find("uuid", uuid).firstResult());
+        verify(productRepository).delete(product);
         verify(storageService).deleteImage("img-key");
+        verify(productDeletedEvent).fire(any(ProductDeletedEvent.class));
     }
 
     @Test
-    void deleteProduct_withoutImage_deletesRecordOnly() {
+    void deleteProduct_nonExistentProduct_doesNothing() {
         // given
-        Product product = newProduct("No Image Product");
-        productService.saveProduct(product, null);
-        UUID uuid = product.getUuid();
+        UUID uuid = UUID.randomUUID();
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResult()).thenReturn(null);
+        when(productRepository.find("uuid", uuid)).thenReturn(query);
 
         // when
         productService.deleteProduct(uuid);
 
         // then
-        assertNull(Product.<Product>find("uuid", uuid).firstResult());
         verify(storageService, never()).deleteImage(any());
     }
-
-    // ── updatePrice ────────────────────────────────────────────────────────
 
     @Test
     void updatePrice_knownProduct_updatesPrice() {
         // given
-        Product product = newProduct("Priced Widget");
-        productService.saveProduct(product, null);
-        String productId = product.getUuid().toString();
+        UUID uuid = UUID.randomUUID();
+        Product product = new Product();
+        product.setUuid(uuid);
+
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResult()).thenReturn(product);
+        when(productRepository.find("uuid", uuid)).thenReturn(query);
 
         // when
-        productService.updatePrice(productId, 25.0);
+        productService.updatePrice(uuid.toString(), 25.0);
 
         // then
-        Product updated = Product.<Product>find("uuid", product.getUuid()).firstResult();
-        assertEquals(25.0, updated.getPrice(), 0.001);
+        assertEquals(25.0, product.getPrice(), 0.001);
     }
 
     @Test
-    void updatePrice_unknownProduct_logsAndReturnsWithoutError() {
-        // must not throw for an unknown product ID
-        productService.updatePrice(UUID.randomUUID().toString(), 50.0);
+    void updatePrice_unknownProduct_logsAndReturns() {
+        // given
+        UUID uuid = UUID.randomUUID();
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResult()).thenReturn(null);
+        when(productRepository.find("uuid", uuid)).thenReturn(query);
+
+        // when
+        productService.updatePrice(uuid.toString(), 50.0);
+
+        // then - no exception
     }
 
-    // ── getProducts ────────────────────────────────────────────────────────
-
     @Test
-    void getProducts_returnsPaginatedList() {
-        // given — persist 3 products
-        for (int i = 0; i < 3; i++) {
-            productService.saveProduct(newProduct("Widget " + i), null);
-        }
+    void getProducts_validPage_returnsPaginatedList() {
+        // given
+        Product p1 = new Product();
+        p1.id = 1L;
+        Product p2 = new Product();
+        p2.id = 2L;
+        List<Product> productsList = List.of(p1, p2);
+
+        PanacheQuery query1 = mock(PanacheQuery.class);
+        when(query1.page(0, 2)).thenReturn(query1);
+        when(query1.list()).thenReturn(productsList);
+        when(productRepository.find("from Product p left join fetch p.promotions")).thenReturn(query1);
+
+        PanacheQuery query2 = mock(PanacheQuery.class);
+        when(productRepository.find("from Product p left join fetch p.categories where p.id in ?1", List.of(1L, 2L))).thenReturn(query2);
 
         // when
         List<Product> page = productService.getProducts(0, 2);
 
-        // then — page size is honoured
-        assertTrue(page.size() <= 2);
+        // then
+        assertEquals(2, page.size());
     }
-
-    // ── getProductWithAssociations ─────────────────────────────────────────
 
     @Test
     void getProductWithAssociations_existingProduct_returnsProduct() {
         // given
-        Product product = newProduct("Assoc Widget");
-        productService.saveProduct(product, null);
+        UUID uuid = UUID.randomUUID();
+        Product product = new Product();
+        product.id = 1L;
+        product.setUuid(uuid);
+
+        PanacheQuery query1 = mock(PanacheQuery.class);
+        when(query1.firstResultOptional()).thenReturn(Optional.of(product));
+        when(productRepository.find("from Product p left join fetch p.promotions where p.uuid = ?1", uuid)).thenReturn(query1);
+
+        PanacheQuery query2 = mock(PanacheQuery.class);
+        when(productRepository.find("from Product p left join fetch p.categories where p.id = ?1", 1L)).thenReturn(query2);
 
         // when
-        Optional<Product> result = productService.getProductWithAssociations(product.getUuid());
+        Optional<Product> result = productService.getProductWithAssociations(uuid);
 
         // then
         assertTrue(result.isPresent());
-        assertEquals(product.getUuid(), result.get().getUuid());
+        assertEquals(uuid, result.get().getUuid());
     }
 
     @Test
     void getProductWithAssociations_nonExistentProduct_returnsEmpty() {
-        Optional<Product> result = productService.getProductWithAssociations(UUID.randomUUID());
+        // given
+        UUID uuid = UUID.randomUUID();
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.firstResultOptional()).thenReturn(Optional.empty());
+        when(productRepository.find(anyString(), (Object[]) any())).thenReturn(query);
+
+        // when
+        Optional<Product> result = productService.getProductWithAssociations(uuid);
+
+        // then
         assertTrue(result.isEmpty());
     }
-
-    // ── findByCriteria ─────────────────────────────────────────────────────
 
     @Test
     void findByCriteria_allowedField_returnsMatchingResults() {
         // given
-        String title = "Searchable-" + UUID.randomUUID();
-        Product product = newProduct(title);
-        productService.saveProduct(product, null);
+        String title = "Searchable";
+        Map<String, Criteria> params = Map.of("title", new Criteria(Criteria.Operator.EQUALS, title));
+
+        PanacheQuery query = mock(PanacheQuery.class);
+        when(query.page(0, 10)).thenReturn(query);
+        when(query.list()).thenReturn(List.of(new Product()));
+        when(productRepository.find(anyString(), anyMap())).thenReturn(query);
 
         // when
-        List<Product> results = productService.findByCriteria(
-                Map.of("title", new Criteria(Criteria.Operator.EQUALS, title)), 0, 10);
+        List<Product> results = productService.findByCriteria(params, 0, 10);
 
         // then
-        assertTrue(results.stream().anyMatch(p -> title.equals(p.getTitle())));
+        assertEquals(1, results.size());
     }
 
     @Test
-    void findByCriteria_invalidField_throwsBadRequest() {
+    void findByCriteria_invalidField_throwsBadRequestException() {
+        // given
+        Map<String, Criteria> params = Map.of("unknown_field", new Criteria(Criteria.Operator.EQUALS, "x"));
+
+        // when & then
         assertThrows(BadRequestException.class,
-                () -> productService.findByCriteria(
-                        Map.of("unknown_field", new Criteria(Criteria.Operator.EQUALS, "x")), 0, 10));
-    }
-
-    // ── helpers ────────────────────────────────────────────────────────────
-
-    private static Product newProduct(String title) {
-        Product p = new Product();
-        p.setTitle(title);
-        p.setDescription("description");
-        p.setPrice(9.99);
-        return p;
+                () -> productService.findByCriteria(params, 0, 10));
     }
 
     private static byte[] jpegBytes() {

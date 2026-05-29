@@ -3,96 +3,143 @@ package the.chak.ecommerce.orders.control;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.times;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import io.quarkus.redis.datasource.RedisDataSource;
+import io.quarkus.redis.datasource.value.ValueCommands;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import io.quarkus.test.InjectMock;
-import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
-import the.chak.ecommerce.orders.KafkaTestResource;
-import the.chak.ecommerce.orders.MongoTestResource;
-import the.chak.ecommerce.orders.RedisTestResource;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
 
-@QuarkusTest
-@QuarkusTestResource(MongoTestResource.class)
-@QuarkusTestResource(KafkaTestResource.class)
-@QuarkusTestResource(value = RedisTestResource.class, restrictToAnnotatedClass = true)
+@ExtendWith(MockitoExtension.class)
 class PriceCacheServiceTest {
 
-    @Inject
+    @InjectMocks
     PriceCacheService priceCacheService;
 
-    @InjectMock
+    @Mock
+    RedisDataSource redis;
+
+    @Mock
     ProductsApiClient productsApiClient;
+
+    @Mock
+    ValueCommands<String, Double> priceValues;
+
+    @Mock
+    ValueCommands<String, ProductDto> productValues;
+
+    @BeforeEach
+    void setUp() {
+        when(redis.value(Double.class)).thenReturn(priceValues);
+        when(redis.value(ProductDto.class)).thenReturn(productValues);
+        priceCacheService.init();
+        priceCacheService.ttlMinutes = 15;
+    }
 
     @Test
     void getProduct_cacheMiss_fetchesFromApiAndCachesResult() {
         // given
+        String productId = "prod-1";
         ProductDto expected = new ProductDto();
-        expected.setTitle("Widget");
         expected.setPrice(29.99);
-        when(productsApiClient.getProduct("prod-cache-1")).thenReturn(expected);
+
+        when(productValues.get("product:" + productId)).thenReturn(null);
+        when(productsApiClient.getProduct(productId)).thenReturn(expected);
 
         // when
-        ProductDto result = priceCacheService.getProduct("prod-cache-1");
+        ProductDto result = priceCacheService.getProduct(productId);
 
         // then
         assertNotNull(result);
         assertEquals(29.99, result.getPrice());
-
-        ProductDto cached = priceCacheService.getProduct("prod-cache-1");
-        assertNotNull(cached);
-        assertEquals(29.99, cached.getPrice());
-        verify(productsApiClient, times(1)).getProduct("prod-cache-1"); // second call must hit cache
+        verify(productValues).setex(eq("product:" + productId), anyLong(), eq(expected));
     }
 
     @Test
-    void getProduct_productNotFound_callsApiAndReturnsNull() {
+    void getProduct_cacheHit_returnsCachedValue() {
         // given
-        when(productsApiClient.getProduct("missing-id")).thenReturn(null);
+        String productId = "prod-1";
+        ProductDto cached = new ProductDto();
+        cached.setPrice(29.99);
+
+        when(productValues.get("product:" + productId)).thenReturn(cached);
 
         // when
-        ProductDto result = priceCacheService.getProduct("missing-id");
+        ProductDto result = priceCacheService.getProduct(productId);
+
+        // then
+        assertNotNull(result);
+        assertEquals(29.99, result.getPrice());
+        verify(productsApiClient, never()).getProduct(anyString());
+    }
+
+    @Test
+    void getProduct_productNotFound_returnsNull() {
+        // given
+        String productId = "missing-id";
+        when(productValues.get("product:" + productId)).thenReturn(null);
+        when(productsApiClient.getProduct(productId)).thenReturn(null);
+
+        // when
+        ProductDto result = priceCacheService.getProduct(productId);
 
         // then
         assertNull(result);
-        verify(productsApiClient, times(1)).getProduct("missing-id");
     }
 
     @Test
     void getPrice_cacheMiss_fetchesPriceAndCachesResult() {
         // given
+        String productId = "prod-1";
         ProductDto product = new ProductDto();
-        product.setTitle("Widget");
         product.setPrice(19.99);
-        when(productsApiClient.getProduct("price-prod-1")).thenReturn(product);
+
+        when(priceValues.get("price:" + productId)).thenReturn(null);
+        when(productsApiClient.getProduct(productId)).thenReturn(product);
 
         // when
-        Double result = priceCacheService.getPrice("price-prod-1");
+        Double result = priceCacheService.getPrice(productId);
 
         // then
-        assertNotNull(result);
         assertEquals(19.99, result);
+        verify(priceValues).setex(eq("price:" + productId), anyLong(), eq(19.99));
+    }
 
-        Double cached = priceCacheService.getPrice("price-prod-1");
-        assertNotNull(cached);
-        assertEquals(19.99, cached);
-        verify(productsApiClient, times(1)).getProduct("price-prod-1"); // second call must hit cache
+    @Test
+    void getPrice_cacheHit_returnsCachedValue() {
+        // given
+        String productId = "prod-1";
+        when(priceValues.get("price:" + productId)).thenReturn(19.99);
+
+        // when
+        Double result = priceCacheService.getPrice(productId);
+
+        // then
+        assertEquals(19.99, result);
+        verify(productsApiClient, never()).getProduct(anyString());
     }
 
     @Test
     void getPrice_productNotFound_returnsNull() {
         // given
-        when(productsApiClient.getProduct("price-missing")).thenReturn(null);
+        String productId = "missing-id";
+        when(priceValues.get("price:" + productId)).thenReturn(null);
+        when(productsApiClient.getProduct(productId)).thenReturn(null);
 
         // when
-        Double result = priceCacheService.getPrice("price-missing");
+        Double result = priceCacheService.getPrice(productId);
 
         // then
         assertNull(result);
-        verify(productsApiClient, times(1)).getProduct("price-missing");
     }
 }

@@ -5,6 +5,7 @@ import jakarta.inject.Inject;
 import the.chak.ecommerce.pricing.control.events.PriceChangedEvent;
 import the.chak.ecommerce.pricing.control.exceptions.InvalidPriceException;
 import the.chak.ecommerce.pricing.entity.Price;
+import the.chak.ecommerce.pricing.repository.PriceRepository;
 
 @ApplicationScoped
 public class PriceService {
@@ -12,18 +13,21 @@ public class PriceService {
     @Inject
     KafkaPriceEventPublisher publisher;
 
+    @Inject
+    PriceRepository priceRepository;
+
     public Price update(String productId, Double price) {
         if (price == null || price <= 0) {
             throw new InvalidPriceException();
         }
 
-        Price entity = Price.<Price>find("productId", productId).firstResult();
+        Price entity = priceRepository.find("productId", productId).firstResult();
         if (entity == null) {
             entity = new Price();
             entity.productId = productId;
         }
         entity.price = price;
-        entity.persistOrUpdate();
+        priceRepository.persistOrUpdate(entity);
 
         publisher.publish(new PriceChangedEvent(productId, price));
         return entity;

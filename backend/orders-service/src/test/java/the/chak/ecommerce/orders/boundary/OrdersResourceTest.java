@@ -25,6 +25,8 @@ import the.chak.ecommerce.orders.control.ProductsApiClient;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.KafkaTestResource;
 import the.chak.ecommerce.orders.MongoTestResource;
+import the.chak.ecommerce.orders.RedisTestResource;
+import the.chak.ecommerce.orders.repository.OrderRepository;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -33,11 +35,13 @@ import io.quarkus.test.security.jwt.Claim;
 import io.quarkus.test.security.jwt.JwtSecurity;
 import io.restassured.http.ContentType;
 import jakarta.ws.rs.core.Response;
+import jakarta.inject.Inject;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
 
 @QuarkusTest
 @QuarkusTestResource(MongoTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
+@QuarkusTestResource(RedisTestResource.class)
 class OrdersResourceTest {
 
     @InjectMock
@@ -47,9 +51,12 @@ class OrdersResourceTest {
     @RestClient
     PricingApiClient pricingApi;
 
+    @Inject
+    OrderRepository orderRepository;
+
     @BeforeEach
     void cleanup() {
-        Order.deleteAll();
+        orderRepository.deleteAll();
     }
 
     @Test
@@ -64,7 +71,7 @@ class OrdersResourceTest {
         order.setUserID("original_user");
         order.setPrice(100.0);
         order.setProducts(new ArrayList<>());
-        order.persist();
+        orderRepository.persist(order);
 
         String body = String.format(
                 "{\"id\":\"%s\",\"products\":[{\"product_id\":\"prod_update\",\"title\":\"Updated Product\",\"qty\":3,\"price\":75.0}]}",
@@ -80,7 +87,7 @@ class OrdersResourceTest {
                 .body("user_id", is("original_user"))
                 .body("price", is(100.0f));
 
-        Order updated = Order.findById(order.id);
+        Order updated = orderRepository.findById(order.id);
         assertEquals(OrderStatus.INITIATED, updated.getStatus());
         assertEquals("original_user", updated.getUserID());
         assertEquals(100.0, updated.getPrice());
@@ -119,7 +126,7 @@ class OrdersResourceTest {
         String orderId = response.then().statusCode(201).body("price", is(100.0f))
                 .extract().path("id");
         assertNotNull(orderId);
-        assertNotNull(Order.findById(new ObjectId(orderId)));
+        assertNotNull(orderRepository.findById(new ObjectId(orderId)));
     }
 
     @Test
@@ -130,12 +137,12 @@ class OrdersResourceTest {
         Order order1 = new Order();
         order1.setUserID("user_search");
         order1.setStatus(OrderStatus.INITIATED);
-        order1.persist();
+        orderRepository.persist(order1);
 
         Order order2 = new Order();
         order2.setUserID("user_other");
         order2.setStatus(OrderStatus.INITIATED);
-        order2.persist();
+        orderRepository.persist(order2);
 
         // when
         var response = given().contentType(ContentType.JSON)
@@ -156,7 +163,7 @@ class OrdersResourceTest {
         Order order = new Order();
         order.setUserID("user_delete");
         order.setStatus(OrderStatus.INITIATED);
-        order.persist();
+        orderRepository.persist(order);
         String orderId = order.id.toString();
 
         // when
@@ -164,7 +171,7 @@ class OrdersResourceTest {
 
         // then
         response.then().statusCode(200);
-        assertNull(Order.findById(order.id));
+        assertNull(orderRepository.findById(order.id));
     }
 
     @Test
@@ -175,7 +182,7 @@ class OrdersResourceTest {
         Order order = new Order();
         order.setUserID("user_confirm");
         order.setStatus(OrderStatus.INITIATED);
-        order.persist();
+        orderRepository.persist(order);
         String orderId = order.id.toString();
 
         // when
@@ -183,7 +190,7 @@ class OrdersResourceTest {
 
         // then
         response.then().statusCode(200).body("status", is(OrderStatus.CONFIRMED.name()));
-        Order confirmed = Order.findById(order.id);
+        Order confirmed = orderRepository.findById(order.id);
         assertEquals(OrderStatus.CONFIRMED, confirmed.getStatus());
     }
 

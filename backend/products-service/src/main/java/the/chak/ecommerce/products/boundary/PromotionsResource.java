@@ -11,7 +11,6 @@ import the.chak.ecommerce.products.boundary.dto.PromotionDto;
 import the.chak.ecommerce.products.boundary.dto.SavePromotionDto;
 import the.chak.ecommerce.products.boundary.mapper.PromotionMapper;
 import the.chak.ecommerce.products.control.PromotionService;
-import the.chak.ecommerce.products.entity.Promotion;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,7 +28,7 @@ public class PromotionsResource implements PromotionsApi {
     @Produces(MediaType.APPLICATION_JSON)
     public List<PromotionDto> getPromotions() {
 
-        return Promotion.listAll().stream().map(Promotion.class::cast).map(promotionMapper::toDto)
+        return promotionService.listAll().stream().map(promotionMapper::toDto)
                 .collect(Collectors.toList());
 
     }

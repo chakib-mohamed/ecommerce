@@ -1,30 +1,31 @@
 package the.chak.ecommerce.products.control;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import io.quarkus.test.TestTransaction;
-import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
+import java.util.List;
 import org.junit.jupiter.api.Test;
-import the.chak.ecommerce.products.KafkaTestResource;
-import the.chak.ecommerce.products.StorageTestResource;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import the.chak.ecommerce.products.control.exceptions.PromotionNotFoundException;
 import the.chak.ecommerce.products.entity.Promotion;
+import the.chak.ecommerce.products.repository.PromotionRepository;
 
-@QuarkusTest
-@QuarkusTestResource(KafkaTestResource.class)
-@QuarkusTestResource(StorageTestResource.class)
-@TestTransaction
+@ExtendWith(MockitoExtension.class)
 class PromotionServiceTest {
 
-    @Inject
+    @InjectMocks
     PromotionService promotionService;
 
+    @Mock
+    PromotionRepository promotionRepository;
+
     @Test
-    void savePromotion_persistsAndReturnsPromotion() {
+    void savePromotion_validPromotion_persistsAndReturnsPromotion() {
         // given
         Promotion promotion = new Promotion();
         promotion.setLabel("Summer Sale");
@@ -34,29 +35,47 @@ class PromotionServiceTest {
         Promotion result = promotionService.savePromotion(promotion);
 
         // then
-        assertNotNull(result.id);
-        assertNotNull(Promotion.findById(result.id));
+        verify(promotionRepository).persist(promotion);
     }
 
     @Test
     void deletePromotion_existingId_deletesSuccessfully() {
         // given
-        Promotion promotion = new Promotion();
-        promotion.setLabel("To Delete");
-        promotion.setPercentageOff(10.0);
-        promotionService.savePromotion(promotion);
-        Long id = promotion.id;
+        Long id = 1L;
+        when(promotionRepository.deleteById(id)).thenReturn(true);
 
         // when
         promotionService.deletePromotion(id);
 
         // then
-        assertNull(Promotion.findById(id));
+        verify(promotionRepository).deleteById(id);
     }
 
     @Test
     void deletePromotion_nonExistentId_throwsPromotionNotFoundException() {
+        // given
+        Long id = 999L;
+        when(promotionRepository.deleteById(id)).thenReturn(false);
+
+        // when & then
         assertThrows(PromotionNotFoundException.class,
-                () -> promotionService.deletePromotion(Long.MAX_VALUE));
+                () -> promotionService.deletePromotion(id));
+    }
+
+    @Test
+    void listAll_returnsAllPromotions() {
+        // given
+        Promotion p1 = new Promotion();
+        p1.id = 1L;
+        Promotion p2 = new Promotion();
+        p2.id = 2L;
+        when(promotionRepository.listAll()).thenReturn(List.of(p1, p2));
+
+        // when
+        List<Promotion> promotions = promotionService.listAll();
+
+        // then
+        assertEquals(2, promotions.size());
+        verify(promotionRepository).listAll();
     }
 }

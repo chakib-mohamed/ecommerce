@@ -26,8 +26,11 @@ public class CartService {
     @Inject
     OrderService orderService;
 
+    @Inject
+    the.chak.ecommerce.orders.repository.CartRepository cartRepository;
+
     public CartResponse addItem(String userId, AddItemRequest request) {
-        Cart cart = Cart.findByUserId(userId).orElseGet(() -> {
+        Cart cart = cartRepository.findByUserId(userId).orElseGet(() -> {
             Cart c = new Cart();
             c.userId = userId;
             return c;
@@ -44,17 +47,17 @@ public class CartService {
         }
 
         cart.updatedAt = Instant.now();
-        cart.persistOrUpdate();
+        cartRepository.persistOrUpdate(cart);
 
         return toResponse(cart);
     }
 
     public Optional<CartResponse> getCart(String userId) {
-        return Cart.findByUserId(userId).map(this::toResponse);
+        return cartRepository.findByUserId(userId).map(this::toResponse);
     }
 
     public Optional<CartResponse> updateItem(String userId, String productId, UpdateItemRequest request) {
-        return Cart.findByUserId(userId).flatMap(cart -> {
+        return cartRepository.findByUserId(userId).flatMap(cart -> {
             Optional<CartItem> item = cart.items.stream()
                     .filter(i -> i.getProductId().equals(productId))
                     .findFirst();
@@ -65,31 +68,31 @@ public class CartService {
 
             item.get().setQuantity(request.getQuantity());
             cart.updatedAt = Instant.now();
-            cart.update();
+            cartRepository.persistOrUpdate(cart);
             return Optional.of(toResponse(cart));
         });
     }
 
     public boolean removeItem(String userId, String productId) {
-        return Cart.findByUserId(userId).map(cart -> {
+        return cartRepository.findByUserId(userId).map(cart -> {
             boolean removed = cart.items.removeIf(i -> i.getProductId().equals(productId));
             if (removed) {
                 cart.updatedAt = Instant.now();
-                cart.update();
+                cartRepository.persistOrUpdate(cart);
             }
             return removed;
         }).orElse(false);
     }
 
     public boolean clearCart(String userId) {
-        return Cart.findByUserId(userId).map(cart -> {
-            cart.delete();
+        return cartRepository.findByUserId(userId).map(cart -> {
+            cartRepository.delete(cart);
             return true;
         }).orElse(false);
     }
 
     public Order checkout(String userId) {
-        Cart cart = Cart.findByUserId(userId)
+        Cart cart = cartRepository.findByUserId(userId)
                 .orElseThrow(() -> new CartNotFoundException(userId));
         if (cart.items.isEmpty()) {
             throw new CartEmptyException();
@@ -107,7 +110,7 @@ public class CartService {
         order.setProducts(products);
 
         orderService.saveOrder(order);
-        cart.delete();
+        cartRepository.delete(cart);
         return order;
     }
 

@@ -4,7 +4,6 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -21,16 +20,21 @@ import io.restassured.filter.log.LogDetail;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
 import the.chak.ecommerce.products.KafkaTestResource;
 import the.chak.ecommerce.products.MongoDbTestResource;
 import the.chak.ecommerce.products.entity.EmbeddedCategory;
 import the.chak.ecommerce.products.entity.EmbeddedPromotion;
 import the.chak.ecommerce.products.entity.ProductMongoEntity;
+import the.chak.ecommerce.products.repository.ProductMongoRepository;
 
 @QuarkusTest
 @QuarkusTestResource(MongoDbTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
 class FeaturedProductsResourceTest {
+
+    @Inject
+    ProductMongoRepository productMongoRepository;
 
     @BeforeAll
     static void setupLogging() {
@@ -40,7 +44,7 @@ class FeaturedProductsResourceTest {
 
     @BeforeEach
     void cleanup() {
-        ProductMongoEntity.deleteAll();
+        productMongoRepository.deleteAll();
     }
 
     @Test
@@ -55,7 +59,7 @@ class FeaturedProductsResourceTest {
             product.setPrice(10.0 + i);
             product.setCategories(List.of());
             product.setPromotions(List.of());
-            product.persist();
+            productMongoRepository.persist(product);
         }
 
         // when
@@ -83,7 +87,7 @@ class FeaturedProductsResourceTest {
             product.setPrice(20.0 + i);
             product.setCategories(List.of());
             product.setPromotions(List.of());
-            product.persist();
+            productMongoRepository.persist(product);
         }
 
         // when
@@ -111,10 +115,10 @@ class FeaturedProductsResourceTest {
             product.setPrice(30.0 + i);
             product.setCategories(List.of());
             product.setPromotions(List.of());
-            product.persist();
+            productMongoRepository.persist(product);
         }
 
-        // when — get second page with size 10
+        // when - get second page with size 10
         var response = given()
                 .contentType(ContentType.JSON)
                 .queryParam("pageIndex", 1)
@@ -151,7 +155,7 @@ class FeaturedProductsResourceTest {
         promo.setActiveTo(LocalDate.of(2025, 8, 31));
         product.setPromotions(List.of(promo));
 
-        product.persist();
+        productMongoRepository.persist(product);
 
         // when
         var response = given()
@@ -172,7 +176,7 @@ class FeaturedProductsResourceTest {
 
     @Test
     void getFeaturedProducts_emptyDatabase_returnsEmptyList() {
-        // given — no products in database
+        // given - no products in database
 
         // when
         var response = given()

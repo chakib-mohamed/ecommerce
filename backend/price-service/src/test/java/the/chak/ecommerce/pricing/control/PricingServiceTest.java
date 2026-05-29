@@ -6,29 +6,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 
-import io.quarkus.test.InjectMock;
-import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
-import the.chak.ecommerce.pricing.KafkaTestResource;
-import the.chak.ecommerce.pricing.MongoDbTestResource;
 import the.chak.ecommerce.pricing.boundary.dto.PriceCalculationRequest;
 import the.chak.ecommerce.pricing.boundary.dto.PriceCalculationResponse;
 import the.chak.ecommerce.pricing.control.exceptions.InvalidOrderException;
 
-@QuarkusTest
-@QuarkusTestResource(MongoDbTestResource.class)
-@QuarkusTestResource(KafkaTestResource.class)
 class PricingServiceTest {
 
-    @Inject
     PricingService pricingService;
 
-    @InjectMock
-    KafkaPriceEventPublisher publisher;
+    @BeforeEach
+    void setUp() {
+        // ApplyPromotionsService is pure logic; Drools runs in-process from a classpath rule
+        // file — neither needs a container, so no @QuarkusTest is required.
+        pricingService = new PricingService();
+        pricingService.applyPromotionsService = new ApplyPromotionsService();
+        pricingService.init();
+    }
 
     @Test
     void calculate_nullOrder_throwsInvalidOrderException() {

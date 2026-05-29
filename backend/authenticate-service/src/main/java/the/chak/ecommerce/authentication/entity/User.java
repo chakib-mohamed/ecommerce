@@ -1,11 +1,12 @@
 package the.chak.ecommerce.authentication.entity;
 
 import java.util.List;
-import io.quarkus.mongodb.panache.PanacheMongoEntity;
+import org.bson.types.ObjectId;
 import io.quarkus.mongodb.panache.common.MongoEntity;
 
 @MongoEntity(collection = "user")
-public class User extends PanacheMongoEntity {
+public class User {
+    public ObjectId id;
     public String email;
     public String password;
     public List<String> roles;
