@@ -1,6 +1,6 @@
 # Testing Conventions
 
-Applies to all Quarkus services. See `backend/CLAUDE.md` for infrastructure rules (Testcontainers, Kafka test setup).
+Applies to all Quarkus services. See `backend/CLAUDE.md` for the Maven test-invocation rule (always run one service at a time with `-pl`).
 
 ## Test Method Naming
 
@@ -128,8 +128,8 @@ No `MockedStatic` is needed.
 
 **Boundary tests** (`*ResourceTest` in `boundary/` packages) stay as `@QuarkusTest` integration
 tests — they exercise the full HTTP stack, real database state, and end-to-end API contracts.
-Testcontainers (and the Kafka test resource) apply to these tests only; see `backend/CLAUDE.md`
-for the infrastructure rules.
+Testcontainers (and the Kafka test resource) apply to these tests only; see **Test Infrastructure
+(Testcontainers)** below for the infrastructure rules.
 
 **Rationale**: control unit tests run in-process in milliseconds with no container spin-up, and
 mock collaborators to test business logic in isolation without cross-run container state.
@@ -146,6 +146,28 @@ void setUp() {
 ```
 
 No mocking framework needed for stateless calculation services.
+
+## Test Infrastructure (Testcontainers)
+
+**Rule: always use Testcontainers — never Quarkus Dev Services — for test infrastructure.**
+
+- Set `%test.quarkus.devservices.enabled=false` in every service's `src/test/resources/application.properties`.
+- Do **not** rely on empty connection strings (e.g. `quarkus.mongodb.connection-string=`) to trigger Dev Services.
+- Each service that needs a backing store provides a `*TestResource` class implementing `QuarkusTestResourceLifecycleManager`, which starts the real container and injects the connection string.
+- Annotate every `@QuarkusTest` class that touches a store with `@QuarkusTestResource(XxxTestResource.class)`.
+- Docker must be running for tests to pass.
+
+**Kafka in tests** — use `KafkaTestResource` (backed by `org.testcontainers:kafka`, image `confluentinc/cp-kafka:7.6.1`). It starts a real broker and injects `kafka.bootstrap.servers`. **Never use `smallrye-reactive-messaging-in-memory`** — it is banned from all services. Any `@QuarkusTest` in a service that has Kafka channels must be annotated with `@QuarkusTestResource(KafkaTestResource.class)`.
+
+### Container Reuse
+
+**Rule: every `*TestResource` container must enable Testcontainers reuse.** This keeps one shared container per image (Mongo, Kafka, Redis, LocalStack) alive across modules and runs instead of letting Ryuk reap it per Maven JVM — a ~20% suite speedup, concentrated in the Kafka-heavy services. Each `*TestResource`:
+
+- Holds the container in a **`static`** field and constructs it with **`.withReuse(true)`**.
+- Guards startup with `if (!container.isRunning()) container.start();` and leaves **`stop()` empty** — never tear the container down.
+- Keeps container construction config **identical across services** (same image, no per-service tweaks) so the reuse hash matches and the container is actually shared.
+
+Reuse requires `testcontainers.reuse.enable=true` in `~/.testcontainers.properties` (set per developer machine / CI). Consequence: reused containers persist after the run and their state is **not** reset between runs — every test must set up its own data and never assume an empty store. Reclaim containers with `docker rm -f $(docker ps -q --filter label=org.testcontainers=true)`.
 
 ## QuarkusTest Performance: One Application Boot Per Service
 

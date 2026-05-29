@@ -122,17 +122,7 @@ Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
 ./mvnw verify   # same problem
 ```
 
-**Rule: always use Testcontainers — never Quarkus Dev Services — for test infrastructure.**
-
-- Set `%test.quarkus.devservices.enabled=false` in every service's `src/test/resources/application.properties`.
-- Do **not** rely on empty connection strings (e.g. `quarkus.mongodb.connection-string=`) to trigger Dev Services.
-- Each service that needs a backing store provides a `*TestResource` class implementing `QuarkusTestResourceLifecycleManager`, which starts the real container and injects the connection string.
-- Annotate every `@QuarkusTest` class that touches a store with `@QuarkusTestResource(XxxTestResource.class)`.
-- Docker must be running for tests to pass.
-
-**Kafka in tests** — use `KafkaTestResource` (backed by `org.testcontainers:kafka`, image `confluentinc/cp-kafka:7.6.1`). It starts a real broker and injects `kafka.bootstrap.servers`. **Never use `smallrye-reactive-messaging-in-memory`** — it is banned from all services. Any `@QuarkusTest` in a service that has Kafka channels must be annotated with `@QuarkusTestResource(KafkaTestResource.class)`.
-
-See `docs/conventions/testing-conventions.md` for naming, body structure, split conventions, and coverage requirements.
+See `docs/conventions/testing-conventions.md` for all test conventions — including Testcontainers vs Dev Services, Kafka test setup, and container reuse, plus naming, body structure, split conventions, and coverage requirements.
 
 ## Database Transaction Rules
 
