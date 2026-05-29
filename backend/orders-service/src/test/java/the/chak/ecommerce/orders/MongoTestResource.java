@@ -8,7 +8,7 @@ import java.util.Map;
 
 public class MongoTestResource implements QuarkusTestResourceLifecycleManager {
 
-    static MongoDBContainer container = new MongoDBContainer(DockerImageName.parse("mongo:7.0"));
+    static MongoDBContainer container = new MongoDBContainer(DockerImageName.parse("mongo:7.0")).withReuse(true);
 
     @Override
     public Map<String, String> start() {

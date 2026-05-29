@@ -9,7 +9,8 @@ public class RedisTestResource implements QuarkusTestResourceLifecycleManager {
 
     static final GenericContainer<?> REDIS =
             new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
-                    .withExposedPorts(6379);
+                    .withExposedPorts(6379)
+                    .withReuse(true);
 
     @Override
     public Map<String, String> start() {

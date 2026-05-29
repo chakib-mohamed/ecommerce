@@ -10,7 +10,8 @@ public class StorageTestResource implements QuarkusTestResourceLifecycleManager 
 
     static LocalStackContainer localstack = new LocalStackContainer(
             DockerImageName.parse("localstack/localstack:4"))
-            .withServices(Service.S3);
+            .withServices(Service.S3)
+            .withReuse(true);
 
     @Override
     public Map<String, String> start() {
