@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.value.ValueCommands;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -47,6 +48,7 @@ class PriceCacheServiceTest {
     }
 
     @Test
+    @DisplayName("Fetches the product from the API and caches it on a cache miss")
     void getProduct_cacheMiss_fetchesFromApiAndCachesResult() {
         // given
         String productId = "prod-1";
@@ -66,6 +68,7 @@ class PriceCacheServiceTest {
     }
 
     @Test
+    @DisplayName("Returns the cached product without calling the API on a cache hit")
     void getProduct_cacheHit_returnsCachedValue() {
         // given
         String productId = "prod-1";
@@ -84,6 +87,7 @@ class PriceCacheServiceTest {
     }
 
     @Test
+    @DisplayName("Returns null when the product is missing from both cache and API")
     void getProduct_productNotFound_returnsNull() {
         // given
         String productId = "missing-id";
@@ -98,6 +102,7 @@ class PriceCacheServiceTest {
     }
 
     @Test
+    @DisplayName("Fetches the price from the product API and caches it on a cache miss")
     void getPrice_cacheMiss_fetchesPriceAndCachesResult() {
         // given
         String productId = "prod-1";
@@ -116,6 +121,7 @@ class PriceCacheServiceTest {
     }
 
     @Test
+    @DisplayName("Returns the cached price without calling the API on a cache hit")
     void getPrice_cacheHit_returnsCachedValue() {
         // given
         String productId = "prod-1";
@@ -130,6 +136,7 @@ class PriceCacheServiceTest {
     }
 
     @Test
+    @DisplayName("Returns null when the price cannot be resolved from cache or API")
     void getPrice_productNotFound_returnsNull() {
         // given
         String productId = "missing-id";

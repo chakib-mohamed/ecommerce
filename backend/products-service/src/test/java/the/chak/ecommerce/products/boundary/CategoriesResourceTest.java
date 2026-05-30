@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -39,6 +40,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 201 with the new id and label when the label is valid")
     void createCategory_validLabel_returns201WithIdAndLabel() {
         // given
         String label = "Category-" + UUID.randomUUID();
@@ -56,6 +58,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns a non-empty list when at least one category exists")
     void getCategories_existingCategory_returnsNonEmptyList() {
         // given
         createdCategoryId = given().contentType(ContentType.JSON)
@@ -70,6 +73,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 200 with the new label when updating an existing category")
     void updateCategory_existingCategory_returns200WithNewLabel() {
         // given
         createdCategoryId = given().contentType(ContentType.JSON)
@@ -86,6 +90,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns a single matching category when searching by exact label")
     void searchCategories_exactLabelMatch_returnsSingleResult() {
         // given
         String label = "Searchable-" + UUID.randomUUID();
@@ -105,6 +110,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with CATEGORY_ALREADY_EXISTS when the label is already taken")
     void createCategory_duplicateLabel_returns400() {
         // given
         String label = "Duplicate-" + UUID.randomUUID();
@@ -124,6 +130,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 200 when deleting an existing category")
     void deleteCategory_existingCategory_returns200() {
         // given
         Integer id = given().contentType(ContentType.JSON)
@@ -138,6 +145,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when creating a category with a blank label")
     void createCategory_blankLabel_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -151,6 +159,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when creating a category with no label")
     void createCategory_nullLabel_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -164,6 +173,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when updating a category without an id")
     void updateCategory_nullId_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -177,6 +187,7 @@ class CategoriesResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when updating a category to a blank label")
     void updateCategory_blankLabel_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,6 +32,7 @@ class AuthHeaderTokenResolverTest {
     }
 
     @Test
+    @DisplayName("Extracts the token from a valid Bearer authorization header")
     void resolveToken_validBearerHeader_returnsToken() {
         // given
         String token = TestJwtTokenGenerator.generateValidToken("testuser");
@@ -48,6 +50,7 @@ class AuthHeaderTokenResolverTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the Authorization header is missing")
     void resolveToken_missingAuthorizationHeader_returnsEmpty() {
         // given
         ServerHttpRequest request = mock(ServerHttpRequest.class);
@@ -62,6 +65,7 @@ class AuthHeaderTokenResolverTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the Authorization header uses a non-Bearer prefix")
     void resolveToken_wrongPrefix_returnsEmpty() {
         // given
         String token = TestJwtTokenGenerator.generateValidToken("testuser");
@@ -78,6 +82,7 @@ class AuthHeaderTokenResolverTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the Authorization header is blank")
     void resolveToken_emptyAuthorizationHeader_returnsEmpty() {
         // given
         ServerHttpRequest request = mock(ServerHttpRequest.class);
@@ -93,6 +98,7 @@ class AuthHeaderTokenResolverTest {
     }
 
     @Test
+    @DisplayName("Returns an empty token string when the header is only the Bearer prefix")
     void resolveToken_onlyBearerPrefix_returnsEmptyString() {
         // given
         ServerHttpRequest request = mock(ServerHttpRequest.class);

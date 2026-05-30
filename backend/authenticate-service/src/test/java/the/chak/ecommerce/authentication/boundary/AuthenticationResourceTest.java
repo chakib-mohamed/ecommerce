@@ -4,6 +4,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -17,6 +18,7 @@ import the.chak.ecommerce.authentication.boundary.dto.SignUpRequest;
 class AuthenticationResourceTest {
 
     @Test
+    @DisplayName("Returns 201 with the created user's email when the sign-up request is valid")
     void signUp_validRequest_returns201WithEmail() {
         // given
         String email = "signup-" + UUID.randomUUID() + "@example.com";
@@ -33,6 +35,7 @@ class AuthenticationResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 200 with an access token and Authorization cookie when credentials are valid")
     void authenticate_validCredentials_returns200WithTokenAndCookie() {
         // given
         String email = "auth-" + UUID.randomUUID() + "@example.com";
@@ -56,6 +59,7 @@ class AuthenticationResourceTest {
     }
 
     @Test
+    @DisplayName("Returns the user's details when the request carries a valid authentication cookie")
     void getUser_authenticatedRequest_returnsUserDetails() {
         // given
         String email = "get-" + UUID.randomUUID() + "@example.com";
@@ -79,6 +83,7 @@ class AuthenticationResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 401 when the password does not match")
     void authenticate_wrongPassword_returns401() {
         // given
         String email = "wrong-pass-" + UUID.randomUUID() + "@example.com";
@@ -100,6 +105,7 @@ class AuthenticationResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 409 with EMAIL_ALREADY_EXISTS when the email is already registered")
     void signUp_duplicateEmail_returns409() {
         // given
         String email = "dup-" + UUID.randomUUID() + "@example.com";
@@ -119,6 +125,7 @@ class AuthenticationResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when required sign-up fields are missing")
     void signUp_missingFields_returns400() {
         // given
         SignUpRequest request = new SignUpRequest();
@@ -134,6 +141,7 @@ class AuthenticationResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when the password is shorter than the minimum length")
     void signUp_passwordTooShort_returns400() {
         // given
         SignUpRequest request = new SignUpRequest();
@@ -151,6 +159,7 @@ class AuthenticationResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when the email format is invalid")
     void signUp_invalidEmailFormat_returns400() {
         // given
         SignUpRequest request = new SignUpRequest();
@@ -168,6 +177,7 @@ class AuthenticationResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 401 with INVALID_TOKEN when fetching a user without authentication")
     void getUser_unauthenticated_returns401() {
         // when
         var response = given().when().get("/users/anyone@example.com");

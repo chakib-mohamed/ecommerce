@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -46,6 +47,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Returns the subject username when the token is valid and not revoked")
     void getUsername_validToken_returnsUsername() {
         // given
         String username = "testuser";
@@ -60,6 +62,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the token has expired")
     void getUsername_expiredToken_returnsEmpty() {
         // given
         String expiredToken = TestJwtTokenGenerator.generateExpiredToken("testuser");
@@ -73,6 +76,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the token signature is invalid")
     void getUsername_invalidToken_returnsEmpty() {
         // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
@@ -86,6 +90,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the token has been revoked")
     void getUsername_revokedToken_returnsEmpty() {
         // given
         String validToken = TestJwtTokenGenerator.generateValidToken("testuser");
@@ -99,6 +104,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Stores a revocation entry in Redis when revoking a valid token")
     void revokeToken_validToken_storesInRedis() {
         // given
         String validToken = TestJwtTokenGenerator.generateValidToken("testuser");
@@ -114,6 +120,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Completes without error when revoking an already-expired token")
     void revokeToken_expiredToken_returnsEmpty() {
         // given
         String expiredToken = TestJwtTokenGenerator.generateExpiredToken("testuser");
@@ -128,6 +135,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Falls back to storing the raw token when revoking an unparseable token")
     void revokeToken_invalidToken_usesFallback() {
         // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
@@ -143,6 +151,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Reports a token as revoked when a revocation entry exists in Redis")
     void isTokenRevoked_revokedToken_returnsTrue() {
         // given
         String token = "some-token";
@@ -156,6 +165,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Reports a token as not revoked when no revocation entry exists in Redis")
     void isTokenRevoked_activeToken_returnsFalse() {
         // given
         String token = "some-token";

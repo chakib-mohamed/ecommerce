@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -47,6 +48,7 @@ class ProductServiceTest {
     // onProductUpdated tests
 
     @Test
+    @DisplayName("Persists a new entity with all mapped fields when a product-updated event arrives for an unknown product")
     void onProductUpdated_newProduct_persistsWithAllMappedFields() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -89,6 +91,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Updates the existing entity in place when a product-updated event arrives for a known product")
     void onProductUpdated_existingProduct_updatesInPlace() {
         // given - first update
         UUID uuid = UUID.randomUUID();
@@ -130,6 +133,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Stores an empty category list when the product-updated event has null categories")
     void onProductUpdated_nullCategories_usesEmptyList() {
         // given - ProductDto with null categories
         UUID uuid = UUID.randomUUID();
@@ -154,6 +158,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Stores an empty promotion list when the product-updated event has null promotions")
     void onProductUpdated_nullPromotions_usesEmptyList() {
         // given - ProductDto with null promotions
         UUID uuid = UUID.randomUUID();
@@ -180,6 +185,7 @@ class ProductServiceTest {
     // onProductDeleted tests
 
     @Test
+    @DisplayName("Deletes the matching entity when a product-deleted event arrives for an existing product")
     void onProductDeleted_existingProduct_removesFromDatabase() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -193,6 +199,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Completes without error when a product-deleted event arrives for a product not in the store")
     void onProductDeleted_nonExistentProduct_completesWithoutError() {
         // given - UUID not in DB
         UUID uuid = UUID.randomUUID();

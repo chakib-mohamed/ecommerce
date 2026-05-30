@@ -17,6 +17,26 @@ public void testCreateOrder()
 void testAuthenticate_WrongPassword_Returns401()
 ```
 
+## Test Display Names
+
+Every `@Test` method must carry a `@DisplayName` whose text is a **full natural-language sentence**
+derived from the test **body** — what it does, under which condition, and the expected result — not
+a mechanical de-camelCasing of the method name. Keep real codes and acronyms verbatim (`401`, `201`,
+`JWT`) and use no trailing period.
+
+```java
+@Test
+@DisplayName("Creates a new cart holding the single added item when the user has no cart yet")
+void addItem_noExistingCart_createsCartWithSingleItem() { ... }
+
+@Test
+@DisplayName("Returns 401 when authenticating with the wrong password")
+void authenticate_wrongPassword_returns401() { ... }
+```
+
+`TestDisplayNameRulesArchTest` (ArchUnit) enforces this in every service: it fails the build at
+`mvn test` / `mvn verify` if any `@Test` method lacks a `@DisplayName`.
+
 ## Test Body Structure
 
 Explicit `// given`, `// when`, `// then` comment blocks in every test. Omit `// given` only when there is genuinely no setup.

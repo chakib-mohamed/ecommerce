@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -48,6 +49,7 @@ class FeaturedProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns the first page of ten featured products with default pagination")
     void getFeaturedProducts_defaultPagination_returnsFirstPage() {
         // given
         for (int i = 0; i < 15; i++) {
@@ -76,6 +78,7 @@ class FeaturedProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns the requested number of featured products when a custom page size is given")
     void getFeaturedProducts_customPageSize_returnsPaginatedResults() {
         // given
         for (int i = 0; i < 25; i++) {
@@ -104,6 +107,7 @@ class FeaturedProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns the correct page of featured products when requesting the second page")
     void getFeaturedProducts_secondPage_returnsCorrectOffset() {
         // given
         for (int i = 0; i < 25; i++) {
@@ -133,6 +137,7 @@ class FeaturedProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns featured products with their embedded categories and promotions")
     void getFeaturedProducts_withCategoriesAndPromotions_returnsCompleteData() {
         // given
         UUID productId = UUID.randomUUID();
@@ -175,6 +180,7 @@ class FeaturedProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns an empty list when there are no featured products")
     void getFeaturedProducts_emptyDatabase_returnsEmptyList() {
         // given - no products in database
 

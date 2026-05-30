@@ -3,6 +3,7 @@ package the.chak.ecommerce.apigateway.control;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,6 +25,7 @@ class AuthenticationManagerTest {
     private AuthenticationManager authenticationManager;
 
     @Test
+    @DisplayName("Returns an authenticated principal when the token is valid")
     void authenticate_validToken_returnsAuthentication() {
         // given
         String username = "testuser";
@@ -43,6 +45,7 @@ class AuthenticationManagerTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the token is invalid")
     void authenticate_invalidToken_returnsEmpty() {
         // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
@@ -57,6 +60,7 @@ class AuthenticationManagerTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the token has been revoked")
     void authenticate_revokedToken_returnsEmpty() {
         // given
         String revokedToken = TestJwtTokenGenerator.generateValidToken("testuser");
@@ -71,6 +75,7 @@ class AuthenticationManagerTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the token has expired")
     void authenticate_expiredToken_returnsEmpty() {
         // given
         String expiredToken = TestJwtTokenGenerator.generateExpiredToken("testuser");

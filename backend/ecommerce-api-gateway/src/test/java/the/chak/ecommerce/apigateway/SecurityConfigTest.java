@@ -1,5 +1,6 @@
 package the.chak.ecommerce.apigateway;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -35,6 +36,7 @@ class SecurityConfigTest {
     private WebTestClient webTestClient;
 
     @Test
+    @DisplayName("Returns 200 on the actuator health endpoint without authentication")
     void actuatorHealth_noAuth_returns200() {
         // when
         var result = webTestClient.get().uri("/actuator/health").exchange();
@@ -44,6 +46,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Lets an unauthenticated GET /api/products through the security layer to the upstream")
     void getProducts_noAuth_passesSecurityLayer() {
         // when
         var result = webTestClient.get().uri("/api/products").exchange();
@@ -53,6 +56,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Lets an unauthenticated GET /api/categories through the security layer to the upstream")
     void getCategories_noAuth_passesSecurityLayer() {
         // when
         var result = webTestClient.get().uri("/api/categories").exchange();
@@ -62,6 +66,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Lets an unauthenticated GET /api/promotions through the security layer to the upstream")
     void getPromotions_noAuth_passesSecurityLayer() {
         // when
         var result = webTestClient.get().uri("/api/promotions").exchange();
@@ -71,6 +76,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Lets an unauthenticated POST /api/users through the security layer to the upstream")
     void postUsers_noAuth_passesSecurityLayer() {
         // when
         var result = webTestClient.post().uri("/api/users").exchange();
@@ -80,6 +86,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Returns 401 for POST /api/orders without a token")
     void postOrders_noToken_returns401() {
         // when
         var result = webTestClient.post().uri("/api/orders").exchange();
@@ -89,6 +96,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Lets POST /api/orders with a valid token through the security layer to the upstream")
     void postOrders_validToken_passesSecurityLayer() {
         // given
         String token = TestJwtTokenGenerator.generateValidToken("testuser");
@@ -103,6 +111,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Returns 401 for POST /api/orders with an invalid token")
     void postOrders_invalidToken_returns401() {
         // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
@@ -117,6 +126,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Returns 401 for POST /api/orders with an expired token")
     void postOrders_expiredToken_returns401() {
         // given
         String expiredToken = TestJwtTokenGenerator.generateExpiredToken("testuser");
@@ -131,6 +141,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Returns 401 for POST /api/orders when the token lacks the Bearer prefix")
     void postOrders_missingBearerPrefix_returns401() {
         // given
         String token = TestJwtTokenGenerator.generateValidToken("testuser");
@@ -145,6 +156,7 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Lets an unauthenticated OPTIONS preflight request through the security layer")
     void optionsRequest_noAuth_passesSecurityLayer() {
         // when
         var result = webTestClient.options().uri("/api/orders").exchange();

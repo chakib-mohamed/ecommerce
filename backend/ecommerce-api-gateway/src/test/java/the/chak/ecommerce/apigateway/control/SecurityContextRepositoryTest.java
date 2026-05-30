@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,6 +35,7 @@ class SecurityContextRepositoryTest {
     private SecurityContextRepository securityContextRepository;
 
     @Test
+    @DisplayName("Returns a populated security context when the request carries a valid token")
     void load_validToken_returnsPopulatedSecurityContext() {
         // given
         String username = "testuser";
@@ -57,6 +59,7 @@ class SecurityContextRepositoryTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the request carries no token")
     void load_missingToken_returnsEmpty() {
         // given
         ServerWebExchange exchange = mock(ServerWebExchange.class);
@@ -72,6 +75,7 @@ class SecurityContextRepositoryTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the request token fails authentication")
     void load_invalidToken_returnsEmpty() {
         // given
         String invalidToken = TestJwtTokenGenerator.generateInvalidToken();
@@ -89,6 +93,7 @@ class SecurityContextRepositoryTest {
     }
 
     @Test
+    @DisplayName("Throws UnsupportedOperationException because the context is never saved")
     void save_always_throwsUnsupportedOperation() {
         // given
         ServerWebExchange exchange = mock(ServerWebExchange.class);

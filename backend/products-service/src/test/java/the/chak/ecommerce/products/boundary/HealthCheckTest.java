@@ -4,6 +4,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -28,6 +29,7 @@ class HealthCheckTest {
     }
 
     @Test
+    @DisplayName("Reports overall status UP on the aggregate health endpoint")
     void health_returns200() {
         given()
                 .when()
@@ -39,6 +41,7 @@ class HealthCheckTest {
     }
 
     @Test
+    @DisplayName("Reports status UP on the liveness probe")
     void liveness_returns200() {
         given()
                 .when()
@@ -50,6 +53,7 @@ class HealthCheckTest {
     }
 
     @Test
+    @DisplayName("Reports status UP on the readiness probe")
     void readiness_returns200() {
         given()
                 .when()

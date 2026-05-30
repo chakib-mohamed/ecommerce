@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -36,6 +37,7 @@ class KafkaEventConsumerTest {
     }
 
     @Test
+    @DisplayName("Persists the product to the read store when a valid product-updated event is consumed")
     void consumeProductUpdatedEvent_validPayload_persistsProduct() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -63,6 +65,7 @@ class KafkaEventConsumerTest {
     }
 
     @Test
+    @DisplayName("Removes the product from the read store when a product-deleted event is consumed")
     void consumeProductDeletedEvent_existingProduct_removesFromDatabase() {
         // given
         UUID uuid = UUID.randomUUID();

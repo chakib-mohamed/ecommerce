@@ -14,6 +14,7 @@ import java.util.Map;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,6 +38,7 @@ class CategoryServiceTest {
     EntityManager em;
 
     @Test
+    @DisplayName("Persists and returns the category when its label is new")
     void saveCategory_newLabel_persistsAndReturnsCategory() {
         // given
         Category category = new Category();
@@ -55,6 +57,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @DisplayName("Throws CategoryAlreadyExistsException when the label already exists")
     void saveCategory_duplicateLabel_throwsCategoryAlreadyExistsException() {
         // given
         String label = "Electronics";
@@ -70,6 +73,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @DisplayName("Merges the changes when the category id exists")
     void updateCategory_existingId_mergesChanges() {
         // given
         Long id = 1L;
@@ -87,6 +91,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @DisplayName("Does not merge when the category id does not exist")
     void updateCategory_nonExistentId_doesNothing() {
         // given
         Long id = 999L;
@@ -103,6 +108,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @DisplayName("Removes the category from the database by id")
     void deleteCategory_removesFromDatabase() {
         // given
         Long id = 1L;
@@ -115,6 +121,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @DisplayName("Returns matching categories when filtering on an allowed field")
     void findByCriteria_withAllowedField_returnsMatchingResults() {
         // given
         String label = "Electronics";
@@ -132,6 +139,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @DisplayName("Throws BadRequestException when filtering on a field that is not allowed")
     void findByCriteria_withInvalidField_throwsBadRequestException() {
         // given
         Map<String, Criteria> params = Map.of("unknown_field", new Criteria(Criteria.Operator.EQUALS, "x"));
@@ -142,6 +150,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @DisplayName("Returns a page of categories when paginating a filter on an allowed field")
     void findByCriteria_paginatedWithAllowedField_returnsPage() {
         // given
         Map<String, Criteria> params = Map.of("label", new Criteria(Criteria.Operator.LIKE, "Tech%"));
@@ -159,6 +168,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @DisplayName("Throws BadRequestException when paginating a filter on a field that is not allowed")
     void findByCriteria_paginatedWithInvalidField_throwsBadRequestException() {
         // given
         Map<String, Criteria> params = Map.of("bad_field", new Criteria(Criteria.Operator.EQUALS, "x"));

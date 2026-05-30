@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -51,6 +52,7 @@ class ProductServiceTest {
     Event<ProductDeletedEvent> productDeletedEvent;
 
     @Test
+    @DisplayName("Uploads the image and persists the product when image bytes are provided")
     void saveProduct_withImageBytes_uploadsImageAndPersists() {
         // given
         byte[] imageBytes = jpegBytes();
@@ -67,6 +69,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Deletes the uploaded image and rethrows when persistence fails after upload")
     void saveProduct_uploadFails_deletesImageAndThrowsException() {
         // given
         byte[] imageBytes = jpegBytes();
@@ -80,6 +83,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Persists the product directly without uploading when no image is provided")
     void saveProduct_withoutImage_persistsDirectly() {
         // given
         Product product = new Product();
@@ -94,6 +98,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Throws ProductNotFoundException when updating a product that does not exist")
     void updateProduct_productNotFound_throwsProductNotFoundException() {
         // given
         Product product = new Product();
@@ -110,6 +115,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Replaces the old image and updates the product when a new image is provided")
     void updateProduct_withNewImage_replacesOldImageAndUpdates() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -140,6 +146,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Keeps the existing image key when updating without a new image")
     void updateProduct_withoutImage_retainsExistingImageKey() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -166,6 +173,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Deletes the record and its stored image and fires a deleted event for an existing product")
     void deleteProduct_existingProduct_deletesRecordAndStorageKey() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -187,6 +195,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Does nothing when deleting a product that does not exist")
     void deleteProduct_nonExistentProduct_doesNothing() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -202,6 +211,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Updates the stored price for a known product")
     void updatePrice_knownProduct_updatesPrice() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -220,6 +230,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Returns quietly without error when updating the price of an unknown product")
     void updatePrice_unknownProduct_logsAndReturns() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -234,6 +245,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Returns the requested page of products with their associations")
     void getProducts_validPage_returnsPaginatedList() {
         // given
         Product p1 = new Product();
@@ -258,6 +270,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Returns the product with its promotions and categories when it exists")
     void getProductWithAssociations_existingProduct_returnsProduct() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -281,6 +294,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the product does not exist")
     void getProductWithAssociations_nonExistentProduct_returnsEmpty() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -296,6 +310,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Returns matching products when filtering on an allowed field")
     void findByCriteria_allowedField_returnsMatchingResults() {
         // given
         String title = "Searchable";
@@ -314,6 +329,7 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Throws BadRequestException when filtering on a field that is not allowed")
     void findByCriteria_invalidField_throwsBadRequestException() {
         // given
         Map<String, Criteria> params = Map.of("unknown_field", new Criteria(Criteria.Operator.EQUALS, "x"));

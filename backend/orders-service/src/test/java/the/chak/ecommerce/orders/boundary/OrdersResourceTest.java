@@ -16,6 +16,7 @@ import java.util.List;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
 import the.chak.ecommerce.orders.entity.OrderStatus;
@@ -62,6 +63,7 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "original_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "original_user") })
+    @DisplayName("Preserves the status, price, owner, and creation date when updating an initiated order")
     void updateOrder_initiatedOrder_preservesStatusAndPrice() {
         // given
         LocalDateTime originalCreationDate = LocalDateTime.now().minusDays(1);
@@ -101,6 +103,7 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 201 with the calculated price and persists the order for valid products")
     void createOrder_validProducts_returns201WithCalculatedPrice() {
         // given
         ProductDto mockProduct = new ProductDto();
@@ -132,6 +135,7 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns only the orders belonging to the requested user when searching by user id")
     void searchOrders_byUserId_returnsMatchingOrders() {
         // given
         Order order1 = new Order();
@@ -158,6 +162,7 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "user_delete")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "user_delete") })
+    @DisplayName("Returns 200 and removes the order when deleting an existing order")
     void deleteOrder_existingOrder_removesFromDatabase() {
         // given
         Order order = new Order();
@@ -177,6 +182,7 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "user_confirm")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "user_confirm") })
+    @DisplayName("Returns 200 with CONFIRMED status when confirming an initiated order")
     void confirmOrder_initiatedOrder_changesStatusToConfirmed() {
         // given
         Order order = new Order();
@@ -197,6 +203,7 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 400 with VALIDATION_ERROR when creating an order with no products")
     void createOrder_emptyProductsList_returns400() {
         // given
         OrderRequest request = new OrderRequest();
@@ -215,6 +222,7 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 400 with VALIDATION_ERROR when an ordered product has a blank id")
     void createOrder_productWithBlankId_returns400() {
         // given
         // when
@@ -231,6 +239,7 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 400 with VALIDATION_ERROR when searching with a blank user id")
     void searchOrders_blankUserId_returns400() {
         // given
         // when

@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -30,6 +31,7 @@ class PromotionsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when creating a promotion with a blank label")
     void createPromotion_blankLabel_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -43,6 +45,7 @@ class PromotionsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when the discount percentage exceeds 100")
     void createPromotion_percentageOffAbove100_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -56,6 +59,7 @@ class PromotionsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when the active-from date is missing")
     void createPromotion_nullActiveFrom_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -69,6 +73,7 @@ class PromotionsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 with VALIDATION_ERROR when the product id is missing")
     void createPromotion_missingProductId_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -84,6 +89,7 @@ class PromotionsResourceTest {
     // -- Success paths --
 
     @Test
+    @DisplayName("Returns 201 with the created promotion when the request is valid")
     void createPromotion_validRequest_returns201() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -101,6 +107,7 @@ class PromotionsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns the list including a previously created promotion")
     void getPromotions_withExistingPromotion_returnsList() {
         // given — create a promotion first
         createdPromotionId = given().contentType(ContentType.JSON)
@@ -120,6 +127,7 @@ class PromotionsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 200 when deleting an existing promotion")
     void deletePromotion_existingPromotion_returns200() {
         // given — create a promotion
         String promotionId = given().contentType(ContentType.JSON)

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -25,6 +26,7 @@ class PromotionServiceTest {
     PromotionRepository promotionRepository;
 
     @Test
+    @DisplayName("Persists and returns the promotion when it is valid")
     void savePromotion_validPromotion_persistsAndReturnsPromotion() {
         // given
         Promotion promotion = new Promotion();
@@ -39,6 +41,7 @@ class PromotionServiceTest {
     }
 
     @Test
+    @DisplayName("Deletes the promotion when the id exists")
     void deletePromotion_existingId_deletesSuccessfully() {
         // given
         Long id = 1L;
@@ -52,6 +55,7 @@ class PromotionServiceTest {
     }
 
     @Test
+    @DisplayName("Throws PromotionNotFoundException when deleting an id that does not exist")
     void deletePromotion_nonExistentId_throwsPromotionNotFoundException() {
         // given
         Long id = 999L;
@@ -63,6 +67,7 @@ class PromotionServiceTest {
     }
 
     @Test
+    @DisplayName("Returns all stored promotions")
     void listAll_returnsAllPromotions() {
         // given
         Promotion p1 = new Promotion();

@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.control.OrderService;
 import the.chak.ecommerce.orders.control.PriceCacheService;
@@ -60,6 +61,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 201 with a new cart containing the added item when the user has no cart")
     void addItem_noExistingCart_createsCartWithItem() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -77,6 +79,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Increments the existing line quantity when adding a product already in the cart")
     void addItem_existingProduct_incrementsQuantity() {
         // given
         given().contentType(ContentType.JSON)
@@ -97,6 +100,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 400 with VALIDATION_ERROR when adding an item with a non-positive quantity")
     void addItem_zeroOrNegativeQuantity_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -112,6 +116,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 400 with VALIDATION_ERROR when adding an item with a blank product id")
     void addItem_blankProductId_returns400() {
         // when
         var response = given().contentType(ContentType.JSON)
@@ -127,6 +132,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 400 with VALIDATION_ERROR when updating an item to a quantity of zero")
     void updateItem_zeroQuantity_returns400() {
         // given
         Cart cart = new Cart();
@@ -149,6 +155,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 404 when fetching a cart for a user who has none")
     void getCart_noExistingCart_returns404() {
         // when
         var response = given().when().get("/cart");
@@ -160,6 +167,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 200 with the cart items when the user has a cart")
     void getCart_existingCart_returnsItems() {
         // given
         Cart cart = new Cart();
@@ -182,6 +190,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 200 with the updated quantity when updating a product in the cart")
     void updateItem_existingProduct_updatesQuantity() {
         // given
         Cart cart = new Cart();
@@ -202,6 +211,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 404 when updating a product that is not in the cart")
     void updateItem_unknownProduct_returns404() {
         // given
         Cart cart = new Cart();
@@ -222,6 +232,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 204 and removes the line when deleting a product in the cart")
     void removeItem_existingProduct_removesFromCart() {
         // given
         Cart cart = new Cart();
@@ -245,6 +256,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 404 when removing a product that is not in the cart")
     void removeItem_unknownProduct_returns404() {
         // given
         Cart cart = new Cart();
@@ -263,6 +275,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 204 and deletes the cart when clearing an existing cart")
     void clearCart_existingCart_deletesDocument() {
         // given
         Cart cart = new Cart();
@@ -282,6 +295,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 204 when clearing a cart for a user who has none")
     void clearCart_noExistingCart_returns204() {
         // when
         var response = given().when().delete("/cart");
@@ -293,6 +307,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Includes unit and total price in the cart response when cached prices are available")
     void getCart_withCachedPrices_includesPriceData() {
         // given
         Cart cart = new Cart();
@@ -314,6 +329,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 201 with the initiated order and clears the cart on valid checkout")
     void checkout_validCart_createsOrderAndClearsCart() {
         // given
         Cart cart = new Cart();
@@ -342,6 +358,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 404 with CART_NOT_FOUND when checking out without a cart")
     void checkout_noExistingCart_returns404() {
         // when
         var response = given().when().post("/cart/checkout");
@@ -353,6 +370,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 400 with CART_EMPTY when checking out a cart with no items")
     void checkout_emptyCart_returns400() {
         // given
         Cart cart = new Cart();
@@ -371,6 +389,7 @@ class CartResourceTest {
     @Test
     @TestSecurity(user = USER_ID)
     @JwtSecurity(claims = { @Claim(key = "sub", value = USER_ID) })
+    @DisplayName("Returns 500 and preserves the cart when order creation fails during checkout")
     void checkout_orderServiceFails_preservesCart() {
         // given
         Cart cart = new Cart();

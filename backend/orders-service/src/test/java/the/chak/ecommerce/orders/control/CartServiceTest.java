@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -48,6 +49,7 @@ class CartServiceTest {
     // --addItem ────────────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Creates a new cart holding the single added item when the user has no cart yet")
     void addItem_noExistingCart_createsCartWithSingleItem() {
         // given
         AddItemRequest request = new AddItemRequest();
@@ -68,6 +70,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Increments the quantity instead of adding a duplicate line when the product is already in the cart")
     void addItem_existingCartSameProduct_incrementsQuantity() {
         // given
         Cart cart = new Cart();
@@ -89,6 +92,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Adds a new line when the product is not yet in an existing cart")
     void addItem_existingCartDifferentProduct_addsNewItem() {
         // given
         Cart cart = new Cart();
@@ -111,6 +115,7 @@ class CartServiceTest {
     // --getCart ────────────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Returns empty when the user has no cart")
     void getCart_noCart_returnsEmpty() {
         // given
         when(cartRepository.findByUserId(anyString())).thenReturn(Optional.empty());
@@ -120,6 +125,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Returns the cart response when the user has a cart")
     void getCart_existingCart_returnsResponse() {
         // given
         Cart cart = new Cart();
@@ -137,6 +143,7 @@ class CartServiceTest {
     // --updateItem ─────────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Returns empty when updating an item for a user with no cart")
     void updateItem_cartNotFound_returnsEmpty() {
         // given
         when(cartRepository.findByUserId(anyString())).thenReturn(Optional.empty());
@@ -146,6 +153,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Returns empty when updating a product that is not in the cart")
     void updateItem_itemNotFound_returnsEmpty() {
         // given
         Cart cart = new Cart();
@@ -160,6 +168,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Updates the line quantity when the product is in the cart")
     void updateItem_itemExists_updatesQuantity() {
         // given
         Cart cart = new Cart();
@@ -180,6 +189,7 @@ class CartServiceTest {
     // --removeItem ─────────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Returns false when removing an item for a user with no cart")
     void removeItem_cartNotFound_returnsFalse() {
         // given
         when(cartRepository.findByUserId(anyString())).thenReturn(Optional.empty());
@@ -189,6 +199,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Returns false when removing a product that is not in the cart")
     void removeItem_itemNotFound_returnsFalse() {
         // given
         Cart cart = new Cart();
@@ -200,6 +211,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Removes the line and returns true when the product is in the cart")
     void removeItem_itemExists_removesItem() {
         // given
         Cart cart = new Cart();
@@ -217,6 +229,7 @@ class CartServiceTest {
     // --clearCart ──────────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Returns false when clearing a cart for a user with no cart")
     void clearCart_noCart_returnsFalse() {
         // given
         when(cartRepository.findByUserId(anyString())).thenReturn(Optional.empty());
@@ -226,6 +239,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Deletes the cart and returns true when the user has a cart")
     void clearCart_existingCart_deletesAndReturnsTrue() {
         // given
         Cart cart = new Cart();
@@ -242,6 +256,7 @@ class CartServiceTest {
     // --checkout ───────────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Throws CartNotFoundException when checking out a user with no cart")
     void checkout_noCart_throwsCartNotFoundException() {
         // given
         when(cartRepository.findByUserId(anyString())).thenReturn(Optional.empty());
@@ -251,6 +266,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Throws CartEmptyException when checking out a cart with no items")
     void checkout_emptyCart_throwsCartEmptyException() {
         // given
         Cart cart = new Cart();
@@ -261,6 +277,7 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Creates the order, delegates to the order service, and deletes the cart on valid checkout")
     void checkout_validCart_delegatesToOrderServiceAndDeleteCart() {
         // given
         Cart cart = new Cart();

@@ -4,6 +4,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -25,6 +26,7 @@ class PriceResourceTest {
 
     @Test
     @TestSecurity(user = "test-user")
+    @DisplayName("Returns 200 with the stored price when updating with a valid price")
     void updatePrice_validPrice_returns200WithStoredPrice() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();
@@ -42,6 +44,7 @@ class PriceResourceTest {
 
     @Test
     @TestSecurity(user = "test-user")
+    @DisplayName("Returns 400 with VALIDATION_ERROR when updating with a negative price")
     void updatePrice_negativePrice_returns400() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();
@@ -59,6 +62,7 @@ class PriceResourceTest {
 
     @Test
     @TestSecurity(user = "test-user")
+    @DisplayName("Returns 400 with VALIDATION_ERROR when updating with no price")
     void updatePrice_nullPrice_returns400() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();

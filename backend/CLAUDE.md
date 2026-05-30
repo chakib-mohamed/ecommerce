@@ -122,7 +122,7 @@ Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
 ./mvnw verify   # same problem
 ```
 
-See `docs/conventions/testing-conventions.md` for all test conventions — including Testcontainers vs Dev Services, Kafka test setup, and container reuse, plus naming, body structure, split conventions, and coverage requirements.
+See `docs/conventions/testing-conventions.md` for all test conventions — including Testcontainers vs Dev Services, Kafka test setup, and container reuse, plus naming, display names, body structure, split conventions, and coverage requirements.
 
 ## Database Transaction Rules
 

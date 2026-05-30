@@ -3,6 +3,7 @@ package the.chak.ecommerce.pricing;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -18,6 +19,7 @@ class TransactionalRulesArchTest {
     }
 
     @Test
+    @DisplayName("Fails the build if a boundary class is annotated with @Transactional")
     void noClass_inBoundary_shouldBeAnnotatedWith_transactional() {
         noClasses()
                 .that().resideInAPackage("..boundary..")
@@ -28,6 +30,7 @@ class TransactionalRulesArchTest {
     }
 
     @Test
+    @DisplayName("Fails the build if an entity class is annotated with @Transactional")
     void noClass_inEntity_shouldBeAnnotatedWith_transactional() {
         noClasses()
                 .that().resideInAPackage("..entity..")
@@ -38,6 +41,7 @@ class TransactionalRulesArchTest {
     }
 
     @Test
+    @DisplayName("Fails the build if a boundary method is annotated with @Transactional")
     void noMethod_inBoundary_shouldBeAnnotatedWith_transactional() {
         noMethods()
                 .that().areDeclaredInClassesThat().resideInAPackage("..boundary..")
@@ -48,6 +52,7 @@ class TransactionalRulesArchTest {
     }
 
     @Test
+    @DisplayName("Fails the build if an entity method is annotated with @Transactional")
     void noMethod_inEntity_shouldBeAnnotatedWith_transactional() {
         noMethods()
                 .that().areDeclaredInClassesThat().resideInAPackage("..entity..")

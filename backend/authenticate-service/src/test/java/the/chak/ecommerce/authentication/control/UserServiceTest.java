@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mindrot.jbcrypt.BCrypt;
@@ -29,6 +30,7 @@ class UserServiceTest {
     UserService userService;
 
     @Test
+    @DisplayName("Hashes the password and persists the user when the email is not yet registered")
     void addUser_newEmail_hashesPasswordAndPersists() {
         // given
         String email = "test@example.com";
@@ -48,6 +50,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("Throws DuplicateEmailException when the email is already registered")
     void addUser_duplicateEmail_throwsDuplicateEmailException() {
         // given
         String email = "dup@example.com";
@@ -61,6 +64,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("Returns the matching user when the password is correct")
     void authenticateUser_correctPassword_returnsUser() {
         // given
         String email = "auth@example.com";
@@ -84,6 +88,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("Returns empty when the password does not match the stored hash")
     void authenticateUser_wrongPassword_returnsEmpty() {
         // given
         String email = "auth@example.com";
@@ -105,6 +110,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("Returns the user when looking up an existing email")
     void findUser_existingEmail_returnsUser() {
         // given
         String email = "found@example.com";

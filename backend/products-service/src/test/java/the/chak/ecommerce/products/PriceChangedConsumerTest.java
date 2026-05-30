@@ -3,6 +3,7 @@ package the.chak.ecommerce.products;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -23,6 +24,7 @@ class PriceChangedConsumerTest {
     ProductRepository productRepository;
 
     @Test
+    @DisplayName("Updates the product's stored price when a price-changed event is consumed")
     @Transactional
     void consume_priceChangedEvent_updatesProductPriceInDatabase() {
         // given

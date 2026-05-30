@@ -6,6 +6,7 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static com.tngtech.archunit.base.DescribedPredicate.not;
@@ -25,6 +26,7 @@ class BceArchitectureTest {
     }
 
     @Test
+    @DisplayName("Fails the build if an entity class depends on the boundary or control layer")
     void entity_mustNotDependOn_boundaryOrControl() {
         // given
         ArchRule rule = noClasses()
@@ -39,6 +41,7 @@ class BceArchitectureTest {
     }
 
     @Test
+    @DisplayName("Fails the build if control depends on boundary classes other than DTOs")
     void control_mustNotDependOn_nonDtoBoundaryClasses() {
         // given
         DescribedPredicate<JavaClass> ownNonDtoBoundary =
@@ -56,6 +59,7 @@ class BceArchitectureTest {
     }
 
     @Test
+    @DisplayName("Fails the build if a @Path resource lives outside the boundary package")
     void pathAnnotatedClasses_mustResideIn_boundary() {
         // given
         ArchRule rule = classes()
@@ -70,6 +74,7 @@ class BceArchitectureTest {
     }
 
     @Test
+    @DisplayName("Fails the build if a persistence entity lives outside the entity package")
     void persistenceEntities_mustResideIn_entityPackage() {
         // given
         ArchRule rule = classes()
@@ -84,6 +89,7 @@ class BceArchitectureTest {
     }
 
     @Test
+    @DisplayName("Fails the build if an exception class lives outside the control package")
     void exceptionClasses_mustResideIn_control() {
         // given
         ArchRule rule = classes()

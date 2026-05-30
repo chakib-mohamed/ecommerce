@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
@@ -28,6 +29,7 @@ class PricingServiceTest {
     }
 
     @Test
+    @DisplayName("Throws InvalidOrderException when the request has no order")
     void calculate_nullOrder_throwsInvalidOrderException() {
         // given
         PriceCalculationRequest request = new PriceCalculationRequest();
@@ -38,6 +40,7 @@ class PricingServiceTest {
     }
 
     @Test
+    @DisplayName("Throws InvalidOrderException when the order has no products")
     void calculate_emptyProducts_throwsInvalidOrderException() {
         // given
         OrderDTO order = new OrderDTO();
@@ -50,6 +53,7 @@ class PricingServiceTest {
     }
 
     @Test
+    @DisplayName("Returns the quantity-times-price total when the order has no promotion")
     void calculate_validOrderNoPromotion_returnsCalculatedTotal() {
         // given — qty=2, price=50.0, no discount → 50.0 * 2 = 100.0
         PriceCalculationRequest request = requestWith(product("p1", 2, 50.0, null));
@@ -62,6 +66,7 @@ class PricingServiceTest {
     }
 
     @Test
+    @DisplayName("Applies the product's percentage discount to the calculated total")
     void calculate_validOrderWithPromotion_appliesDiscount() {
         // given — 20% off on 100.0, qty=2 → unit 80.0, total 160.0
         PriceCalculationRequest request = requestWith(product("p1", 2, 100.0, 20.0));
@@ -74,6 +79,7 @@ class PricingServiceTest {
     }
 
     @Test
+    @DisplayName("Applies the bulk Drools discount when the quantity exceeds five")
     void calculate_qtyAbove5_appliesDroolsDiscount() {
         // given — qty=6, price=10.0, no promotion
         // Drools rule: qty > 5 → price = price * 0.95 → 9.5 per unit, total = 57.0
@@ -87,6 +93,7 @@ class PricingServiceTest {
     }
 
     @Test
+    @DisplayName("Returns a UUID identifier for each price calculation")
     void calculate_returnsUuidId() {
         // given
         PriceCalculationRequest request = requestWith(product("p1", 1, 10.0, null));

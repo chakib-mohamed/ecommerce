@@ -4,6 +4,7 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -18,6 +19,7 @@ class ControlTestRulesArchTest {
     }
 
     @Test
+    @DisplayName("Fails the build if a control-layer *ServiceTest is annotated with @QuarkusTest")
     void controlServiceTests_mustNotUse_quarkusTest() {
         // given
         ArchRule rule = noClasses()

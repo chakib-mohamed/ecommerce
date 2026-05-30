@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Annotation;
@@ -20,6 +21,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 class LazyRelationshipsTest {
 
     @Test
+    @DisplayName("Fails the build if a JPA relationship field does not declare fetch = LAZY")
     void jpaRelationships_entityFields_mustUseLazyFetch() {
         // given
         JavaClasses classes = new ClassFileImporter()

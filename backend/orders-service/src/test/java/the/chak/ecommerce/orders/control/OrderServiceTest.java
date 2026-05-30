@@ -17,6 +17,7 @@ import static org.mockito.Mockito.verify;
 
 import io.quarkus.mongodb.panache.PanacheQuery;
 import jakarta.ws.rs.core.Response;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -51,6 +52,7 @@ class OrderServiceTest {
     // --saveOrder ──────────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Throws ProductNotFoundException when an ordered product cannot be found")
     void saveOrder_productNotFound_throwsProductNotFoundException() {
         // given
         when(productsApiClient.getProduct("missing-prod")).thenReturn(null);
@@ -61,6 +63,7 @@ class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("Applies the discount percentage and calculated price when the product has an active promotion")
     void saveOrder_productWithActivePromotion_setsPercentageOff() {
         // given
         PromotionDto promo = new PromotionDto();
@@ -86,6 +89,7 @@ class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("Ignores the promotion and leaves the discount at zero when the promotion is not active")
     void saveOrder_productWithInactivePromotion_ignoresPromotion() {
         // given
         PromotionDto promo = new PromotionDto();
@@ -109,6 +113,7 @@ class OrderServiceTest {
     // --searchOrders ───────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Returns the count and matching orders when searching by user id")
     void searchOrders_withUserId_filtersResults() {
         // given
         SearchOrdersCommand cmd = new SearchOrdersCommand();
@@ -131,6 +136,7 @@ class OrderServiceTest {
     // --confirmOrder ───────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("Changes the status to CONFIRMED and persists when confirming an existing order")
     void confirmOrder_existingOrder_changesStatusToConfirmed() {
         // given
         String orderId = new ObjectId().toString();
@@ -148,6 +154,7 @@ class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("Returns null when confirming an order id that does not exist")
     void confirmOrder_nonExistentOrderId_returnsNull() {
         // given
         String fakeId = new ObjectId().toString();

@@ -4,6 +4,7 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -18,6 +19,7 @@ class LombokRulesArchTest {
     }
 
     @Test
+    @DisplayName("Fails the build if any class is annotated with Lombok @Data")
     void noClass_shouldUse_dataAnnotation() {
         // given
         ArchRule rule = noClasses()
@@ -30,6 +32,7 @@ class LombokRulesArchTest {
     }
 
     @Test
+    @DisplayName("Fails the build if an entity uses Lombok @EqualsAndHashCode")
     void entities_mustNotUse_equalsAndHashCode() {
         // given
         ArchRule rule = noClasses()
@@ -43,6 +46,7 @@ class LombokRulesArchTest {
     }
 
     @Test
+    @DisplayName("Fails the build if an entity uses Lombok @ToString")
     void entities_mustNotUse_toString() {
         // given
         ArchRule rule = noClasses()
@@ -56,6 +60,7 @@ class LombokRulesArchTest {
     }
 
     @Test
+    @DisplayName("Fails the build if a *Config bean uses Lombok @Setter")
     void configBeans_mustNotUse_setter() {
         // given
         ArchRule rule = noClasses()

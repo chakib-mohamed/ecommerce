@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.quarkus.mongodb.panache.PanacheQuery;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,6 +35,7 @@ class PriceServiceTest {
     // -- update validation --------
 
     @Test
+    @DisplayName("Throws InvalidPriceException when updating with a null price")
     void update_nullPrice_throwsInvalidPriceException() {
         // given
 
@@ -42,6 +44,7 @@ class PriceServiceTest {
     }
 
     @Test
+    @DisplayName("Throws InvalidPriceException when updating with a zero price")
     void update_zeroPrice_throwsInvalidPriceException() {
         // given
 
@@ -50,6 +53,7 @@ class PriceServiceTest {
     }
 
     @Test
+    @DisplayName("Throws InvalidPriceException when updating with a negative price")
     void update_negativePrice_throwsInvalidPriceException() {
         // given
 
@@ -60,6 +64,7 @@ class PriceServiceTest {
     // -- update persistence --------
 
     @Test
+    @DisplayName("Creates a new price record and publishes a price-changed event for an unknown product")
     void update_newProductId_createsEntityAndPublishesEvent() {
         // given
         PanacheQuery query = mock(PanacheQuery.class);
@@ -78,6 +83,7 @@ class PriceServiceTest {
     }
 
     @Test
+    @DisplayName("Updates the existing price record and publishes a price-changed event for a known product")
     void update_existingProductId_updatesEntityAndPublishesEvent() {
         // given
         Price existingPrice = new Price();

@@ -13,6 +13,7 @@ import io.restassured.RestAssured;
 import io.restassured.config.JsonConfig;
 import io.restassured.path.json.config.JsonPathConfig;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.QuarkusTestResource;
@@ -49,6 +50,7 @@ class PricingResourceTest {
 
     @Test
     @TestSecurity(user = "test-user")
+    @DisplayName("Returns 200 applying the bulk discount when the quantity exceeds five")
     void calculatePrice_qtyAbove5_appliesDrlDiscount() {
         // given — qty=6 > 5 triggers DRL 5% reduction: 6 * 10.0 * 0.95 = 57.0
         ProductVO product = new ProductVO();
@@ -76,6 +78,7 @@ class PricingResourceTest {
 
     @Test
     @TestSecurity(user = "test-user")
+    @DisplayName("Returns 200 applying the product's percentage discount to the total")
     void calculatePrice_withPromotion_appliesPercentageOff() {
         // given — qty=1, price=100.0, percentageOff=10: 1 * 100.0 * 0.90 = 90.0
         ProductVO product = new ProductVO();
@@ -101,6 +104,7 @@ class PricingResourceTest {
 
     @Test
     @TestSecurity(user = "test-user")
+    @DisplayName("Returns 400 with INVALID_ORDER when the order has no products")
     void calculatePrice_emptyProducts_returns400() {
         // given
         OrderDTO order = new OrderDTO();
@@ -121,6 +125,7 @@ class PricingResourceTest {
 
     @Test
     @TestSecurity(user = "test-user")
+    @DisplayName("Returns 400 with INVALID_ORDER when the request has no order")
     void calculatePrice_nullOrder_returns400() {
         // given
         PriceCalculationRequest request = new PriceCalculationRequest();

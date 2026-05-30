@@ -3,6 +3,7 @@ package the.chak.ecommerce.apigateway.boundary;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -29,6 +30,7 @@ class ApiGatewayControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("Returns 200 and revokes the token when the request is valid")
     void revokeToken_validRequest_returns200() {
         // given
         String token = TestJwtTokenGenerator.generateValidToken("testuser");
@@ -49,6 +51,7 @@ class ApiGatewayControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("Returns 400 when the revoke request carries an empty token")
     void revokeToken_emptyToken_returns400() {
         // given
         RevokeTokenRequest request = new RevokeTokenRequest();
@@ -66,6 +69,7 @@ class ApiGatewayControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("Returns 400 when the revoke request carries no token")
     void revokeToken_nullToken_returns400() {
         // given
         RevokeTokenRequest request = new RevokeTokenRequest();

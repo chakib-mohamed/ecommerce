@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -44,6 +45,7 @@ class ProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 201 with all product fields when the create request is valid")
     void createProduct_validRequest_returns201WithAllFields() {
         // given
         Map<String, Object> request = Map.of(
@@ -67,6 +69,7 @@ class ProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns all fields including categories and promotions when fetching an existing product")
     void getProduct_existingProduct_returnsAllFields() {
         // given
         var createResponse = given().contentType(ContentType.JSON)
@@ -91,6 +94,7 @@ class ProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns a non-empty list when at least one product exists")
     void listProducts_withExistingProduct_returnsNonEmptyList() {
         // given
         var createResponse = given().contentType(ContentType.JSON)
@@ -108,6 +112,7 @@ class ProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Removes the product so a later fetch returns 404")
     void deleteProduct_existingProduct_removesProduct() {
         // given
         var createResponse = given().contentType(ContentType.JSON)
@@ -126,6 +131,7 @@ class ProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 200 with the updated fields and persists them for an existing product")
     void updateProduct_existingProduct_returns200WithUpdatedFields() {
         // given
         var createResponse = given().contentType(ContentType.JSON)
@@ -152,6 +158,7 @@ class ProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns a single matching product when searching by exact title")
     void searchProducts_exactTitleMatch_returnsSingleResult() {
         // given
         String title = "Searchable Product " + UUID.randomUUID();
@@ -174,6 +181,7 @@ class ProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns 400 when the supplied image is not a valid image")
     void createProduct_invalidImageFormat_returns400() {
         // given
         String invalidImage = "VGhpcyBpcyBub3QgYW4gaW1hZ2U="; // "This is not an image"
@@ -192,6 +200,7 @@ class ProductsResourceTest {
     }
 
     @Test
+    @DisplayName("Returns the stored image bytes for an uploaded product image")
     void getImage_uploadedProduct_returnsImageBytes() {
         // given
         var createResponse = given().contentType(ContentType.JSON)

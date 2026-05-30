@@ -11,6 +11,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.authentication.MongoDbTestResource;
 import the.chak.ecommerce.authentication.control.exceptions.InvalidTokenException;
@@ -29,6 +30,7 @@ class TokenUtilsTest {
     JwtConfig jwtConfig;
 
     @Test
+    @DisplayName("Generates a JWT whose subject matches the username it was issued for")
     void generateToken_validSubject_returnsJwtWithMatchingSubject() {
         // when
         String token = tokenUtils.generateToken("alice@example.com");
@@ -38,6 +40,7 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Sets the token expiry to the configured number of minutes after issuance")
     void generateToken_validSubject_expiresAfterConfiguredMinutes() {
         // when
         String token = tokenUtils.generateToken("alice@example.com");
@@ -55,12 +58,14 @@ class TokenUtilsTest {
     }
 
     @Test
+    @DisplayName("Throws InvalidTokenException when parsing a malformed token")
     void getUsername_invalidToken_throwsInvalidTokenException() {
         assertThrows(InvalidTokenException.class,
                 () -> tokenUtils.getUsername("this.is.not.a.jwt"));
     }
 
     @Test
+    @DisplayName("Throws InvalidTokenException when the token has already expired")
     void getUsername_expiredToken_throwsInvalidTokenException() {
         // given — build a JWT whose expiration is already in the past
         long now = System.currentTimeMillis();

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
@@ -19,6 +20,7 @@ class ApplyPromotionsServiceTest {
     }
 
     @Test
+    @DisplayName("Applies the percentage discount to each line and the order total")
     void applyPromotion_withPercentageOff_appliesDiscountToTotal() {
         // given
         OrderDTO order = orderWith(product("p1", 2, 100.0, 10.0));
@@ -32,6 +34,7 @@ class ApplyPromotionsServiceTest {
     }
 
     @Test
+    @DisplayName("Charges the full price when the product has no discount")
     void applyPromotion_withoutPercentageOff_usesFullPrice() {
         // given
         OrderDTO order = orderWith(product("p1", 3, 50.0, null));
@@ -45,6 +48,7 @@ class ApplyPromotionsServiceTest {
     }
 
     @Test
+    @DisplayName("Sums the per-line totals across multiple products into the order price")
     void applyPromotion_multipleProducts_sumsTotals() {
         // given
         ProductVO p1 = product("p1", 1, 100.0, null);
@@ -60,6 +64,7 @@ class ApplyPromotionsServiceTest {
     }
 
     @Test
+    @DisplayName("Rounds the discounted total to two decimal places")
     void applyPromotion_roundingNeeded_returnsRoundedTwoDecimalPlaces() {
         // given
         OrderDTO order = orderWith(product("p1", 3, 10.0, 33.33));
