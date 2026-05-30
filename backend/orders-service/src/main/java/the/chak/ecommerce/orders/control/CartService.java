@@ -12,6 +12,7 @@ import the.chak.ecommerce.orders.entity.CartItem;
 import the.chak.ecommerce.orders.entity.Order;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
 
 import java.time.Instant;
 import java.util.List;
@@ -19,6 +20,8 @@ import java.util.Optional;
 
 @ApplicationScoped
 public class CartService {
+
+    private static final Logger LOG = Logger.getLogger(CartService.class);
 
     @Inject
     PriceCacheService priceCacheService;
@@ -49,6 +52,8 @@ public class CartService {
         cart.updatedAt = Instant.now();
         cartRepository.persistOrUpdate(cart);
 
+        LOG.infof("Cart item added userId=%s productId=%s qty=%d",
+                userId, request.getProductId(), request.getQuantity());
         return toResponse(cart);
     }
 
@@ -69,6 +74,8 @@ public class CartService {
             item.get().setQuantity(request.getQuantity());
             cart.updatedAt = Instant.now();
             cartRepository.persistOrUpdate(cart);
+            LOG.infof("Cart item updated userId=%s productId=%s newQty=%d",
+                    userId, productId, request.getQuantity());
             return Optional.of(toResponse(cart));
         });
     }
@@ -79,6 +86,7 @@ public class CartService {
             if (removed) {
                 cart.updatedAt = Instant.now();
                 cartRepository.persistOrUpdate(cart);
+                LOG.infof("Cart item removed userId=%s productId=%s", userId, productId);
             }
             return removed;
         }).orElse(false);
@@ -87,6 +95,7 @@ public class CartService {
     public boolean clearCart(String userId) {
         return cartRepository.findByUserId(userId).map(cart -> {
             cartRepository.delete(cart);
+            LOG.infof("Cart cleared userId=%s", userId);
             return true;
         }).orElse(false);
     }
@@ -97,6 +106,8 @@ public class CartService {
         if (cart.items.isEmpty()) {
             throw new CartEmptyException();
         }
+
+        LOG.infof("Checkout started userId=%s items=%d", userId, cart.items.size());
 
         List<ProductVO> products = cart.items.stream().map(i -> {
             ProductVO p = new ProductVO();
@@ -111,6 +122,7 @@ public class CartService {
 
         orderService.saveOrder(order);
         cartRepository.delete(cart);
+        LOG.infof("Cart cleared userId=%s", userId);
         return order;
     }
 
