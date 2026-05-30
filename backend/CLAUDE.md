@@ -184,6 +184,10 @@ All JPA relationship fields (`@ManyToOne`, `@OneToOne`, `@OneToMany`, `@ManyToMa
 - **Never use `@Setter` on config/security-sensitive fields** (keys, secrets, tokens).
 
 
+## Logging
+
+See `docs/conventions/logging-conventions.md` for logging rules — structured format, correlation IDs via MDC, layer placement, Kafka symmetry, sensitive data, and cross-service elapsed time.
+
 ## Service-Specific Details
 
 See subdirectory CLAUDE.md files:
