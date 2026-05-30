@@ -26,16 +26,16 @@ public class ProductService {
     ProductMongoRepository productMongoRepository;
 
     public void onProductUpdated(ProductUpdatedEvent productUpdatedEvent) {
-        LOG.debug("onProductUpdated received: " + productUpdatedEvent);
         ProductMongoEntity productMongoEntity =
                 mapProductToProductMongoEntity(productUpdatedEvent.getProduct());
         productMongoRepository.persistOrUpdate(productMongoEntity);
+        LOG.infof("Featured product upserted productId=%s", productMongoEntity.getProductID());
     }
 
     public void onProductDeleted(ProductDeletedEvent productDeletedEvent) {
-        LOG.debug("onProductDeleted received: " + productDeletedEvent);
         productMongoRepository.delete("productID = :productID",
                 Map.of("productID", productDeletedEvent.getProductUuid()));
+        LOG.infof("Featured product deleted productId=%s", productDeletedEvent.getProductUuid());
     }
 
     public List<ProductMongoEntity> listProducts(int pageIndex, int pageSize) {
