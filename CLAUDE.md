@@ -52,7 +52,7 @@ All HTTP API JSON across every service must follow these rules:
 | Dates | **ISO-8601 strings** — `2026-01-15T10:30:00`, never numeric timestamps |
 | Unknown keys | **Ignored on deserialization** — forward-compatible |
 
-Implementation: see `backend/CLAUDE.md` for how to configure each framework (JSON-B vs Jackson vs Spring Jackson).
+Implementation: see `docs/conventions/json-serialization-conventions.md` for how to configure each framework (JSON-B vs Jackson vs Spring Jackson).
 
 ---
 
@@ -79,6 +79,7 @@ All documentation artifacts live under `docs/`:
 | `docs/specs/` | Feature specs (one file per feature) |
 | `docs/tasks/` | Task plans and to-do lists — named `<feature>-plan.md` / `<feature>-todo.md` |
 | `docs/reviews/` | Code review notes |
+| `docs/conventions/` | Backend coding conventions (architecture, JSON, exceptions, persistence, testing, logging) |
 
 Never place documentation files at the repo root or in any other directory.
 
