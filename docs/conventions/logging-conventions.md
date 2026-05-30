@@ -1,0 +1,283 @@
+# Logging Conventions
+
+Applies to all backend services: the five Quarkus services and the Spring Boot gateway.
+
+---
+
+## 1. Logger declaration
+
+**Quarkus services** — use JBoss Logger (no SLF4J import needed, already on the classpath):
+```java
+private static final Logger LOG = Logger.getLogger(MyService.class);
+```
+
+**API Gateway** — use SLF4J via Lombok's `@Slf4j` annotation (already used project-wide):
+```java
+@Slf4j
+@Component
+public class MyComponent { }
+// Then use: log.info(...)
+```
+
+---
+
+## 2. Log levels
+
+| Level | When to use | Example |
+|-------|-------------|---------|
+| `ERROR` | Unexpected failure requiring human attention — goes to `GlobalExceptionHandler` | Unhandled exception, Kafka publish failure |
+| `WARN` | Known anomaly that was handled — service continues | Price-changed event for unknown productId |
+| `INFO` | Normal business events worth auditing | Login success, order created, event published |
+| `DEBUG` | Developer diagnostics — verbose, disabled in production | Internal state, intermediate values |
+| `TRACE` | Per-field detail — almost never in production | Serialized payloads |
+
+Default production level: `INFO`. Never lower a `GlobalExceptionHandler` ERROR to WARN.
+
+---
+
+## 3. Structured format — key=value pairs
+
+All log messages must carry context as `key=value` pairs. This makes logs grep/jq-friendly without a log aggregator.
+
+```java
+// Good
+LOG.infof("Order created orderId=%s userId=%s products=%d total=%.2f",
+    order.getId(), order.getUserID(), order.getProducts().size(), order.getPrice());
+
+// Bad — not parseable
+LOG.info("Order was created for user " + userId + " total: " + total);
+```
+
+Standard key names used across services:
+
+| Key | Type | Used for |
+|-----|------|---------|
+| `userId` | string | authenticated user identity |
+| `productId` | UUID string | product identifier |
+| `orderId` | string | order identifier |
+| `requestId` | UUID string | correlation ID across services (see §4) |
+| `elapsed` | integer (ms) | duration of a cross-service call |
+| `total` | decimal | monetary total |
+| `items` / `products` | integer | count |
+
+---
+
+## 4. Correlation ID (requestId) via MDC
+
+Every log line in a request thread should include a `requestId` so you can correlate logs across services without a full APM stack.
+
+### How it flows
+
+1. **Gateway** generates a UUID `requestId` if the incoming request has no `X-Request-ID` header; otherwise reuses the client-supplied value.
+2. **Gateway** forwards the ID as `X-Request-ID` to every downstream service.
+3. **Each Quarkus service** reads `X-Request-ID` in its `RequestLoggingFilter` and puts it into MDC.
+4. **Log format** in `application.properties` includes `%X{requestId}` so every log line in the thread carries the ID automatically.
+5. **Filter clears MDC** in the response phase to avoid thread-pool leaks.
+
+### Quarkus — filter pattern
+
+The filter implements both `ContainerRequestFilter` and `ContainerResponseFilter`:
+
+```java
+@Provider
+public class RequestLoggingFilter implements ContainerRequestFilter, ContainerResponseFilter {
+
+    private static final Logger LOG = Logger.getLogger(RequestLoggingFilter.class);
+    private static final Set<String> SKIP_PATHS = Set.of("/q/health", "/q/metrics", "/q/ready", "/q/live");
+
+    @Context UriInfo info;
+    @Context HttpServerRequest request;
+
+    @Override
+    public void filter(ContainerRequestContext ctx) {
+        String path = info.getPath();
+        if (SKIP_PATHS.stream().anyMatch(path::startsWith)) return;
+
+        String requestId = Optional.ofNullable(ctx.getHeaderString("X-Request-ID"))
+                .orElse(UUID.randomUUID().toString());
+        MDC.put("requestId", requestId);
+
+        String userId = Optional.ofNullable(ctx.getSecurityContext())
+                .map(SecurityContext::getUserPrincipal)
+                .map(Principal::getName)
+                .orElse("anonymous");
+
+        LOG.infof("%s %s userId=%s requestId=%s", ctx.getMethod(), path, userId, requestId);
+    }
+
+    @Override
+    public void filter(ContainerRequestContext req, ContainerResponseContext res) {
+        MDC.remove("requestId");
+    }
+}
+```
+
+### Quarkus — log format
+
+Add to every Quarkus service `application.properties`:
+```properties
+quarkus.log.console.format=%d{HH:mm:ss} %-5p [%c{2.}] requestId=%X{requestId} %s%e%n
+```
+
+### Gateway — MDC with WebFlux
+
+Spring Cloud Gateway is reactive (WebFlux). MDC is thread-local and does not propagate across reactor threads automatically. The recommended approach:
+
+- **Do not rely on MDC in gateway log patterns** for automatic propagation.
+- Instead, log `requestId` **explicitly** in the gateway `WebFilter` log line.
+- The `GlobalFilter` that injects `X-Request-ID` into downstream requests should log the value directly.
+
+Spring Boot 3 with Micrometer's `ContextPropagation` can bridge MDC to Reactor context, but that requires the `micrometer-observation` setup which is not currently in the gateway. Leave it out of scope unless full distributed tracing via Zipkin/Brave is wired end-to-end.
+
+### Gateway — GlobalFilter pattern
+
+```java
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class RequestIdGlobalFilter implements GlobalFilter {
+
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String requestId = Optional.ofNullable(
+                exchange.getRequest().getHeaders().getFirst("X-Request-ID"))
+            .orElse(UUID.randomUUID().toString());
+
+        return chain.filter(exchange.mutate()
+            .request(r -> r.headers(h -> h.set("X-Request-ID", requestId)))
+            .build());
+    }
+}
+```
+
+---
+
+## 5. Where logs belong — layer rules
+
+| Layer | Rule |
+|-------|------|
+| `boundary/` resource classes | **No logging.** Resources are thin delegates; they do not own decisions. |
+| `boundary/` filters (`@Provider`) | Log inbound requests only — method, path, userId, requestId. Nothing else. |
+| `control/` services | Log business outcomes: what was created/updated/deleted, what events were sent/received. |
+| `control/` API clients | Log the outbound call before it happens and the outcome (status + elapsed time) after. |
+| `entity/` | Never log. |
+
+---
+
+## 6. Elapsed time for cross-service calls
+
+Every synchronous HTTP call to another service must log the elapsed time. A call that succeeds in 1800ms instead of the usual 20ms is a production incident waiting to happen.
+
+```java
+long start = System.currentTimeMillis();
+Response response = pricingApiClient.calculatePrice(order);
+LOG.infof("POST pricing-service /pricing/calculate status=%d elapsed=%dms",
+    response.getStatus(), System.currentTimeMillis() - start);
+```
+
+This applies to: `ProductsApiClient`, `PricingApiClient` in orders-service, and any future REST client added to any service.
+
+---
+
+## 7. Kafka — symmetric logging
+
+For every Kafka message, log on both the **produce side** and the **consume side** with the same identifier. This lets you confirm delivery and measure consumer lag.
+
+```java
+// Produce side (products-service)
+LOG.infof("Publishing product-updated event productId=%s", event.getProduct().getUuid());
+productUpdatedEmitter.send(event);
+
+// Consume side (featured-products-service)
+@Incoming("product-updated")
+public void consumeProductUpdated(ProductUpdatedEvent event) {
+    LOG.infof("Product-updated event received productId=%s", event.getProduct().getUuid());
+    productService.onProductUpdated(event);
+}
+```
+
+Consistent identifier used on both sides: `productId`, `orderId`, etc. — never just `event received`.
+
+---
+
+## 8. Health-check path suppression
+
+Skip logging for health and metrics endpoints in every `RequestLoggingFilter`. These are polled every few seconds by orchestrators and drown out real traffic.
+
+```java
+private static final Set<String> SKIP_PATHS = Set.of("/q/health", "/q/metrics", "/q/ready", "/q/live");
+
+if (SKIP_PATHS.stream().anyMatch(path::startsWith)) return;
+```
+
+For the gateway, skip `/actuator/**`.
+
+---
+
+## 9. Cache — log misses only
+
+In `PriceCacheService` (or any future cache wrapper), log only cache misses. Cache hits are high-frequency and carry no signal at INFO level.
+
+```java
+Double cached = priceValues.get(key);
+if (cached != null) {
+    return cached;   // no log — hit is expected
+}
+LOG.infof("Price cache miss productId=%s — fetching from products-service", productId);
+```
+
+---
+
+## 10. Startup — log @PostConstruct configuration state
+
+Services that initialize from config (S3 bucket, Drools rules, Redis commands) should emit one INFO line at startup. This saves enormous debugging time when a service boots with the wrong config.
+
+```java
+@PostConstruct
+void init() {
+    // ... setup ...
+    LOG.infof("S3 bucket ready bucket=%s endpoint=%s", bucketName, endpoint);
+    LOG.infof("Drools rules loaded resource=%s", "the/chak/pricing/ApplySpecialOffers.drl");
+}
+```
+
+---
+
+## 11. Sensitive data — never log
+
+| Data | Rule |
+|------|------|
+| Passwords / BCrypt hashes | Never, under any circumstances |
+| JWT tokens | Log only first 8 chars as a reference prefix, or omit entirely |
+| Email addresses | Acceptable in low-volume auth paths (login, signup) for audit trail |
+| PII in high-volume paths | Avoid — e.g. do not log userId on every cache lookup |
+| Stack traces at INFO | Never — stack traces belong in ERROR/WARN only |
+
+---
+
+## 12. Parameterized logging — no string concatenation
+
+Both JBoss Logger (`LOG.infof`) and SLF4J (`log.info("... {}", value)`) defer string construction until the level is enabled. Never concatenate strings in log calls.
+
+```java
+// Good — JBoss Logger parameterized form
+LOG.infof("Product created productId=%s title=%s", product.getUuid(), product.getTitle());
+
+// Good — SLF4J parameterized form (gateway)
+log.info("JWT authenticated userId={}", username);
+
+// Bad — string built even when INFO is disabled
+LOG.info("Product created: " + product.getUuid() + " " + product.getTitle());
+```
+
+---
+
+## Summary checklist before merging a logging change
+
+- [ ] Log is in control layer or a filter — not in a resource class
+- [ ] Message uses `key=value` format
+- [ ] No passwords, full tokens, or high-volume PII
+- [ ] Cross-service calls include `elapsed` in ms
+- [ ] Kafka events logged on both produce and consume sides with same identifier
+- [ ] Health-check paths suppressed in any new filter
+- [ ] `@PostConstruct` startup state logged where config is loaded
+- [ ] Parameterized form used — no string concatenation

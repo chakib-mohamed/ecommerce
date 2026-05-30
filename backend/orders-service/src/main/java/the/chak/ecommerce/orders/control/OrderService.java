@@ -13,6 +13,8 @@ import the.chak.ecommerce.orders.entity.OrderStatus;
 import io.quarkus.panache.common.Page;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.core.Response;
+import org.jboss.logging.Logger;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 import the.chak.ecommerce.orders.boundary.dto.Tuple;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
@@ -21,6 +23,8 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 @ApplicationScoped
 public class OrderService {
+
+    private static final Logger LOG = Logger.getLogger(OrderService.class);
 
     @Inject
     ProductsApiClient productsApiClient;
@@ -61,10 +65,17 @@ public class OrderService {
             return item;
         }).toList());
 
-        PricingResult result = pricingApiClient.calculatePrice(pricingOrder).readEntity(PricingResult.class);
+        long start = System.currentTimeMillis();
+        Response response = pricingApiClient.calculatePrice(pricingOrder);
+        LOG.infof("POST pricing-service /pricing/calculate products=%d status=%d elapsed=%dms",
+                pricingOrder.getProducts().size(), response.getStatus(),
+                System.currentTimeMillis() - start);
+        PricingResult result = response.readEntity(PricingResult.class);
         order.setPrice(result.getOrder().getPrice());
         order.setProcessID(result.getId());
         orderRepository.persist(order);
+        LOG.infof("Order created orderId=%s userId=%s products=%d total=%.2f",
+                order.getId(), order.getUserID(), order.getProducts().size(), order.getPrice());
         return order;
     }
 
@@ -105,6 +116,7 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.CONFIRMED);
         orderRepository.persistOrUpdate(order);
+        LOG.infof("Order confirmed orderId=%s userId=%s", order.getId(), order.getUserID());
         return order;
     }
 
@@ -118,5 +130,6 @@ public class OrderService {
 
     public void deleteOrder(Order order) {
         orderRepository.delete(order);
+        LOG.infof("Order deleted orderId=%s userId=%s", order.getId(), order.getUserID());
     }
 }

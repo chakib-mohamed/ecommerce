@@ -3,6 +3,7 @@ package the.chak.ecommerce.pricing.control;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
 import org.kie.api.KieServices;
 import org.kie.api.builder.KieBuilder;
 import org.kie.api.builder.KieFileSystem;
@@ -20,6 +21,10 @@ import java.util.UUID;
 @ApplicationScoped
 public class PricingService {
 
+    private static final Logger LOG = Logger.getLogger(PricingService.class);
+
+    private static final String RULES_RESOURCE = "the/chak/pricing/ApplySpecialOffers.drl";
+
     @Inject
     ApplyPromotionsService applyPromotionsService;
 
@@ -29,11 +34,12 @@ public class PricingService {
     void init() {
         KieServices ks = KieServices.Factory.get();
         KieFileSystem kfs = ks.newKieFileSystem();
-        kfs.write(ks.getResources().newClassPathResource("the/chak/pricing/ApplySpecialOffers.drl"));
+        kfs.write(ks.getResources().newClassPathResource(RULES_RESOURCE));
         KieBuilder kb = ks.newKieBuilder(kfs);
         kb.buildAll();
         KieRepository kr = ks.getRepository();
         kieContainer = ks.newKieContainer(kr.getDefaultReleaseId());
+        LOG.infof("Drools rules loaded resource=%s", RULES_RESOURCE);
     }
 
     public PriceCalculationResponse calculate(PriceCalculationRequest request) {
@@ -41,6 +47,8 @@ public class PricingService {
         if (order == null || order.getProducts() == null || order.getProducts().isEmpty()) {
             throw new InvalidOrderException();
         }
+
+        LOG.infof("Pricing calculation started products=%d", order.getProducts().size());
 
         applyPromotionsService.applyPromotion(order);
         applyDroolsRules(order);
@@ -50,7 +58,10 @@ public class PricingService {
                 .sum();
         order.setPrice(Double.parseDouble(String.format(Locale.US, "%.2f", total)));
 
-        return new PriceCalculationResponse(UUID.randomUUID().toString(), order);
+        String processId = UUID.randomUUID().toString();
+        LOG.infof("Pricing calculation complete processId=%s total=%.2f", processId, order.getPrice());
+
+        return new PriceCalculationResponse(processId, order);
     }
 
     private void applyDroolsRules(OrderDTO order) {

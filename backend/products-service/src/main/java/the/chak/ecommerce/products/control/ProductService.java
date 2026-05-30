@@ -65,6 +65,7 @@ public class ProductService {
         } else {
             persistProduct(product);
         }
+        LOG.infof("Product created productId=%s title=%s", product.getUuid(), product.getTitle());
         return product;
     }
 
@@ -97,6 +98,7 @@ public class ProductService {
             product.setImageKey(oldImageKey);
             mergeProduct(product);
         }
+        LOG.infof("Product updated productId=%s title=%s", product.getUuid(), product.getTitle());
         return product;
     }
 
@@ -119,6 +121,7 @@ public class ProductService {
         String imageKey = product.getImageKey();
         productRepository.delete(product);
         productDeletedEvent.fire(new ProductDeletedEvent(product.getUuid()));
+        LOG.infof("Product deleted productId=%s", uuid);
         return imageKey;
     }
 
@@ -130,6 +133,7 @@ public class ProductService {
             return;
         }
         product.setPrice(newPrice);
+        LOG.infof("Price updated on product productId=%s newPrice=%s", productId, newPrice);
     }
 
     @Transactional

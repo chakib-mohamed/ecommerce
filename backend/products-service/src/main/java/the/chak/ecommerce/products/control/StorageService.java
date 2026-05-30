@@ -5,6 +5,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
@@ -16,6 +17,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @ApplicationScoped
 public class StorageService {
+
+    private static final Logger LOG = Logger.getLogger(StorageService.class);
 
     @Inject
     S3Client s3;
@@ -30,6 +33,7 @@ public class StorageService {
         } catch (NoSuchBucketException e) {
             s3.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
         }
+        LOG.infof("S3 bucket ready bucket=%s", bucketName);
     }
 
     public String uploadImage(byte[] data) {
@@ -42,6 +46,7 @@ public class StorageService {
                         .contentType(detectContentType(data))
                         .build(),
                 RequestBody.fromBytes(data));
+        LOG.infof("Image uploaded key=%s bytes=%d", key, data.length);
         return key;
     }
 
@@ -54,6 +59,7 @@ public class StorageService {
     public void deleteImage(String key) {
         s3.deleteObject(
                 DeleteObjectRequest.builder().bucket(bucketName).key(key).build());
+        LOG.infof("Image deleted key=%s", key);
     }
 
     private String detectContentType(byte[] data) {

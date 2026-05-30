@@ -6,10 +6,13 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
 
 @ApplicationScoped
 public class PriceCacheService {
+
+    private static final Logger LOG = Logger.getLogger(PriceCacheService.class);
 
     @Inject
     RedisDataSource redis;
@@ -37,6 +40,7 @@ public class PriceCacheService {
             return cached;
         }
 
+        LOG.infof("Price cache miss productId=%s — fetching from products-service", productId);
         ProductDto product = productsApiClient.getProduct(productId);
         if (product == null || product.getPrice() == null) {
             return null;
