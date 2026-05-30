@@ -39,7 +39,7 @@ public class SecurityContextRepository implements ServerSecurityContextRepositor
 			return this.authenticationManager.authenticate(auth)
 					.map((authentication) -> new SecurityContextImpl(authentication));
 		} else {
-			log.debug("couldn't resolve token .. gonna ignore.");
+			log.info("No bearer token — routing as anonymous");
 			return Mono.empty();
 		}
 	}

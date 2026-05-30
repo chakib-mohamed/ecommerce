@@ -21,6 +21,7 @@ public class AuthenticationManager implements ReactiveAuthenticationManager {
 	public Mono authenticate(Authentication authentication) {
 		String authToken = authentication.getCredentials().toString();
 		return tokenUtils.getUsername(authToken).map(username ->
-				(Authentication) new UsernamePasswordAuthenticationToken(username, null, null));
+				(Authentication) new UsernamePasswordAuthenticationToken(username, null, null))
+				.doOnNext(auth -> log.info("JWT authenticated userId={}", auth.getName()));
 	}
 }
