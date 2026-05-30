@@ -18,6 +18,8 @@ public class KafkaPriceEventPublisher {
 
     public void publish(PriceChangedEvent event) {
         try {
+            LOG.infof("Publishing price-changed event productId=%s newPrice=%.2f",
+                    event.getProductId(), event.getNewPrice());
             emitter.send(event).toCompletableFuture().get();
         } catch (Exception e) {
             LOG.error("Failed to publish price-changed event for productId=" + event.getProductId(), e);
