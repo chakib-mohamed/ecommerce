@@ -109,7 +109,7 @@ class PromotionsResourceTest {
     @Test
     @DisplayName("Returns the list including a previously created promotion")
     void getPromotions_withExistingPromotion_returnsList() {
-        // given — create a promotion first
+        // given - create a promotion first
         createdPromotionId = given().contentType(ContentType.JSON)
                 .body("{\"product_id\":\"prod-456\",\"label\":\"Winter Sale\",\"percentage_off\":15.0,\"active_from\":\"2025-12-01\",\"active_to\":\"2025-12-31\"}")
                 .when().post("/promotions").then().statusCode(201)
@@ -129,7 +129,7 @@ class PromotionsResourceTest {
     @Test
     @DisplayName("Returns 200 when deleting an existing promotion")
     void deletePromotion_existingPromotion_returns200() {
-        // given — create a promotion
+        // given - create a promotion
         String promotionId = given().contentType(ContentType.JSON)
                 .body("{\"product_id\":\"prod-789\",\"label\":\"Spring Sale\",\"percentage_off\":25.0,\"active_from\":\"2025-03-01\",\"active_to\":\"2025-05-31\"}")
                 .when().post("/promotions").then().statusCode(201)

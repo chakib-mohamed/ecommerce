@@ -52,7 +52,7 @@ class PricingResourceTest {
     @TestSecurity(user = "test-user")
     @DisplayName("Returns 200 applying the bulk discount when the quantity exceeds five")
     void calculatePrice_qtyAbove5_appliesDrlDiscount() {
-        // given — qty=6 > 5 triggers DRL 5% reduction: 6 * 10.0 * 0.95 = 57.0
+        // given - qty=6 > 5 triggers DRL 5% reduction: 6 * 10.0 * 0.95 = 57.0
         ProductVO product = new ProductVO();
         product.setProductID("prod-1");
         product.setTitle("Widget");
@@ -80,7 +80,7 @@ class PricingResourceTest {
     @TestSecurity(user = "test-user")
     @DisplayName("Returns 200 applying the product's percentage discount to the total")
     void calculatePrice_withPromotion_appliesPercentageOff() {
-        // given — qty=1, price=100.0, percentageOff=10: 1 * 100.0 * 0.90 = 90.0
+        // given - qty=1, price=100.0, percentageOff=10: 1 * 100.0 * 0.90 = 90.0
         ProductVO product = new ProductVO();
         product.setProductID("prod-2");
         product.setTitle("Gadget");

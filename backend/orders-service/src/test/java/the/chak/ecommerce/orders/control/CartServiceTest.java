@@ -46,7 +46,7 @@ class CartServiceTest {
     @Mock
     CartRepository cartRepository;
 
-    // --addItem ────────────────────────────────────────────────────────────
+    // --addItem ------------------------------------------------------------
 
     @Test
     @DisplayName("Creates a new cart holding the single added item when the user has no cart yet")
@@ -112,7 +112,7 @@ class CartServiceTest {
         assertEquals(2, response.getItems().size());
     }
 
-    // --getCart ────────────────────────────────────────────────────────────
+    // --getCart ------------------------------------------------------------
 
     @Test
     @DisplayName("Returns empty when the user has no cart")
@@ -140,7 +140,7 @@ class CartServiceTest {
         assertEquals(USER_ID, result.get().getUserId());
     }
 
-    // --updateItem ─────────────────────────────────────────────────────────
+    // --updateItem ---------------------------------------------------------
 
     @Test
     @DisplayName("Returns empty when updating an item for a user with no cart")
@@ -186,7 +186,7 @@ class CartServiceTest {
         assertEquals(7, result.get().getItems().get(0).getQuantity());
     }
 
-    // --removeItem ─────────────────────────────────────────────────────────
+    // --removeItem ---------------------------------------------------------
 
     @Test
     @DisplayName("Returns false when removing an item for a user with no cart")
@@ -226,7 +226,7 @@ class CartServiceTest {
         assertTrue(cart.items.isEmpty());
     }
 
-    // --clearCart ──────────────────────────────────────────────────────────
+    // --clearCart ----------------------------------------------------------
 
     @Test
     @DisplayName("Returns false when clearing a cart for a user with no cart")
@@ -253,7 +253,7 @@ class CartServiceTest {
         verify(cartRepository).delete(cart);
     }
 
-    // --checkout ───────────────────────────────────────────────────────────
+    // --checkout -----------------------------------------------------------
 
     @Test
     @DisplayName("Throws CartNotFoundException when checking out a user with no cart")

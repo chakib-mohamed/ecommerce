@@ -49,7 +49,7 @@ class OrderServiceTest {
     @Mock
     OrderRepository orderRepository;
 
-    // --saveOrder ──────────────────────────────────────────────────────────
+    // --saveOrder ----------------------------------------------------------
 
     @Test
     @DisplayName("Throws ProductNotFoundException when an ordered product cannot be found")
@@ -110,7 +110,7 @@ class OrderServiceTest {
         assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
     }
 
-    // --searchOrders ───────────────────────────────────────────────────────
+    // --searchOrders -------------------------------------------------------
 
     @Test
     @DisplayName("Returns the count and matching orders when searching by user id")
@@ -133,7 +133,7 @@ class OrderServiceTest {
         assertEquals(1, result.getY().size());
     }
 
-    // --confirmOrder ───────────────────────────────────────────────────────
+    // --confirmOrder -------------------------------------------------------
 
     @Test
     @DisplayName("Changes the status to CONFIRMED and persists when confirming an existing order")
@@ -167,7 +167,7 @@ class OrderServiceTest {
         assertNull(result);
     }
 
-    // --helpers ────────────────────────────────────────────────────────────
+    // --helpers ------------------------------------------------------------
 
     private static Order newOrder(String productId, int qty) {
         ProductVO item = new ProductVO();

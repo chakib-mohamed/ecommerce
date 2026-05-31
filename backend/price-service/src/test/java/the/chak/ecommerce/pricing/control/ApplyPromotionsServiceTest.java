@@ -76,7 +76,7 @@ class ApplyPromotionsServiceTest {
         assertEquals(20.0, result.getPrice(), 0.005);
     }
 
-    // ── helpers ────────────────────────────────────────────────────────────
+    // -- helpers ------------------------------------------------------------
 
     private static OrderDTO orderWith(ProductVO product) {
         OrderDTO order = new OrderDTO();

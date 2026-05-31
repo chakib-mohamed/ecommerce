@@ -22,7 +22,7 @@ class PricingServiceTest {
     @BeforeEach
     void setUp() {
         // ApplyPromotionsService is pure logic; Drools runs in-process from a classpath rule
-        // file — neither needs a container, so no @QuarkusTest is required.
+        // file - neither needs a container, so no @QuarkusTest is required.
         pricingService = new PricingService();
         pricingService.applyPromotionsService = new ApplyPromotionsService();
         pricingService.init();
@@ -55,7 +55,7 @@ class PricingServiceTest {
     @Test
     @DisplayName("Returns the quantity-times-price total when the order has no promotion")
     void calculate_validOrderNoPromotion_returnsCalculatedTotal() {
-        // given — qty=2, price=50.0, no discount → 50.0 * 2 = 100.0
+        // given - qty=2, price=50.0, no discount -> 50.0 * 2 = 100.0
         PriceCalculationRequest request = requestWith(product("p1", 2, 50.0, null));
 
         // when
@@ -68,7 +68,7 @@ class PricingServiceTest {
     @Test
     @DisplayName("Applies the product's percentage discount to the calculated total")
     void calculate_validOrderWithPromotion_appliesDiscount() {
-        // given — 20% off on 100.0, qty=2 → unit 80.0, total 160.0
+        // given - 20% off on 100.0, qty=2 -> unit 80.0, total 160.0
         PriceCalculationRequest request = requestWith(product("p1", 2, 100.0, 20.0));
 
         // when
@@ -81,8 +81,8 @@ class PricingServiceTest {
     @Test
     @DisplayName("Applies the bulk Drools discount when the quantity exceeds five")
     void calculate_qtyAbove5_appliesDroolsDiscount() {
-        // given — qty=6, price=10.0, no promotion
-        // Drools rule: qty > 5 → price = price * 0.95 → 9.5 per unit, total = 57.0
+        // given - qty=6, price=10.0, no promotion
+        // Drools rule: qty > 5 -> price = price * 0.95 -> 9.5 per unit, total = 57.0
         PriceCalculationRequest request = requestWith(product("p1", 6, 10.0, null));
 
         // when
@@ -106,7 +106,7 @@ class PricingServiceTest {
         assertEquals(36, response.getId().length()); // UUID string length
     }
 
-    // ── helpers ────────────────────────────────────────────────────────────
+    // -- helpers ------------------------------------------------------------
 
     private static PriceCalculationRequest requestWith(ProductVO product) {
         OrderDTO order = new OrderDTO();

@@ -67,7 +67,7 @@ class TokenUtilsTest {
     @Test
     @DisplayName("Throws InvalidTokenException when the token has already expired")
     void getUsername_expiredToken_throwsInvalidTokenException() {
-        // given — build a JWT whose expiration is already in the past
+        // given - build a JWT whose expiration is already in the past
         long now = System.currentTimeMillis();
         String expiredToken = Jwts.builder()
                 .setSubject("alice@example.com")

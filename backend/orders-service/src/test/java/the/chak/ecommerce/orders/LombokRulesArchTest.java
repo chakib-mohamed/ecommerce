@@ -25,7 +25,7 @@ class LombokRulesArchTest {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..entity..")
                 .should().beAnnotatedWith("lombok.Data")
-                .as("@Data is banned on entity classes — use @Getter/@Setter explicitly")
+                .as("@Data is banned on entity classes - use @Getter/@Setter explicitly")
                 .allowEmptyShould(true);
 
         // then
@@ -67,7 +67,7 @@ class LombokRulesArchTest {
         ArchRule rule = noClasses()
                 .that().haveSimpleNameEndingWith("Config")
                 .should().beAnnotatedWith("lombok.Setter")
-                .as("Config beans must be immutable after injection — no @Setter allowed")
+                .as("Config beans must be immutable after injection - no @Setter allowed")
                 .allowEmptyShould(true);
 
         // then
