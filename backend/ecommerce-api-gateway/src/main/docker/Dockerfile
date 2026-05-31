@@ -13,4 +13,4 @@ ENV SPRING_PROFILES_ACTIVE docker
 RUN addgroup -S app && adduser -S app -G app
 USER app
 
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]
