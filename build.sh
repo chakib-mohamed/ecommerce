@@ -10,13 +10,13 @@ buildFront ()
 
 buildApi ()
 {
- # Build api
- mvn package -f ./backend/products-service/pom.xml
- mvn package -f ./backend/authenticate-service/pom.xml
-mvn package -f ./backend/orders-service/pom.xml
- docker-compose build products-service orders-service authenticate-service
- mvn install -PbuildDocker -f ./backend/ecommerce-api-gateway/pom.xml
- mvn install -PbuildDocker -f ./backend/ecommerce-eureka-server/pom.xml
+ # Build api: package all backend jars in one reactor build, then build every
+ # service image. Tests are skipped here (run them per-service per
+ # backend/CLAUDE.md — a parent-level test run saturates Docker via Testcontainers).
+ mvn package -DskipTests -f ./backend/pom.xml
+ docker compose build \
+   products-service authenticate-service orders-service \
+   featured-products-service price-service api-gateway
 }
 
 if [ "$1" = "front" ]

@@ -1,4 +1,4 @@
+# Build context root for the api-gateway image (build context: ./backend/ecommerce-api-gateway).
+# Exclude everything, then allow only the Spring Boot jar that the Dockerfile copies.
 *
-!target/*-runner
-!target/*-runner.jar
-!target/lib/*
+!target/*.jar
