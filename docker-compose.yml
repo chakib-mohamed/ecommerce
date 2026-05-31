@@ -16,9 +16,10 @@ services:
 
 
   api-gateway:
+    image: ecommerce/ecommerce-api-gateway
     build:
-      context: ./backend
-      dockerfile: ecommerce-api-gateway/src/main/docker/Dockerfile
+      context: ./backend/ecommerce-api-gateway
+      dockerfile: src/main/docker/Dockerfile
     ports:
       - 8080:8080
     environment:
@@ -71,7 +72,7 @@ services:
       postgres:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       localstack:
         condition: service_healthy
     networks:
@@ -97,7 +98,7 @@ services:
       mongodb:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
     networks:
       - backend
     healthcheck:
@@ -115,8 +116,11 @@ services:
       - 8084:8080
     environment:
       - QUARKUS_PROFILE=prod
+      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017
     depends_on:
       mongodb:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - backend
@@ -137,6 +141,11 @@ services:
       - QUARKUS_PROFILE=prod
       - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - backend
     healthcheck:
@@ -218,6 +227,12 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   redis:
     image: redis:7.0-alpine
