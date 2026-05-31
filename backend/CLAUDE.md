@@ -61,6 +61,18 @@ Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
 
 See `docs/conventions/testing-conventions.md` for all test conventions — including Testcontainers vs Dev Services, Kafka test setup, and container reuse, plus naming, display names, body structure, split conventions, and coverage requirements.
 
+### Pre-push checks
+
+A version-controlled `pre-push` hook (`.githooks/pre-push`) runs Checkstyle + SpotBugs across all backend modules and aborts the push on any violation. It skips tests (no Testcontainers), so it is fast and safe to run from the aggregator root.
+
+Activate it once per clone:
+
+```bash
+sh .githooks/install.sh      # or: git config core.hooksPath .githooks
+```
+
+Bypass intentionally (discouraged) with `git push --no-verify`. The hook only covers static analysis — it does not run the test suite.
+
 ## Logging
 
 See `docs/conventions/logging-conventions.md` for logging rules — structured format, correlation IDs via MDC, layer placement, Kafka symmetry, sensitive data, and cross-service elapsed time.

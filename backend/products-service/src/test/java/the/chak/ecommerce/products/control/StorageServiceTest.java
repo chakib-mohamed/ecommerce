@@ -2,7 +2,6 @@ package the.chak.ecommerce.products.control;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -38,7 +37,7 @@ class StorageServiceTest {
         storageService.bucketName = "test-bucket";
     }
 
-    // ── uploadImage / detectContentType ────────────────────────────────────
+    // -- uploadImage / detectContentType ------------------------------------
 
     @Test
     @DisplayName("Stores JPEG bytes in S3 and returns a generated key")
@@ -110,7 +109,7 @@ class StorageServiceTest {
         verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 
-    // ── downloadImage ──────────────────────────────────────────────────────
+    // -- downloadImage ------------------------------------------------------
 
     @Test
     @DisplayName("Returns the stored bytes when downloading an existing key")
@@ -130,7 +129,7 @@ class StorageServiceTest {
         verify(s3).getObjectAsBytes(any(GetObjectRequest.class));
     }
 
-    // ── deleteImage ────────────────────────────────────────────────────────
+    // -- deleteImage --------------------------------------------------------
 
     @Test
     @DisplayName("Issues an S3 delete for the given key")

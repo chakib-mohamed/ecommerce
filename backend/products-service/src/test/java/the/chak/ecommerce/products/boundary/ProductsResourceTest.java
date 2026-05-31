@@ -76,7 +76,7 @@ class ProductsResourceTest {
                 .body(Map.of("title", "Get Test Product", "description", "desc",
                         "price", 10.0, "image", BASE64_IMAGE))
                 .when().post("/products");
-        
+
         createdProductUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when
@@ -101,7 +101,7 @@ class ProductsResourceTest {
                 .body(Map.of("title", "List Test Product", "description", "desc",
                         "price", 5.0, "image", BASE64_IMAGE))
                 .when().post("/products");
-        
+
         createdProductUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when
@@ -119,7 +119,7 @@ class ProductsResourceTest {
                 .body(Map.of("title", "Delete Test Product", "description", "desc",
                         "price", 5.0, "image", BASE64_IMAGE))
                 .when().post("/products");
-        
+
         String productUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when
@@ -138,7 +138,7 @@ class ProductsResourceTest {
                 .body(Map.of("title", "To Be Updated", "description", "Original description",
                         "price", 10.0, "image", BASE64_IMAGE))
                 .when().post("/products");
-        
+
         createdProductUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when
@@ -151,7 +151,7 @@ class ProductsResourceTest {
         response.then().statusCode(200)
                 .body("title", is("Updated Title"))
                 .body("price", is(20.0f));
-        
+
         given().when().get("/products/{id}", createdProductUuid).then().statusCode(200)
                 .body("title", is("Updated Title"))
                 .body("price", is(20.0f));
@@ -165,7 +165,7 @@ class ProductsResourceTest {
         var createResponse = given().contentType(ContentType.JSON)
                 .body(Map.of("title", title, "description", "Searchable description", "price", 50.0))
                 .when().post("/products");
-        
+
         createdProductUuid = createResponse.then().statusCode(201).extract().path("uuid");
 
         // when

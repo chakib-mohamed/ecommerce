@@ -44,9 +44,11 @@ public class ProductService {
         var maybeProduct = productRepository.<Product>find(
                         "from Product p left join fetch p.promotions where p.uuid = ?1", uuid)
                 .firstResultOptional();
-        if (maybeProduct.isEmpty()) return Optional.empty();
+        if (maybeProduct.isEmpty()) {
+            return Optional.empty();
+        }
         Product product = maybeProduct.get();
-        // Second query loads categories via the session cache — avoids MultipleBagFetchException
+        // Second query loads categories via the session cache - avoids MultipleBagFetchException
         productRepository.find("from Product p left join fetch p.categories where p.id = ?1", product.id)
                 .firstResult();
         return Optional.of(product);
@@ -117,7 +119,9 @@ public class ProductService {
     @Transactional
     String deleteProductRecord(UUID uuid) {
         var product = productRepository.<Product>find("uuid", uuid).firstResult();
-        if (product == null) return null;
+        if (product == null) {
+            return null;
+        }
         String imageKey = product.getImageKey();
         productRepository.delete(product);
         productDeletedEvent.fire(new ProductDeletedEvent(product.getUuid()));
@@ -129,7 +133,7 @@ public class ProductService {
     public void updatePrice(String productId, Double newPrice) {
         Product product = productRepository.<Product>find("uuid", UUID.fromString(productId)).firstResult();
         if (product == null) {
-            LOG.warnf("Price-changed event for unknown product %s — discarding", productId);
+            LOG.warnf("Price-changed event for unknown product %s - discarding", productId);
             return;
         }
         product.setPrice(newPrice);
@@ -141,8 +145,10 @@ public class ProductService {
         List<Product> products = productRepository
                 .<Product>find("from Product p left join fetch p.promotions")
                 .page(pageIndex, pageSize).list();
-        if (products.isEmpty()) return List.of();
-        // Second query initializes categories via the session cache — avoids MultipleBagFetchException
+        if (products.isEmpty()) {
+            return List.of();
+        }
+        // Second query initializes categories via the session cache - avoids MultipleBagFetchException
         List<Long> ids = products.stream().map(p -> p.id).toList();
         productRepository.find("from Product p left join fetch p.categories where p.id in ?1", ids).list();
         return products;
