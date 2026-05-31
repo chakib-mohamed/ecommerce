@@ -18,8 +18,12 @@ COPY target/quarkus-app/*.jar /deployments/
 COPY target/quarkus-app/app/ /deployments/app/
 COPY target/quarkus-app/quarkus/ /deployments/quarkus/
 
-EXPOSE 8081
-ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+EXPOSE 8080
+ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -XX:MaxRAMPercentage=75.0"
 ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 
-ENTRYPOINT ["java", "-Dquarkus.http.host=0.0.0.0", "-Djava.util.logging.manager=org.jboss.logmanager.LogManager", "-jar", "/deployments/quarkus-run.jar"]
+# Run as a non-root user
+RUN addgroup -S app && adduser -S app -G app
+USER app
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar $JAVA_APP_JAR"]
