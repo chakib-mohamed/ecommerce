@@ -40,7 +40,7 @@ public class PriceCacheService {
             return cached;
         }
 
-        LOG.infof("Price cache miss productId=%s — fetching from products-service", productId);
+        LOG.infof("Price cache miss productId=%s - fetching from products-service", productId);
         ProductDto product = productsApiClient.getProduct(productId);
         if (product == null || product.getPrice() == null) {
             return null;

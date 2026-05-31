@@ -16,7 +16,7 @@ import reactor.core.publisher.Mono;
  * Ensures every request routed downstream carries an {@code X-Request-ID} header so logs
  * can be correlated across services. Reuses the id resolved by
  * {@link GatewayRequestLoggingFilter} (stored on the exchange) or, defensively, the
- * incoming header — generating one only if neither is present.
+ * incoming header - generating one only if neither is present.
  */
 @Slf4j
 @Component
@@ -32,7 +32,7 @@ public class RequestIdGlobalFilter implements GlobalFilter, Ordered {
 				.filter(id -> !id.isBlank())
 				.orElseGet(() -> UUID.randomUUID().toString());
 
-		log.info("Request received requestId={} — forwarding X-Request-ID", requestId);
+		log.info("Request received requestId={} - forwarding X-Request-ID", requestId);
 
 		return chain.filter(exchange.mutate()
 				.request(r -> r.headers(h -> h
