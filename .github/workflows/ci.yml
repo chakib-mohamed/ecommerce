@@ -18,8 +18,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: frontend/.nvmrc      # Node 20.20.0
           cache: npm
@@ -30,12 +30,14 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest                         # Docker preinstalled -> Testcontainers works
+    env:
+      TESTCONTAINERS_REUSE_ENABLE: "true"          # share Mongo/Kafka/etc. across the sequential per-service runs
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
