@@ -2,17 +2,7 @@ import { format, parseISO } from "date-fns";
 import React, { useState } from "react";
 import Modal from "../../hoc/Modal/Modal";
 import { service } from "../../services";
-
-interface Promotion {
-  id: string;
-  label: string;
-  product?: {
-    title: string;
-  };
-  percentageOff: number | string;
-  activeFrom: string;
-  activeTo: string;
-}
+import { Promotion } from "../../types/types";
 
 interface PromotionsProps {
   promotions: Promotion[];

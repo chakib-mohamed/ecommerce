@@ -70,7 +70,7 @@ const ManageProducts: React.FC = () => {
                     </td>
                     <td className="px-8 py-8">
                       <span className="text-xl font-black text-slate-900 italic tracking-tighter">
-                        {parseFloat(product.price).toFixed(2)} $
+                        {product.price.toFixed(2)} $
                       </span>
                     </td>
                     <td className="px-8 py-8 text-right">

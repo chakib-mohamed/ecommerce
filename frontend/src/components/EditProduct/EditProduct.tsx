@@ -34,7 +34,7 @@ const EditProduct: React.FC = () => {
   useEffect(() => {
     if (product) {
       reset({
-        id: productID,
+        id: productID ?? undefined,
         title: product.title,
         description: product.description,
         price: product.price,

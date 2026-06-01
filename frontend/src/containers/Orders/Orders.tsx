@@ -139,7 +139,7 @@ const Orders: React.FC = () => {
 
             <div className="flex justify-center pt-8">
               <Paginator
-                pagesCount={pagesCount}
+                pagesCount={pagesCount ?? 0}
                 onPaginate={reloadOrders}
               />
             </div>

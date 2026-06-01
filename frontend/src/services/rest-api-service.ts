@@ -1,5 +1,5 @@
 import { restApi } from "../axios-instance";
-import { Category, OrderCommand, Product, PromotionType } from "../types/types";
+import { Category, OrderCommand, Product, Promotion, PromotionType } from "../types/types";
 
 export const fetchCategories = (): Promise<Category[]> => {
   return restApi.get("/categories").then((response) => {
@@ -14,7 +14,7 @@ export const fetchCategories = (): Promise<Category[]> => {
   });
 };
 
-export const fetchPromotions = (): Promise<PromotionType[]> => {
+export const fetchPromotions = (): Promise<Promotion[]> => {
   return restApi.get("/promotions").then((resp) => resp.data);
 };
 
@@ -46,7 +46,7 @@ export const fetchProducts = (): Promise<Product[]> => {
     .then((products: Record<string, unknown>[]) =>
       products.map((p) => {
         const category = p.category as Record<string, unknown> | undefined;
-        return { ...p, category: category?.label ?? "General" } as Product;
+        return { ...p, category: category?.label ?? "General" } as unknown as Product;
       })
     );
 };
@@ -63,7 +63,7 @@ export const getProduct = (productID: string): Promise<Product> => {
     .then((response) => response.data)
     .then((p: Record<string, unknown>) => {
       const category = p.category as Record<string, unknown> | undefined;
-      return { ...p, category: category?.id } as Product;
+      return { ...p, category: category?.id } as unknown as Product;
     });
 };
 
