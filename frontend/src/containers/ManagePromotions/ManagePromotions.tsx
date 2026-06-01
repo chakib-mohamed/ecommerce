@@ -3,10 +3,10 @@ import AddPromotion from "../../components/AddPromotion/AddPromotion";
 import Promotions from "../../components/Promotions/Promotions";
 import Guard from "../../hoc/Guard/Guard";
 import { service } from "../../services";
-import { PromotionType } from "../../types/types";
+import { Promotion } from "../../types/types";
 
 const ManagePromotions: React.FC = () => {
-  const [promotions, setPromotions] = useState<PromotionType[] | null>(null);
+  const [promotions, setPromotions] = useState<Promotion[] | null>(null);
 
   useEffect(() => {
     fetchPromotions();

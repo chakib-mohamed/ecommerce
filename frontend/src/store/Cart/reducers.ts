@@ -24,7 +24,7 @@ const reducer = (state = initialState, action: LooseAction): CartState => {
       return updateObject(state, { isLoading: true });
     case actions.LOAD_PRODUCTS_SUCCESS:
       return updateObject(state, {
-        products: action.products,
+        products: action.products as (Product & { qty: number })[],
         isLoading: false,
       });
     case actions.LOAD_PRODUCTS_FAIL:
@@ -60,7 +60,7 @@ const reducer = (state = initialState, action: LooseAction): CartState => {
     case actions.UPDTATE_QTY:
       return updateObject(state, {
         products: state.products.map((item) =>
-          item.id === action.productID ? { ...item, qty: action.qty } : item
+          item.id === action.productID ? { ...item, qty: action.qty as number } : item
         ),
       });
 

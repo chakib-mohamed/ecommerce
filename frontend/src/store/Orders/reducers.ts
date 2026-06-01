@@ -25,8 +25,8 @@ const reducer = (state = initialState, action: LooseAction): OrdersState => {
       return updateObject(state, { loading: true });
     case actions.FETCH_ORDERS_SUCCESS:
       return updateObject(state, {
-        orders: action.orders,
-        pagesCount: action.pagesCount,
+        orders: action.orders as unknown[],
+        pagesCount: action.pagesCount as number,
         loading: false,
       });
     case actions.FETCH_ORDERS_FAIL:
@@ -35,7 +35,7 @@ const reducer = (state = initialState, action: LooseAction): OrdersState => {
     case actions.OPEN_DELETE_ORDER_MODAL:
       return updateObject(state, {
         displayDeleteModalConfirmation: true,
-        orderID: action.orderID,
+        orderID: action.orderID as string,
       });
     case actions.CLOSE_DELETE_ORDER_MODAL:
       return updateObject(state, {

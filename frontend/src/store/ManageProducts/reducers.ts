@@ -29,29 +29,29 @@ const reducer = (state = initialState, action: LooseAction): ManageProductsState
     case actions.FETCH_PRODUCTS_START1:
       return updateObject(state, { loading: true });
     case actions.FETCH_PRODUCTS_SUCCESS1:
-      return updateObject(state, { products: action.products, loading: false });
+      return updateObject(state, { products: action.products as Product[], loading: false });
     case actions.FETCH_PRODUCTS_FAIL1:
       return updateObject(state, { loading: false });
 
     case actions.OPEN_UPDATE_PRODUCT_MODAL:
-      return updateObject(state, { displayEditModal: true, productID: action.productID });
+      return updateObject(state, { displayEditModal: true, productID: action.productID as string });
     case actions.CLOSE_UPDATE_PRODUCT_MODAL:
       return updateObject(state, { displayEditModal: false });
 
     case actions.GET_PRODUCT_SUCCESS:
-      return updateObject(state, { product: action.product });
+      return updateObject(state, { product: action.product as Product });
     case actions.UPDATE_PRODUCT_SUCCESS:
       return updateObject(state, { displayEditModal: false });
 
     case actions.OPEN_DELETE_PRODUCT_MODAL:
-      return updateObject(state, { displayDeleteModalConfirmation: true, productID: action.productID });
+      return updateObject(state, { displayDeleteModalConfirmation: true, productID: action.productID as string });
     case actions.CLOSE_DELETE_PRODUCT_MODAL:
       return updateObject(state, { displayDeleteModalConfirmation: false });
     case actions.DELETE_PRODUCT_SUCCESS:
       return updateObject(state, { displayDeleteModalConfirmation: false });
 
     case actions.FETCH_CATEGORIES_SUCCESS:
-      return updateObject(state, { categories: action.categories });
+      return updateObject(state, { categories: action.categories as Category[] });
 
     default:
       return state;

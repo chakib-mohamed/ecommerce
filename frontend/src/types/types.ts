@@ -11,6 +11,18 @@ export type PromotionType = {
   activeTo: string;
 };
 
+// Shape returned by the promotions GET endpoint (richer than the create payload).
+export type Promotion = {
+  id: string;
+  label: string;
+  product?: {
+    title: string;
+  };
+  percentageOff: number | string;
+  activeFrom: string;
+  activeTo: string;
+};
+
 export type Product = {
   id: string;
   title: string;
@@ -19,6 +31,7 @@ export type Product = {
   description: string;
   image: string;
   price: number;
+  category?: string;
   promotions: PromotionType[];
 };
 

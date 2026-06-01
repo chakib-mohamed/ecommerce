@@ -58,7 +58,7 @@ const Login: React.FC = () => {
             </p>
           </div>
 
-          <ApiErrorMessage error={error} />
+          <ApiErrorMessage error={error ? { message: error } : null} />
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-1">
