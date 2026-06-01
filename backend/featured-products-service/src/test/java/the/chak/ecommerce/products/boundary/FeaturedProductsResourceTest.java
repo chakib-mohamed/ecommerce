@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +33,7 @@ import the.chak.ecommerce.products.repository.ProductMongoRepository;
 @QuarkusTest
 @QuarkusTestResource(MongoDbTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
+@Tag("integration")
 class FeaturedProductsResourceTest {
 
     @Inject

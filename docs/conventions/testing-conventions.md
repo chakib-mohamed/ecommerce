@@ -154,6 +154,31 @@ Testcontainers (and the Kafka test resource) apply to these tests only; see **Te
 **Rationale**: control unit tests run in-process in milliseconds with no container spin-up, and
 mock collaborators to test business logic in isolation without cross-run container state.
 
+### Tag every Docker-dependent test `@Tag("integration")`
+
+**Rule: every test class that requires Docker — any `@QuarkusTest`, and any class that starts a
+Testcontainers container directly (e.g. the gateway's `@SpringBootTest` + `@Testcontainers`
+tests) — must carry a class-level `@Tag("integration")`.** This is what lets the test suite be
+split into a fast, container-free unit subset and the full integration suite:
+
+```java
+@QuarkusTest
+@QuarkusTestResource(MongoDbTestResource.class)
+@Tag("integration")
+class PriceResourceTest { ... }
+```
+
+- Run **unit only** (no Docker): `./mvnw test -DexcludedGroups=integration` — safe to run across
+  the whole `backend/` reactor since nothing starts a container (the per-service rule in
+  `backend/CLAUDE.md` exists only to avoid Docker saturation, which does not apply here).
+- Run **everything** (Docker required): `./mvnw verify -pl <service>` — one service at a time.
+
+The `pre-merge-commit` git hook (`.githooks/pre-merge-commit`) runs the unit subset before any
+merge commit into `main`. **A new `@QuarkusTest` left untagged will try to boot its containers
+during that gate and fail it** — always add the tag. `ControlTestRulesArchTest` already keeps
+`@QuarkusTest` off `control/*ServiceTest`, but it does not enforce the tag, so this is a
+reviewer/author responsibility.
+
 ### Exception: Zero-Dependency Services
 
 Services with no external dependencies (pure logic, no I/O) can use plain `new ServiceClass()` in `@BeforeEach`:

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import the.chak.ecommerce.products.StorageTestResource;
 @QuarkusTest
 @QuarkusTestResource(StorageTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
+@Tag("integration")
 class ProductsResourceTest {
 
     private String createdProductUuid;

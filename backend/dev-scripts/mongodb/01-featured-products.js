@@ -4,8 +4,9 @@
 // UUIDs use UUID("...") which creates BSON binary subtype 4, matching
 // quarkus.mongodb.uuid-representation = standard in featured-products-service.
 //
-// NOTE: LocalDate fields (activeFrom, activeTo) are stored here as ISO-8601 strings.
-// If Quarkus Panache MongoDB stores them as BSON dates instead, switch to ISODate("2025-06-01").
+// NOTE: LocalDate fields (activeFrom, activeTo) are stored as BSON dates via ISODate(...).
+// Quarkus Panache MongoDB maps LocalDate to BSON DATE_TIME, so plain ISO-8601 strings
+// fail to decode ("expected 'DATE_TIME' BsonType but got 'STRING'").
 //
 // This script runs once when the mongodb_data Docker volume is first created.
 // To re-seed: docker-compose down -v && docker-compose up
@@ -22,7 +23,7 @@ db.product.insertMany([
         price: 899.99,
         image: null,
         promotions: [
-            { label: "Summer Sale", percentageOff: 15.0, activeFrom: "2025-06-01", activeTo: "2025-08-31" }
+            { label: "Summer Sale", percentageOff: 15.0, activeFrom: ISODate("2025-06-01"), activeTo: ISODate("2025-08-31") }
         ],
         categories: [
             { id: NumberLong(20), label: "Dining Tables" }
@@ -35,7 +36,7 @@ db.product.insertMany([
         price: 649.00,
         image: null,
         promotions: [
-            { label: "Summer Sale", percentageOff: 15.0, activeFrom: "2025-06-01", activeTo: "2025-08-31" }
+            { label: "Summer Sale", percentageOff: 15.0, activeFrom: ISODate("2025-06-01"), activeTo: ISODate("2025-08-31") }
         ],
         categories: [
             { id: NumberLong(20), label: "Dining Tables" }
@@ -70,7 +71,7 @@ db.product.insertMany([
         price: 1199.00,
         image: null,
         promotions: [
-            { label: "New Arrivals", percentageOff: 10.0, activeFrom: "2025-05-01", activeTo: "2025-12-31" }
+            { label: "New Arrivals", percentageOff: 10.0, activeFrom: ISODate("2025-05-01"), activeTo: ISODate("2025-12-31") }
         ],
         categories: [
             { id: NumberLong(23), label: "Sofas" }
@@ -105,7 +106,7 @@ db.product.insertMany([
         price: 999.00,
         image: null,
         promotions: [
-            { label: "New Arrivals", percentageOff: 10.0, activeFrom: "2025-05-01", activeTo: "2025-12-31" }
+            { label: "New Arrivals", percentageOff: 10.0, activeFrom: ISODate("2025-05-01"), activeTo: ISODate("2025-12-31") }
         ],
         categories: [
             { id: NumberLong(26), label: "Beds" }

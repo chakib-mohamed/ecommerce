@@ -3,6 +3,7 @@ package the.chak.ecommerce.products.boundary;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import the.chak.ecommerce.products.StorageTestResource;
 @QuarkusTest
 @QuarkusTestResource(KafkaTestResource.class)
 @QuarkusTestResource(StorageTestResource.class)
+@Tag("integration")
 class HealthCheckTest {
 
     @BeforeAll

@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,7 @@ import jakarta.inject.Inject;
 @QuarkusTestResource(MongoTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
 @QuarkusTestResource(RedisTestResource.class)
+@Tag("integration")
 class CartResourceTest {
 
     static final String USER_ID = "test-user-123";

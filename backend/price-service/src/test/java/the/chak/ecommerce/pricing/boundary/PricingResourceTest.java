@@ -12,6 +12,7 @@ import jakarta.json.bind.config.PropertyNamingStrategy;
 import io.restassured.RestAssured;
 import io.restassured.config.JsonConfig;
 import io.restassured.path.json.config.JsonPathConfig;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ import the.chak.ecommerce.pricing.control.KafkaPriceEventPublisher;
 @QuarkusTest
 @QuarkusTestResource(MongoDbTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
+@Tag("integration")
 class PricingResourceTest {
 
     private static final Jsonb JSONB = JsonbBuilder.create(

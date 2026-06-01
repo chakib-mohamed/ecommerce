@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,7 @@ import the.chak.ecommerce.products.boundary.dto.ProductDto;
 @QuarkusTestResource(MongoTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
 @QuarkusTestResource(RedisTestResource.class)
+@Tag("integration")
 class OrdersResourceTest {
 
     @InjectMock
