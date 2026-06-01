@@ -1,0 +1,36 @@
+#!/usr/bin/env sh
+# Pre-merge gate: static analysis + backend unit tests before a merge commit INTO main.
+#
+# Fires only when the branch being merged into is main; merges into any other
+# branch skip the gate. Two steps, both run from the backend reactor root:
+#   1. Checkstyle + SpotBugs across all backend modules (tests skipped).
+#   2. Unit tests only -- everything tagged @Tag("integration") (the
+#      @QuarkusTest / Testcontainers suites) is excluded.
+# Neither step needs Docker, so the reactor runs sequentially without container
+# saturation. Aborts the merge on any violation or test failure.
+#
+# Note: a fast-forward merge creates no merge commit, so this hook does not run.
+# Use `git merge --no-ff <branch>` into main to force the gate.
+# Bypass intentionally (discouraged) with: git merge --no-verify
+set -e
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$BRANCH" != "main" ]; then
+  echo "==> pre-merge-commit: target branch is '$BRANCH' (not main) -- skipping gate."
+  exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT/backend"
+
+# Step 1: static analysis. Run with backend/ as the Maven execution root so that
+# ${session.executionRootDirectory}/checkstyle.xml resolves correctly.
+echo "==> pre-merge-commit: merging into main -- running Checkstyle + SpotBugs (tests skipped)..."
+./mvnw -B -DskipTests -Dmaven.test.skip=true \
+  compile checkstyle:check spotbugs:check
+
+# Step 2: unit tests (integration excluded -- no Docker required).
+echo "==> pre-merge-commit: running backend unit tests (integration excluded)..."
+./mvnw -B test -DexcludedGroups=integration
+
+echo "==> pre-merge-commit: static checks and unit tests passed."

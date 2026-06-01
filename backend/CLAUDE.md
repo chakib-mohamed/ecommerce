@@ -61,17 +61,15 @@ Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
 
 See `docs/conventions/testing-conventions.md` for all test conventions — including Testcontainers vs Dev Services, Kafka test setup, and container reuse, plus naming, display names, body structure, split conventions, and coverage requirements.
 
-### Pre-push checks
+### Git hooks (pre-merge-commit)
 
-A version-controlled `pre-push` hook (`.githooks/pre-push`) runs Checkstyle + SpotBugs across all backend modules and aborts the push on any violation. It skips tests (no Testcontainers), so it is fast and safe to run from the aggregator root.
-
-Activate it once per clone:
+One version-controlled hook lives in `.githooks/`. Activate it once per clone:
 
 ```bash
 sh .githooks/install.sh      # or: git config core.hooksPath .githooks
 ```
 
-Bypass intentionally (discouraged) with `git push --no-verify`. The hook only covers static analysis — it does not run the test suite.
+- **`pre-merge-commit`** — gates a merge commit **into `main`** (skips merges into any other branch) and aborts the merge on any violation or test failure. It runs two steps from the backend reactor root, neither needing Docker: (1) Checkstyle + SpotBugs static analysis across all backend modules (`./mvnw -DskipTests compile checkstyle:check spotbugs:check`), then (2) the backend **unit tests** via `./mvnw test -DexcludedGroups=integration`, which excludes everything tagged `@Tag("integration")` (the `@QuarkusTest` / Testcontainers suites). A fast-forward merge creates no merge commit and so skips the hook — use `git merge --no-ff` into `main` to force the gate. Bypass (discouraged) with `git merge --no-verify`. See `docs/conventions/testing-conventions.md` for the `@Tag("integration")` rule that keeps this split working.
 
 ## Logging
 

@@ -5,4 +5,4 @@ set -e
 
 git config core.hooksPath .githooks
 echo "Git hooks activated (core.hooksPath -> .githooks)."
-echo "The pre-push hook now runs Checkstyle + SpotBugs before every push."
+echo "  pre-merge-commit -> Checkstyle + SpotBugs + backend unit tests before a merge commit into main."
