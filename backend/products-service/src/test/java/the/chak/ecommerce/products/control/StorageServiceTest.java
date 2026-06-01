@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -117,8 +116,8 @@ class StorageServiceTest {
         // given
         String key = "test-key";
         byte[] expectedData = {1, 2, 3};
-        ResponseBytes<GetObjectResponse> responseBytes = mock(ResponseBytes.class);
-        when(responseBytes.asByteArray()).thenReturn(expectedData);
+        ResponseBytes<GetObjectResponse> responseBytes =
+                ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), expectedData);
         when(s3.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(responseBytes);
 
         // when

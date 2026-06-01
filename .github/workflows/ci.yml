@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save runner minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: frontend/.nvmrc      # Node 20.20.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps             # matches frontend/Dockerfile
+      - run: npm run lint
+      - run: npm run build                         # tsc + vite build
+
+  backend:
+    runs-on: ubuntu-latest                         # Docker preinstalled -> Testcontainers works
+    env:
+      TESTCONTAINERS_REUSE_ENABLE: "true"          # share Mongo/Kafka/etc. across the sequential per-service runs
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      # Sequential per-service `verify`: full lifecycle = compile + unit + integration
+      # tests + Checkstyle + SpotBugs + JaCoCo coverage. `-am` also builds the shared
+      # products-api / orders-api modules each service depends on. One service at a
+      # time so Testcontainers never saturates Docker.
+      - name: Backend verify (per service, sequential)
+        run: |
+          set -euo pipefail
+          SERVICES=(
+            authenticate-service
+            featured-products-service
+            price-service
+            orders-service
+            products-service
+            ecommerce-api-gateway
+          )
+          for svc in "${SERVICES[@]}"; do
+            echo "::group::verify $svc"
+            ./mvnw -B --no-transfer-progress verify -pl "$svc" -am
+            echo "::endgroup::"
+          done
