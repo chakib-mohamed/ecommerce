@@ -6,7 +6,7 @@ spring:
     gateway:
       routes:
         - id: authentication-service
-          uri: http://authentication-service:8080
+          uri: http://authenticate-service:8080
           predicates:
             - Path=/api/users/**
           filters:
