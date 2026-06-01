@@ -3,6 +3,7 @@ package the.chak.ecommerce.products;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
@@ -15,6 +16,7 @@ import the.chak.ecommerce.products.repository.ProductRepository;
 @QuarkusTest
 @QuarkusTestResource(StorageTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
+@Tag("integration")
 class PriceChangedConsumerTest {
 
     @Inject

@@ -4,6 +4,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import java.util.UUID;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
@@ -15,6 +16,7 @@ import the.chak.ecommerce.authentication.boundary.dto.SignUpRequest;
 
 @QuarkusTest
 @QuarkusTestResource(MongoDbTestResource.class)
+@Tag("integration")
 class AuthenticationResourceTest {
 
     @Test

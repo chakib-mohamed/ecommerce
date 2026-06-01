@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import the.chak.ecommerce.products.StorageTestResource;
 @QuarkusTest
 @QuarkusTestResource(KafkaTestResource.class)
 @QuarkusTestResource(StorageTestResource.class)
+@Tag("integration")
 class CategoriesResourceTest {
 
     private Integer createdCategoryId;

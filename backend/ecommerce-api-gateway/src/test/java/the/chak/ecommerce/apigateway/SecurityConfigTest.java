@@ -1,5 +1,6 @@
 package the.chak.ecommerce.apigateway;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,7 @@ import the.chak.ecommerce.apigateway.util.TestJwtTokenGenerator;
 @AutoConfigureWebTestClient
 @Testcontainers
 @ActiveProfiles("test")
+@Tag("integration")
 class SecurityConfigTest {
 
     @Container
