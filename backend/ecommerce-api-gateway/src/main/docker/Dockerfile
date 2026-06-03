@@ -1,5 +1,5 @@
 # Run stage
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Copy the pre-built jar from the target directory relative to the build context (./backend/ecommerce-api-gateway)
