@@ -1,5 +1,6 @@
 services:
   ecommerce-front:
+    profiles: [frontend]
     build:
       context: ./frontend
     ports:
@@ -16,6 +17,7 @@ services:
 
 
   api-gateway:
+    profiles: [backend]
     image: ecommerce/ecommerce-api-gateway
     build:
       context: ./backend/ecommerce-api-gateway
@@ -43,6 +45,7 @@ services:
           memory: 256M
 
   authenticate-service:
+    profiles: [backend]
     build:
       context: ./backend/authenticate-service
       dockerfile: src/main/docker/Dockerfile.jvm
@@ -72,6 +75,7 @@ services:
           memory: 256M
 
   products-service:
+    profiles: [backend]
     build:
       context: ./backend/products-service
       dockerfile: src/main/docker/Dockerfile.jvm
@@ -106,6 +110,7 @@ services:
           memory: 256M
 
   featured-products-service:
+    profiles: [backend]
     build:
       context: ./backend/featured-products-service
       dockerfile: src/main/docker/Dockerfile.jvm
@@ -137,6 +142,7 @@ services:
           memory: 256M
 
   orders-service:
+    profiles: [backend]
     build:
       context: ./backend/orders-service
       dockerfile: src/main/docker/Dockerfile.jvm
@@ -167,6 +173,7 @@ services:
           memory: 256M
 
   price-service:
+    profiles: [backend]
     build:
       context: ./backend/price-service
       dockerfile: src/main/docker/Dockerfile.jvm
@@ -198,6 +205,7 @@ services:
           memory: 256M
 
   mongodb:
+    profiles: [infra]
     image: mongo:6.0
     ports:
       - 27017:27017
@@ -213,6 +221,7 @@ services:
       retries: 5
 
   postgres:
+    profiles: [infra]
     image: postgres:15-alpine
     environment:
       - POSTGRES_PASSWORD=postgres
@@ -231,6 +240,7 @@ services:
       retries: 5
 
   localstack:
+    profiles: [infra]
     image: localstack/localstack:4
     ports:
       - 4566:4566
@@ -246,6 +256,7 @@ services:
       retries: 5
 
   zookeeper:
+    profiles: [infra]
     image: confluentinc/cp-zookeeper:7.4.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -254,6 +265,7 @@ services:
       - backend
 
   kafka:
+    profiles: [infra]
     image: confluentinc/cp-kafka:7.4.0
     depends_on:
       - zookeeper
@@ -277,6 +289,7 @@ services:
       start_period: 20s
 
   redis:
+    profiles: [infra]
     image: redis:7.0-alpine
     ports:
       - 6379:6379
