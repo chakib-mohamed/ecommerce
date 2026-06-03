@@ -4,6 +4,34 @@ Covers all Quarkus services (Quarkus 3.17.6, Java 21). The API gateway is Spring
 
 This file is a lean index. Each section states the non-negotiable rules; full detail (code snippets, tables, rationale) lives in `docs/conventions/`.
 
+## Local Dev (hot reload)
+
+Compose profiles are the baseline — `make backend` runs the whole backend in Docker. For a
+hot-reload loop, run infra in Docker and the service(s) you're editing **natively in the
+foreground**, each in its own terminal:
+
+```bash
+make infra            # dependencies (db/kafka/etc.) in Docker
+make dev-gateway      # gateway on :8080, Spring `dev` profile → routes to localhost:8081-8085
+make dev-products     # the service you're working on: quarkus:dev, live reload
+make dev-front        # optional: Vite on :3000, proxies /api → :8080
+```
+
+Each `make dev-<svc>` runs `quarkus:dev` and overrides `quarkus.http.port` to match the
+gateway dev route — so you only need to start the service(s) you're touching; unrun routes
+just fail at the gateway.
+
+| Target              | Port | Gateway paths |
+|---------------------|------|---------------|
+| `dev-authenticate`  | 8081 | `/api/users/**` |
+| `dev-products`      | 8082 | `/api/products/**`, `/api/categories/**`, `/api/promotions/**` |
+| `dev-featured`      | 8083 | `/api/products/featured` |
+| `dev-orders`        | 8084 | `/api/orders/**`, `/api/cart/**` |
+| `dev-price`         | 8085 | `/api/prices/**`, `/api/payments/**` |
+
+Run `make help` for the full target list. The gateway is Spring Boot — see
+`ecommerce-api-gateway/CLAUDE.md`.
+
 ## Architecture & Packaging
 
 - DTOs live in `boundary/dto/`; `entity/` is only for persistence-annotated domain objects.
