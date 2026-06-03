@@ -30,13 +30,19 @@ All traffic goes through the gateway at `/api/**`. Two Docker Compose networks: 
 ### Build & Run
 
 ```bash
-./build.sh          # builds frontend image + all backend JARs + Docker images
-./run.sh docker     # docker-compose up
-./shutdown.sh docker
+make build          # mvn package (skip tests) + all Docker images
+make up             # full stack (infra + backend + frontend)
+make down           # stop & remove everything
 
-./run.sh kubernetes   # Kubernetes path (secondary)
-./shutdown.sh kubernetes
+make infra          # just infra containers (db/kafka/etc.)
+make backend        # infra + backend services
+make front          # full stack (infra + backend + frontend)
+make logs           # tail logs for all services
 ```
+
+Run `make help` for the full target list (including the `dev-*` hot-reload targets).
+The `kubernetes/` manifests are stale (they reference a removed `eureka-server`) and are
+not wired into the Makefile — the K8s path is a separate follow-up.
 
 See `backend/CLAUDE.md` for backend build commands, testing conventions, and framework specifics.
 See `frontend/CLAUDE.md` for frontend dev commands.

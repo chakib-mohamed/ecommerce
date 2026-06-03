@@ -40,7 +40,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
           cache: maven
       # Sequential per-service `verify`: full lifecycle = compile + unit + integration
       # tests + Checkstyle + SpotBugs + JaCoCo coverage. `-am` also builds the shared

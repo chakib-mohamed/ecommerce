@@ -5,10 +5,14 @@
 ## Build & Run
 
 ```bash
-# From ecommerce-api-gateway/
-mvn spring-boot:run -Pdev          # dev profile (routes to localhost ports, CORS from localhost:3000)
-mvn clean package -PbuildDocker    # builds Docker image
+make dev-gateway                                   # from repo root (preferred) — dev profile
+mvn spring-boot:run -Dspring-boot.run.profiles=dev # from ecommerce-api-gateway/ — dev profile
+mvn clean package -PbuildDocker                    # builds Docker image
 ```
+
+The `dev` profile (`application-dev.yml`) routes to `localhost:8081–8085` and allows CORS
+from `localhost:3000`. There is **no Maven `dev` profile** — activate the Spring profile with
+`-Dspring-boot.run.profiles=dev` (not `-Pdev`).
 
 ## Responsibilities
 
