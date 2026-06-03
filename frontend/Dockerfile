@@ -1,7 +1,6 @@
 # Stage 0: Build stage
 FROM node:20-alpine AS build-stage
 WORKDIR /app
-ENV NODE_OPTIONS=--openssl-legacy-provider
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
