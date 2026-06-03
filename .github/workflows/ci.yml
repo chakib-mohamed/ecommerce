@@ -62,3 +62,45 @@ jobs:
             ./mvnw -B --no-transfer-progress verify -pl "$svc" -am
             echo "::endgroup::"
           done
+
+  # Dependency vulnerability gate: one Trivy fs scan over the whole repo covers
+  # both the Maven backend (backend/**/pom.xml) and the npm frontend
+  # (frontend/package-lock.json). A fresh checkout has no node_modules, so only
+  # declared dependencies are scanned.
+  dependency-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write          # required to upload SARIF to the Security tab
+    steps:
+      - uses: actions/checkout@v5
+
+      # Report pass: all severities, never fails — produces the SARIF report.
+      - name: Trivy vulnerability scan (SARIF report)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          format: sarif
+          output: trivy-results.sarif
+
+      # Upload even when the gate pass below fails, so findings always surface.
+      - name: Upload Trivy SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+      # Gate pass: fail the build only on CRITICAL vulnerabilities. Trivy's vuln
+      # DB is cached from the pass above, so this is fast.
+      - name: Trivy vulnerability gate (fail on CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: false
+          exit-code: '1'
+          format: table
