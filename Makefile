@@ -71,15 +71,17 @@ logs:
 build: build-api build-front
 
 ## build-api: package all backend jars, then build the service images
+# `--profile "*"` activates every profile so each service's `depends_on`
+# targets (e.g. infra's kafka) resolve while building the backend tier.
 build-api:
 	mvn package -DskipTests -f ./backend/pom.xml
-	docker compose build \
+	docker compose --profile "*" build \
 		products-service authenticate-service orders-service \
 		featured-products-service price-service api-gateway
 
 ## build-front: build the frontend image (single in-image build)
 build-front:
-	docker compose build ecommerce-front
+	docker compose --profile "*" build ecommerce-front
 
 # ----------------------------------------------------------------------------
 # Dev — foreground, hot reload, one terminal each. Quarkus services override
