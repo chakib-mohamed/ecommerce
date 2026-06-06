@@ -134,24 +134,9 @@ class OrderServiceTest {
     }
 
     // --confirmOrder -------------------------------------------------------
-
-    @Test
-    @DisplayName("Changes the status to CONFIRMED and persists when confirming an existing order")
-    void confirmOrder_existingOrder_changesStatusToConfirmed() {
-        // given
-        String orderId = new ObjectId().toString();
-        Order order = new Order();
-        order.id = new ObjectId(orderId);
-        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
-
-        // when
-        Order confirmed = orderService.confirmOrder(orderId);
-
-        // then
-        assertNotNull(confirmed);
-        assertEquals(OrderStatus.CONFIRMED, confirmed.getStatus());
-        verify(orderRepository).persistOrUpdate(confirmed);
-    }
+    // The happy path now commits the CONFIRMED order and a matching outbox entry inside a Mongo
+    // transaction, so it is exercised against real Testcontainers in OrderOutboxWritePathTest rather
+    // than mocked here. Only the early-return path (before any transaction) stays a unit test.
 
     @Test
     @DisplayName("Returns null when confirming an order id that does not exist")
