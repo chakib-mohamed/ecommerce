@@ -60,6 +60,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
     networks:
       - backend
     healthcheck:
@@ -121,10 +123,12 @@ services:
     environment:
       - QUARKUS_PROFILE=prod
       - MP_MESSAGING_CONNECTOR_SMALLRYE_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017
+      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017/?replicaSet=rs0
     depends_on:
       mongodb:
         condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
     networks:
@@ -152,10 +156,12 @@ services:
       - 8084:8080
     environment:
       - QUARKUS_PROFILE=prod
-      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017
+      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017/?replicaSet=rs0
     depends_on:
       mongodb:
         condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
     networks:
@@ -183,11 +189,13 @@ services:
       - 8085:8080
     environment:
       - QUARKUS_PROFILE=prod
-      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017
+      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017/?replicaSet=rs0
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
       mongodb:
         condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
     networks:
@@ -209,18 +217,58 @@ services:
   mongodb:
     profiles: [infra]
     image: mongo:6.0
+    # Run as a single-node replica set so the price-service write-path can commit the price
+    # document and its outbox entry in one multi-document transaction (Mongo only supports
+    # transactions on a replica set). rs.initiate + seeding is done once by mongo-init.
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
       - 27017:27017
     networks:
       - backend
     volumes:
       - mongodb_data:/data/db
-      - ./backend/dev-scripts/mongodb:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      # Healthy only once this node is an elected writable primary (i.e. after mongo-init ran
+      # rs.initiate); app services gate on this so they never connect before the RS is ready.
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true"]
       interval: 10s
       timeout: 10s
-      retries: 5
+      retries: 10
+      start_period: 20s
+
+  mongo-init:
+    profiles: [infra]
+    image: mongo:6.0
+    depends_on:
+      mongodb:
+        condition: service_started
+    networks:
+      - backend
+    volumes:
+      - ./backend/dev-scripts/mongodb:/seed:ro
+    # One-shot: wait for mongod, initiate the replica set (idempotent), wait for primary, then
+    # seed once (only when the data is empty, so re-running `up` never wipes existing data).
+    restart: "no"
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -e
+        echo "mongo-init: waiting for mongod..."
+        until mongosh --host mongodb:27017 --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; do sleep 1; done
+        echo "mongo-init: initiating replica set (idempotent)..."
+        mongosh --host mongodb:27017 --quiet --eval 'try { rs.status(); print("rs already initiated"); } catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongodb:27017"}]}); print("rs initiated"); }'
+        echo "mongo-init: waiting for primary..."
+        until mongosh --host mongodb:27017 --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; do sleep 1; done
+        seeded=$$(mongosh --host mongodb:27017 --quiet --eval 'db.getSiblingDB("price-service").prices.countDocuments()')
+        if [ "$$seeded" = "0" ]; then
+          echo "mongo-init: seeding..."
+          mongosh --host mongodb:27017 /seed/01-featured-products.js
+          mongosh --host mongodb:27017 /seed/02-prices.js
+        else
+          echo "mongo-init: already seeded ($$seeded prices), skipping"
+        fi
+        echo "mongo-init: done"
 
   postgres:
     profiles: [infra]
