@@ -37,6 +37,14 @@ public class OutboxEvent {
 
     private Instant publishedAt;
 
+    /** Count of failed per-row publish attempts (poison payload / unknown topic); broker outages
+     *  do not increment it. Once it reaches the relay's retry cap the row is stamped failed. */
+    private int attempts;
+
+    /** Set when the row exhausts its retry cap; a non-null value excludes it from the relay so a
+     *  poison row never blocks or re-burns the relay. Kept in-table for inspection. */
+    private Instant failedAt;
+
     @PrePersist
     public void prePersist() {
         if (id == null) {

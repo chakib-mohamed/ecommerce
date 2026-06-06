@@ -18,7 +18,7 @@ public class OutboxRepository implements PanacheRepositoryBase<OutboxEvent, UUID
     public List<OutboxEvent> findUnpublishedForUpdate(int batchSize) {
         return getEntityManager()
                 .createNativeQuery(
-                        "SELECT * FROM outbox WHERE published_at IS NULL "
+                        "SELECT * FROM outbox WHERE published_at IS NULL AND failed_at IS NULL "
                                 + "ORDER BY created_at LIMIT :batchSize FOR UPDATE SKIP LOCKED",
                         OutboxEvent.class)
                 .setParameter("batchSize", batchSize)

@@ -18,7 +18,7 @@ public class OutboxRepository implements PanacheMongoRepositoryBase<OutboxEntry,
      * order-initiated consumer and broker idempotence (at-least-once delivery).
      */
     public List<OutboxEntry> findUnpublished(int batchSize) {
-        return find("{'publishedAt': null}", Sort.ascending("createdAt"))
+        return find("{'publishedAt': null, 'failedAt': null}", Sort.ascending("createdAt"))
                 .page(0, batchSize)
                 .list();
     }

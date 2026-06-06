@@ -4,9 +4,11 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -44,6 +46,9 @@ public class OutboxRelay {
 
     @ConfigProperty(name = "products.outbox.batch-size", defaultValue = "100")
     int batchSize;
+
+    @ConfigProperty(name = "products.outbox.max-retries", defaultValue = "5")
+    int maxRetries;
 
     /** Coalesces overlapping scheduled ticks and on-demand wake-ups into a single in-flight run. */
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -103,7 +108,9 @@ public class OutboxRelay {
     /**
      * Publishes one batch of unpublished rows, oldest first. Each row is sent to Kafka keyed by its
      * aggregate id; only after the broker acks is {@code published_at} stamped, in a short separate
-     * transaction with no I/O inside it. Un-acked rows stay {@code NULL} for the next tick.
+     * transaction with no I/O inside it. A broker outage aborts the whole tick so the batch is
+     * bounded to roughly one ack timeout instead of {@code batchSize} of them; a poison row is
+     * retried up to {@code maxRetries} times, then stamped {@code failed_at} and skipped forever.
      */
     public void pollAndPublish() {
         List<OutboxEvent> batch = QuarkusTransaction.requiringNew()
@@ -113,10 +120,49 @@ public class OutboxRelay {
                 publish(event);
                 UUID id = event.getId();
                 QuarkusTransaction.requiringNew().run(() -> stampPublished(id));
-            } catch (Exception e) {
-                LOG.errorf(e, "Failed to publish outbox row id=%s; leaving it for the next tick",
+            } catch (TimeoutException | ExecutionException e) {
+                LOG.errorf(e, "Broker unreachable publishing outbox row id=%s; aborting this tick, "
+                        + "remaining rows retry on the next poll", event.getId());
+                break;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOG.warnf(e, "Interrupted awaiting broker ack for outbox row id=%s; aborting tick",
                         event.getId());
+                break;
+            } catch (Exception e) {
+                recordFailedAttempt(event.getId(), e);
             }
+        }
+    }
+
+    /**
+     * Records a per-row publish failure (poison payload / unknown topic - not a broker outage):
+     * increments the attempt counter and, once it reaches {@code maxRetries}, stamps
+     * {@code failed_at} so the row drops out of {@link OutboxRepository#findUnpublishedForUpdate}
+     * for good. Run in its own short transaction loading the managed entity (same pattern as
+     * {@link #stampPublished}); the next row in the batch is still attempted.
+     */
+    private void recordFailedAttempt(UUID id, Exception cause) {
+        int attempts = QuarkusTransaction.requiringNew().call(() -> {
+            OutboxEvent managed = outboxRepository.findById(id);
+            if (managed == null) {
+                return -1;
+            }
+            managed.setAttempts(managed.getAttempts() + 1);
+            if (managed.getAttempts() >= maxRetries) {
+                managed.setFailedAt(Instant.now());
+            }
+            return managed.getAttempts();
+        });
+        if (attempts < 0) {
+            return; // row vanished (e.g. purged) between the batch read and now
+        }
+        if (attempts >= maxRetries) {
+            LOG.errorf(cause, "Giving up on outbox row id=%s after %d attempts; marking it failed "
+                    + "and skipping it from now on", id, attempts);
+        } else {
+            LOG.warnf(cause, "Failed to publish outbox row id=%s (attempt %d/%d); will retry",
+                    id, attempts, maxRetries);
         }
     }
 

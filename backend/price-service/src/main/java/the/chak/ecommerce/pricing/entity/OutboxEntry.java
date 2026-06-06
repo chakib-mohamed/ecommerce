@@ -31,4 +31,12 @@ public class OutboxEntry {
     public Instant createdAt;
 
     public Instant publishedAt;
+
+    /** Count of failed per-row publish attempts (poison payload / unknown topic); broker outages
+     *  do not increment it. Once it reaches the relay's retry cap the entry is stamped failed. */
+    public int attempts;
+
+    /** Set when the entry exhausts its retry cap; a non-null value excludes it from the relay so a
+     *  poison entry never blocks or re-burns the relay. Kept in the collection for inspection. */
+    public Instant failedAt;
 }
