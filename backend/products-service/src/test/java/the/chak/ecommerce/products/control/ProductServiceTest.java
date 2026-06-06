@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -24,9 +25,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
+import the.chak.ecommerce.products.entity.OutboxEvent;
 import the.chak.ecommerce.products.entity.Product;
 import the.chak.ecommerce.products.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.products.boundary.dto.Criteria;
+import the.chak.ecommerce.products.repository.OutboxRepository;
 import the.chak.ecommerce.products.repository.ProductRepository;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.persistence.EntityManager;
@@ -49,7 +52,16 @@ class ProductServiceTest {
     EntityManager em;
 
     @Mock
-    Event<ProductDeletedEvent> productDeletedEvent;
+    OutboxRepository outboxRepository;
+
+    @Mock
+    OutboxEventFactory outboxEventFactory;
+
+    @Mock
+    ProductEventMapper productEventMapper;
+
+    @Mock
+    Event<OutboxAppended> outboxAppended;
 
     @Test
     @DisplayName("Uploads the image and persists the product when image bytes are provided")
@@ -173,7 +185,7 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("Deletes the record and its stored image and fires a deleted event for an existing product")
+    @DisplayName("Deletes the record and its stored image and writes a deleted outbox row for an existing product")
     void deleteProduct_existingProduct_deletesRecordAndStorageKey() {
         // given
         UUID uuid = UUID.randomUUID();
@@ -185,13 +197,17 @@ class ProductServiceTest {
         when(query.firstResult()).thenReturn(product);
         when(productRepository.find("uuid", uuid)).thenReturn(query);
 
+        OutboxEvent row = new OutboxEvent();
+        when(outboxEventFactory.productDeleted(eq(uuid), any(ProductDeletedEvent.class))).thenReturn(row);
+
         // when
         productService.deleteProduct(uuid);
 
         // then
         verify(productRepository).delete(product);
         verify(storageService).deleteImage("img-key");
-        verify(productDeletedEvent).fire(any(ProductDeletedEvent.class));
+        verify(outboxRepository).persist(row);
+        verify(outboxAppended).fire(any(OutboxAppended.class));
     }
 
     @Test

@@ -14,9 +14,13 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import org.jboss.logging.Logger;
 import the.chak.ecommerce.products.boundary.dto.Criteria;
+import the.chak.ecommerce.products.boundary.dto.ProductDto;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
+import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 import the.chak.ecommerce.products.control.exceptions.ProductNotFoundException;
+import the.chak.ecommerce.products.entity.OutboxEvent;
 import the.chak.ecommerce.products.entity.Product;
+import the.chak.ecommerce.products.repository.OutboxRepository;
 import the.chak.ecommerce.products.repository.ProductRepository;
 
 @ApplicationScoped
@@ -34,7 +38,16 @@ public class ProductService {
     ProductRepository productRepository;
 
     @Inject
-    Event<ProductDeletedEvent> productDeletedEvent;
+    OutboxRepository outboxRepository;
+
+    @Inject
+    OutboxEventFactory outboxEventFactory;
+
+    @Inject
+    ProductEventMapper productEventMapper;
+
+    @Inject
+    Event<OutboxAppended> outboxAppended;
 
     @Inject
     StorageService storageService;
@@ -74,6 +87,7 @@ public class ProductService {
     @Transactional
     void persistProduct(Product product) {
         productRepository.persist(product);
+        appendProductUpdated(product);
     }
 
     public Product updateProduct(Product product, byte[] imageBytes) {
@@ -107,6 +121,19 @@ public class ProductService {
     @Transactional
     void mergeProduct(Product product) {
         em.merge(product);
+        appendProductUpdated(product);
+    }
+
+    /**
+     * Records a {@code product-updated} outbox row in the current transaction and signals the relay
+     * post-commit. The row commits atomically with the business write; the signal is a best-effort
+     * nudge so the relay publishes without waiting for the next scheduled tick.
+     */
+    private void appendProductUpdated(Product product) {
+        ProductDto dto = productEventMapper.toDto(product);
+        OutboxEvent row = outboxEventFactory.productUpdated(product.getUuid(), new ProductUpdatedEvent(dto));
+        outboxRepository.persist(row);
+        outboxAppended.fire(OutboxAppended.INSTANCE);
     }
 
     public void deleteProduct(UUID uuid) {
@@ -124,7 +151,10 @@ public class ProductService {
         }
         String imageKey = product.getImageKey();
         productRepository.delete(product);
-        productDeletedEvent.fire(new ProductDeletedEvent(product.getUuid()));
+        OutboxEvent row = outboxEventFactory.productDeleted(
+                product.getUuid(), new ProductDeletedEvent(product.getUuid()));
+        outboxRepository.persist(row);
+        outboxAppended.fire(OutboxAppended.INSTANCE);
         LOG.infof("Product deleted productId=%s", uuid);
         return imageKey;
     }

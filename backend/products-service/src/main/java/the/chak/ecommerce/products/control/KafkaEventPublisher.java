@@ -1,19 +1,26 @@
 package the.chak.ecommerce.products.control;
 
-import org.eclipse.microprofile.reactive.messaging.Channel;
-import org.eclipse.microprofile.reactive.messaging.Emitter;
+import java.util.concurrent.CompletableFuture;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.TransactionPhase;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
+import io.smallrye.reactive.messaging.kafka.api.OutgoingKafkaRecordMetadata;
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import org.eclipse.microprofile.reactive.messaging.Emitter;
+import org.eclipse.microprofile.reactive.messaging.Message;
+import org.eclipse.microprofile.reactive.messaging.Metadata;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 
+/**
+ * Sole owner of the {@code product-updated} / {@code product-deleted} outgoing channels (SmallRye
+ * allows one emitter per channel). The keyed {@code publish*} methods are what {@link OutboxRelay}
+ * uses to drain the outbox with a Kafka message key. There is no longer a direct
+ * {@code emitter.send(event)} publish path - every event reaches Kafka through the outbox relay.
+ */
 @ApplicationScoped
 public class KafkaEventPublisher {
-
-    private static final Logger LOG = Logger.getLogger(KafkaEventPublisher.class);
 
     @Inject
     @Channel("product-updated")
@@ -24,15 +31,50 @@ public class KafkaEventPublisher {
     @Channel("product-deleted")
     Emitter<ProductDeletedEvent> productDeletedEmitter;
 
-    public void onProductUpdated(
-            @Observes(during = TransactionPhase.AFTER_SUCCESS) ProductUpdatedEvent event) {
-        LOG.infof("Publishing product-updated event productId=%s", event.getProduct().getUuid());
-        productUpdatedEmitter.send(event);
+    @Inject
+    OutboxRelay relay;
+
+    /**
+     * Post-commit wake-up: an outbox row was appended, so nudge the relay to publish it now rather
+     * than waiting for the next scheduled tick. Best-effort - if this signal is lost (e.g. a crash
+     * before it runs), the scheduled tick still delivers the row.
+     */
+    public void onOutboxAppended(
+            @Observes(during = TransactionPhase.AFTER_SUCCESS) OutboxAppended signal) {
+        relay.requestPoll();
     }
 
-    public void onProductDeleted(
-            @Observes(during = TransactionPhase.AFTER_SUCCESS) ProductDeletedEvent event) {
-        LOG.infof("Publishing product-deleted event productId=%s", event.getProductUuid());
-        productDeletedEmitter.send(event);
+    /**
+     * Publishes a {@code product-updated} event with the given Kafka message key. The returned
+     * future completes when the broker acks (or completes exceptionally on nack).
+     */
+    public CompletableFuture<Void> publishProductUpdated(ProductUpdatedEvent event, String key) {
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        productUpdatedEmitter.send(keyedMessage(event, key, ack));
+        return ack;
+    }
+
+    /**
+     * Publishes a {@code product-deleted} event with the given Kafka message key. The returned
+     * future completes when the broker acks (or completes exceptionally on nack).
+     */
+    public CompletableFuture<Void> publishProductDeleted(ProductDeletedEvent event, String key) {
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        productDeletedEmitter.send(keyedMessage(event, key, ack));
+        return ack;
+    }
+
+    private <T> Message<T> keyedMessage(T payload, String key, CompletableFuture<Void> ack) {
+        Metadata metadata = Metadata.of(
+                OutgoingKafkaRecordMetadata.<String>builder().withKey(key).build());
+        return Message.of(payload, metadata,
+                () -> {
+                    ack.complete(null);
+                    return CompletableFuture.completedFuture(null);
+                },
+                throwable -> {
+                    ack.completeExceptionally(throwable);
+                    return CompletableFuture.completedFuture(null);
+                });
     }
 }
