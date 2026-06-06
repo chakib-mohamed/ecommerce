@@ -46,7 +46,7 @@ See `docs/conventions/architecture-conventions.md` for the reactive ban table an
 
 - HTTP JSON: snake_case fields, omit nulls, ISO-8601 dates (never timestamps). Full contract in root `CLAUDE.md`.
 - JSON-B endpoints configured via `CustomJsonbConfigCustomizer`; Jackson via `application.properties`.
-- Kafka event payloads stay camelCase — the naming strategy does not apply to them.
+- Kafka event payloads are snake_case too — `JsonbSerializer`/`JsonbDeserializer` use the CDI-managed `Jsonb`, so the `LOWER_CASE_WITH_UNDERSCORES` strategy applies to them just like HTTP JSON.
 
 See `docs/conventions/json-serialization-conventions.md` for config snippets and the annotation-exception rule.
 

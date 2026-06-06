@@ -208,9 +208,22 @@ tackled:
    same single-document write), with the relay reading and clearing it — keeps single-document
    atomicity, no replica set needed, but couples event state to the aggregate.
 
-The replica-set prerequisite is the open infra decision blocking option 1. This spec does
-**not** resolve it; it flags it for the follow-up task that implements price-service /
-orders-service. (price-service review #11 and #12 are the concrete drivers.)
+**Decision (Task 8 — resolved): Option 1 (single-node replica set + multi-document
+transaction).** It is the closest parallel to the Postgres reference: a separate `outbox`
+collection written alongside the business document inside one `ClientSession.withTransaction`,
+keeping event state decoupled from the aggregate and the relay/purge logic identical in shape
+across stores. Option 2 was rejected because embedding `pendingEvents` couples the outbox to
+each aggregate's schema and complicates the relay (per-aggregate array scans instead of a single
+`{publishedAt: null}` query). The replica-set prerequisite is runtime-only: Testcontainers'
+`MongoDBContainer` already boots as a single-node replica set, so the test suite is unaffected;
+only the dev/prod `docker-compose` Mongo gains `--replSet rs0` + an idempotent `rs.initiate`,
+with `?replicaSet=rs0` on the connection strings. Mongo-specific deltas from the Postgres design:
+no JTA (the atomic write uses the driver `ClientSession`), no `@Observes(AFTER_SUCCESS)` (the
+write-path calls `relay.requestPoll()` directly after the commit), and `publishedAt` stamping /
+retention purge are single-document operations needing no transaction.
+
+price-service implements this in Phase 3 (Task 9); orders-service follows in Task 10.
+(price-service review #11 and #12 are the concrete drivers.)
 
 ---
 
