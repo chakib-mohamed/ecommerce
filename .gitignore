@@ -18,6 +18,9 @@ dist/
 node_modules/
 **/node_modules/
 
+# Python
+.venv/
+
 # Logs
 npm-debug.log*
 yarn-error.log*
@@ -35,3 +38,5 @@ docs/tasks/
 
 # Misc
 *.bu
+# Added by code-review-graph
+.code-review-graph/
