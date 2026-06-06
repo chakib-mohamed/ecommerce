@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.control;
 
+import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
@@ -17,12 +18,14 @@ public class KafkaEventConsumer {
     ProductService productService;
 
     @Incoming("product-updated")
+    @Retry(maxRetries = 3, delay = 200)
     public void consumeProductUpdated(ProductUpdatedEvent event) {
         LOG.infof("Product-updated event received productId=%s", event.getProduct().getUuid());
         productService.onProductUpdated(event);
     }
 
     @Incoming("product-deleted")
+    @Retry(maxRetries = 3, delay = 200)
     public void consumeProductDeleted(ProductDeletedEvent event) {
         LOG.infof("Product-deleted event received productId=%s", event.getProductUuid());
         productService.onProductDeleted(event);
