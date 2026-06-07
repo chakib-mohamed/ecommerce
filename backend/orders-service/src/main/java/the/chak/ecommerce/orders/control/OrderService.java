@@ -2,9 +2,7 @@ package the.chak.ecommerce.orders.control;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import the.chak.ecommerce.orders.control.exceptions.ProductNotFoundException;
@@ -14,7 +12,6 @@ import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.ReplaceOptions;
-import io.quarkus.panache.common.Page;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
@@ -106,25 +103,7 @@ public class OrderService {
     }
 
     public Tuple<Long, List<Order>> searchOrders(SearchOrdersCommand searchOrdersCommand) {
-        var query = "";
-        Map<String, Object> params = new HashMap<>();
-        if (searchOrdersCommand.getUserID() != null && !searchOrdersCommand.getUserID().isEmpty()) {
-            query += "userID = :userID ";
-            params.put("userID", searchOrdersCommand.getUserID());
-        }
-
-        var panacheQuery = orderRepository.find(query, params);
-
-        if (searchOrdersCommand.getLimit() != null && searchOrdersCommand.getOffset() != null) {
-            panacheQuery
-                    .page(Page.of(searchOrdersCommand.getOffset(), searchOrdersCommand.getLimit()));
-        }
-
-        long totalCount = panacheQuery.count();
-        List<Order> result =
-                panacheQuery.stream().map(Order.class::cast).collect(Collectors.toList());
-
-        return new Tuple<>(totalCount, result);
+        return orderRepository.search(searchOrdersCommand);
     }
 
     /**

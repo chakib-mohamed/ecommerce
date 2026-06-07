@@ -46,7 +46,7 @@ public class PriceService {
             throw new InvalidPriceException();
         }
 
-        Price entity = priceRepository.find("productId", productId).firstResult();
+        Price entity = priceRepository.findByProductId(productId);
         if (entity == null) {
             entity = new Price();
             entity.productId = productId;

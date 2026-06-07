@@ -3,16 +3,12 @@ package the.chak.ecommerce.products.control;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
-import io.quarkus.hibernate.orm.panache.PanacheQuery;
-import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,19 +30,13 @@ class CategoryServiceTest {
     @Mock
     CategoryRepository categoryRepository;
 
-    @Mock
-    EntityManager em;
-
     @Test
     @DisplayName("Persists and returns the category when its label is new")
     void saveCategory_newLabel_persistsAndReturnsCategory() {
         // given
         Category category = new Category();
         category.setLabel("Electronics");
-
-        PanacheQuery<Category> query = mock(PanacheQuery.class);
-        when(query.list()).thenReturn(List.of());
-        when(categoryRepository.find(anyString(), anyMap())).thenReturn(query);
+        when(categoryRepository.findByCriteria(anyMap())).thenReturn(List.of());
 
         // when
         Category result = categoryService.saveCategory(category);
@@ -63,10 +53,7 @@ class CategoryServiceTest {
         String label = "Electronics";
         Category category = new Category();
         category.setLabel(label);
-
-        PanacheQuery<Category> query = mock(PanacheQuery.class);
-        when(query.list()).thenReturn(List.of(new Category()));
-        when(categoryRepository.find(anyString(), anyMap())).thenReturn(query);
+        when(categoryRepository.findByCriteria(anyMap())).thenReturn(List.of(new Category()));
 
         // when & then
         assertThrows(CategoryAlreadyExistsException.class, () -> categoryService.saveCategory(category));
@@ -87,7 +74,7 @@ class CategoryServiceTest {
         categoryService.updateCategory(update);
 
         // then
-        verify(em).merge(update);
+        verify(categoryRepository).merge(update);
     }
 
     @Test
@@ -104,7 +91,7 @@ class CategoryServiceTest {
         categoryService.updateCategory(ghost);
 
         // then
-        verify(em, never()).merge(ghost);
+        verify(categoryRepository, never()).merge(ghost);
     }
 
     @Test
@@ -126,10 +113,7 @@ class CategoryServiceTest {
         // given
         String label = "Electronics";
         Map<String, Criteria> params = Map.of("label", new Criteria(Criteria.Operator.EQUALS, label));
-
-        PanacheQuery<Category> query = mock(PanacheQuery.class);
-        when(query.list()).thenReturn(List.of(new Category()));
-        when(categoryRepository.find(anyString(), anyMap())).thenReturn(query);
+        when(categoryRepository.findByCriteria(params)).thenReturn(List.of(new Category()));
 
         // when
         List<Category> results = categoryService.findByCriteria(params);
@@ -154,11 +138,8 @@ class CategoryServiceTest {
     void findByCriteria_paginatedWithAllowedField_returnsPage() {
         // given
         Map<String, Criteria> params = Map.of("label", new Criteria(Criteria.Operator.LIKE, "Tech%"));
-
-        PanacheQuery<Category> query = mock(PanacheQuery.class);
-        when(query.page(0, 2)).thenReturn(query);
-        when(query.list()).thenReturn(List.of(new Category(), new Category()));
-        when(categoryRepository.find(anyString(), anyMap())).thenReturn(query);
+        when(categoryRepository.findByCriteria(params, 0, 2))
+                .thenReturn(List.of(new Category(), new Category()));
 
         // when
         List<Category> page = categoryService.findByCriteria(params, 0, 2);

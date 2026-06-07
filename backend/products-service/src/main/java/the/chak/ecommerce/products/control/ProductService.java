@@ -5,11 +5,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import org.jboss.logging.Logger;
@@ -32,9 +30,6 @@ public class ProductService {
             Set.of("uuid", "description", "imageKey", "price", "title");
 
     @Inject
-    EntityManager em;
-
-    @Inject
     ProductRepository productRepository;
 
     @Inject
@@ -54,16 +49,12 @@ public class ProductService {
 
     @Transactional
     public Optional<Product> getProductWithAssociations(UUID uuid) {
-        var maybeProduct = productRepository.<Product>find(
-                        "from Product p left join fetch p.promotions where p.uuid = ?1", uuid)
-                .firstResultOptional();
+        var maybeProduct = productRepository.findByUuidWithPromotions(uuid);
         if (maybeProduct.isEmpty()) {
             return Optional.empty();
         }
         Product product = maybeProduct.get();
-        // Second query loads categories via the session cache - avoids MultipleBagFetchException
-        productRepository.find("from Product p left join fetch p.categories where p.id = ?1", product.id)
-                .firstResult();
+        productRepository.primeCategories(product.id);
         return Optional.of(product);
     }
 
@@ -91,7 +82,7 @@ public class ProductService {
     }
 
     public Product updateProduct(Product product, byte[] imageBytes) {
-        var existing = productRepository.<Product>find("uuid", product.getUuid()).firstResult();
+        var existing = productRepository.findByUuid(product.getUuid());
         if (existing == null) {
             throw new ProductNotFoundException(product.getUuid());
         }
@@ -120,7 +111,7 @@ public class ProductService {
 
     @Transactional
     void mergeProduct(Product product) {
-        em.merge(product);
+        productRepository.merge(product);
         appendProductUpdated(product);
     }
 
@@ -145,7 +136,7 @@ public class ProductService {
 
     @Transactional
     String deleteProductRecord(UUID uuid) {
-        var product = productRepository.<Product>find("uuid", uuid).firstResult();
+        var product = productRepository.findByUuid(uuid);
         if (product == null) {
             return null;
         }
@@ -161,7 +152,7 @@ public class ProductService {
 
     @Transactional
     public void updatePrice(String productId, Double newPrice) {
-        Product product = productRepository.<Product>find("uuid", UUID.fromString(productId)).firstResult();
+        Product product = productRepository.findByUuid(UUID.fromString(productId));
         if (product == null) {
             LOG.warnf("Price-changed event for unknown product %s - discarding", productId);
             return;
@@ -172,32 +163,21 @@ public class ProductService {
 
     @Transactional
     public List<Product> getProducts(int pageIndex, int pageSize) {
-        List<Product> products = productRepository
-                .<Product>find("from Product p left join fetch p.promotions")
-                .page(pageIndex, pageSize).list();
+        List<Product> products = productRepository.listWithPromotions(pageIndex, pageSize);
         if (products.isEmpty()) {
             return List.of();
         }
-        // Second query initializes categories via the session cache - avoids MultipleBagFetchException
         List<Long> ids = products.stream().map(p -> p.id).toList();
-        productRepository.find("from Product p left join fetch p.categories where p.id in ?1", ids).list();
+        productRepository.primeCategories(ids);
         return products;
     }
 
     public List<Product> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {
-        var query = new StringBuilder("1=1");
-        params.forEach((key, criteria) -> {
+        params.keySet().forEach(key -> {
             if (!ALLOWED_PRODUCT_FIELDS.contains(key)) {
                 throw new BadRequestException("Invalid search field: " + key);
             }
-            query.append(" and ").append(key)
-                    .append(criteria.getOperator().getValue()).append(" :").append(key);
         });
-
-        return productRepository
-                .find(query.toString(),
-                        params.entrySet().stream().collect(
-                                Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValue())))
-                .page(pageIndex, pageSize).list();
+        return productRepository.findByCriteria(params, pageIndex, pageSize);
     }
 }

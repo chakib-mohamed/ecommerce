@@ -3,14 +3,12 @@ package the.chak.ecommerce.products.control;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -194,8 +192,7 @@ class ProductServiceTest {
         productService.onProductDeleted(new ProductDeletedEvent(uuid));
 
         // then - verify delete was called with correct UUID
-        verify(productMongoRepository).delete(eq("productID = :productID"),
-            eq(Map.of("productID", uuid)));
+        verify(productMongoRepository).deleteByProductId(uuid);
     }
 
     @Test
@@ -208,7 +205,6 @@ class ProductServiceTest {
         productService.onProductDeleted(new ProductDeletedEvent(uuid));
 
         // then - verify delete was attempted (no exception means success)
-        verify(productMongoRepository).delete(eq("productID = :productID"),
-            eq(Map.of("productID", uuid)));
+        verify(productMongoRepository).deleteByProductId(uuid);
     }
 }

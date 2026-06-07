@@ -11,11 +11,8 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDate;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 
-import io.quarkus.mongodb.panache.PanacheQuery;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -119,11 +116,8 @@ class OrderServiceTest {
         SearchOrdersCommand cmd = new SearchOrdersCommand();
         cmd.setUserID("user-1");
 
-        PanacheQuery<Order> query = mock(PanacheQuery.class);
-        List<Order> orders = List.of(new Order());
-        when(query.count()).thenReturn(1L);
-        when(query.stream()).thenReturn(orders.stream());
-        when(orderRepository.find(anyString(), anyMap())).thenReturn(query);
+        Tuple<Long, List<Order>> expected = new Tuple<>(1L, List.of(new Order()));
+        when(orderRepository.search(cmd)).thenReturn(expected);
 
         // when
         Tuple<Long, List<Order>> result = orderService.searchOrders(cmd);
