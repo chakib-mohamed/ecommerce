@@ -26,9 +26,10 @@ import the.chak.ecommerce.products.entity.OutboxEvent;
 import the.chak.ecommerce.products.repository.OutboxRepository;
 
 /**
- * Verifies the on-the-wire format the relay emits via {@code JsonbSerializer}. The relay re-parses
- * the DB-stored payload into an event object and the channel serializer (CDI-managed JSON-B,
- * snake_case) decides the wire bytes - so multi-word fields must appear snake_case, never camelCase.
+ * Verifies the on-the-wire format the relay emits via {@code JsonbSerializer}. The DB-stored payload
+ * is already snake_case (written by the CDI-managed JSON-B); the relay re-parses it with that same
+ * JSON-B and the channel serializer re-emits snake_case - so multi-word fields must appear
+ * snake_case on the wire, never camelCase.
  */
 @QuarkusTest
 @QuarkusTestResource(StorageTestResource.class)
@@ -48,9 +49,9 @@ class OutboxWireFormatTest {
     @Test
     @DisplayName("The product-deleted payload is serialized snake_case on the wire (product_uuid)")
     void productDeletedPayload_isSnakeCaseOnTheWire() {
-        // given - a row stored in the relay's internal (camelCase) form
+        // given - a row stored in the snake_case at-rest form
         UUID aggregateId = UUID.randomUUID();
-        insertUnpublished("product-deleted", aggregateId, "{\"productUuid\":\"" + aggregateId + "\"}");
+        insertUnpublished("product-deleted", aggregateId, "{\"product_uuid\":\"" + aggregateId + "\"}");
 
         try (KafkaConsumer<String, String> consumer = newConsumer("product-deleted")) {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
@@ -69,9 +70,9 @@ class OutboxWireFormatTest {
     @Test
     @DisplayName("The product-updated payload is serialized snake_case on the wire (image_key)")
     void productUpdatedPayload_isSnakeCaseOnTheWire() {
-        // given - a row whose product carries a multi-word field (imageKey)
+        // given - a row whose product carries a multi-word field (image_key)
         UUID aggregateId = UUID.randomUUID();
-        String payload = "{\"product\":{\"uuid\":\"" + aggregateId + "\",\"imageKey\":\"k-" + aggregateId
+        String payload = "{\"product\":{\"uuid\":\"" + aggregateId + "\",\"image_key\":\"k-" + aggregateId
                 + "\",\"title\":\"t\"}}";
         insertUnpublished("product-updated", aggregateId, payload);
 

@@ -6,20 +6,16 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import io.quarkus.scheduler.Scheduled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
+import the.chak.ecommerce.outbox.AbstractOutboxPurgeJob;
 import the.chak.ecommerce.pricing.repository.OutboxRepository;
 
 /**
- * Retention half of the transactional outbox. A scheduled tick periodically deletes entries that the
- * {@link OutboxRelay} already published longer ago than the configured retention window, keeping the
- * {@code outbox} collection small while preserving a short-term audit trail. Unpublished entries are
- * never touched: only the relay clears an entry, by stamping {@code publishedAt}. The delete is a
- * single-collection operation, so - unlike the JPA reference - no transaction is needed.
+ * Price-specific outbox purge. The retention logic lives in {@link AbstractOutboxPurgeJob}; this
+ * subclass supplies the scheduled trigger, the retention window, and the single-collection delete
+ * (no transaction needed for a single Mongo operation).
  */
 @ApplicationScoped
-public class OutboxPurgeJob {
-
-    private static final Logger LOG = Logger.getLogger(OutboxPurgeJob.class);
+public class OutboxPurgeJob extends AbstractOutboxPurgeJob {
 
     @Inject
     OutboxRepository outboxRepository;
@@ -33,16 +29,13 @@ public class OutboxPurgeJob {
         purgeOldPublished();
     }
 
-    /**
-     * Deletes published entries older than the retention window. Returns the number of entries
-     * removed so callers (and tests) can observe the outcome.
-     */
-    public long purgeOldPublished() {
-        Instant cutoff = Instant.now().minus(retention);
-        long deleted = outboxRepository.deletePublishedOlderThan(cutoff);
-        if (deleted > 0) {
-            LOG.infof("Purged %d published outbox entries older than %s", deleted, retention);
-        }
-        return deleted;
+    @Override
+    protected long deletePublishedOlderThan(Instant cutoff) {
+        return outboxRepository.deletePublishedOlderThan(cutoff);
+    }
+
+    @Override
+    protected Duration retention() {
+        return retention;
     }
 }

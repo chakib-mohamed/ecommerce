@@ -11,6 +11,7 @@
     <module>ecommerce-api-gateway</module>
     <module>products-api</module>
     <module>orders-api</module>
+    <module>outbox-common</module>
     <module>products-service</module>
     <module>orders-service</module>
     <module>authenticate-service</module>

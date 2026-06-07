@@ -135,7 +135,7 @@ class OutboxRelayTest {
         entry.aggregateId = orderId;
         entry.eventType = "order-initiated";
         entry.topic = "order-initiated";
-        entry.payload = "{\"id\":\"" + orderId + "\",\"userID\":\"u\",\"status\":\"INITIATED\"}";
+        entry.payload = "{\"id\":\"" + orderId + "\",\"user_id\":\"u\",\"status\":\"INITIATED\"}";
         entry.createdAt = Instant.now();
         return entry;
     }

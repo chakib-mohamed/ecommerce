@@ -41,6 +41,11 @@ serialized names are snake_case. Producers and consumers share this strategy, so
 on both sides. Verified on Quarkus 3.17.6 — an earlier note claimed these serializers used a
 separate plain Jsonb instance and stayed camelCase; that is not the case.
 
+The transactional outbox follows the same rule for its **stored** payload: the `OutboxEventFactory`
+serializes the event body with the injected CDI `Jsonb`, and the relay reads it back with that same
+bean before publishing. So the at-rest payload is snake_case too — at-rest == wire == snake_case,
+with a single configured serializer and no separate internal format.
+
 ## Annotation exceptions
 
 `@JsonbProperty` / `@JsonProperty` are only permitted to override the naming for a specific field that must deviate from the global strategy (rare). Never add them just to reproduce what the strategy already does.

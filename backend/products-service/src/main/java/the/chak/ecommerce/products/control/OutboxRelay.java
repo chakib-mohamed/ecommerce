@@ -4,39 +4,28 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.json.bind.Jsonb;
-import jakarta.json.bind.JsonbBuilder;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.scheduler.Scheduled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
+import the.chak.ecommerce.outbox.AbstractOutboxRelay;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 import the.chak.ecommerce.products.entity.OutboxEvent;
 import the.chak.ecommerce.products.repository.OutboxRepository;
 
 /**
- * Polling-publisher half of the transactional outbox. A scheduled tick (and a best-effort
- * post-commit wake-up) reads rows that the write-path committed in the same transaction as the
- * business change, emits each to Kafka keyed by its aggregate id, and stamps {@code published_at}
- * once the broker acks. Delivery is at-least-once: a crash between send and stamp re-sends on the
- * next tick, which idempotent consumers absorb.
+ * Product-specific outbox relay. All scheduling, batching, and at-least-once failure handling live
+ * in {@link AbstractOutboxRelay}; this subclass supplies the JTA-bounded fetch
+ * ({@code FOR UPDATE SKIP LOCKED} in its own short transaction), the {@code product-updated} /
+ * {@code product-deleted} publish, and the stamping done in separate short transactions with no I/O
+ * inside them.
  */
 @ApplicationScoped
-public class OutboxRelay {
-
-    private static final Logger LOG = Logger.getLogger(OutboxRelay.class);
-    private static final long ACK_TIMEOUT_SECONDS = 30;
+public class OutboxRelay extends AbstractOutboxRelay<OutboxEvent> {
 
     @Inject
     OutboxRepository outboxRepository;
@@ -50,35 +39,14 @@ public class OutboxRelay {
     @ConfigProperty(name = "products.outbox.max-retries", defaultValue = "5")
     int maxRetries;
 
-    /** Coalesces overlapping scheduled ticks and on-demand wake-ups into a single in-flight run. */
-    private final AtomicBoolean running = new AtomicBoolean(false);
-
-    /** Off-request thread for {@link #requestPoll()} so a post-commit signal never blocks the caller. */
-    private ExecutorService pollExecutor;
-
-    /** Plain (camelCase) JSON-B used only to read the DB-stored payload back into an event object;
-     *  it matches {@link OutboxEventFactory}'s writer. The Kafka wire format is decided later by the
-     *  channel's {@code JsonbSerializer} (CDI-managed JSON-B) and is snake_case. */
-    private Jsonb jsonb;
-
     @PostConstruct
-    void init() {
-        pollExecutor = Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, "outbox-relay");
-            t.setDaemon(true);
-            return t;
-        });
-        jsonb = JsonbBuilder.create();
+    void onStart() {
+        init();
     }
 
     @PreDestroy
-    void shutdown() {
-        pollExecutor.shutdownNow();
-        try {
-            jsonb.close();
-        } catch (Exception e) {
-            LOG.warnf(e, "Failed to close JSON-B");
-        }
+    void onStop() {
+        shutdown();
     }
 
     @Scheduled(every = "{products.outbox.poll-interval}",
@@ -87,103 +55,60 @@ public class OutboxRelay {
         guardedPoll();
     }
 
-    /** Best-effort post-commit wake-up: publish without waiting for the next scheduled tick. */
-    public void requestPoll() {
-        pollExecutor.execute(this::guardedPoll);
+    @Override
+    protected List<OutboxEvent> fetchBatch(int size) {
+        return QuarkusTransaction.requiringNew()
+                .call(() -> outboxRepository.findUnpublishedForUpdate(size));
     }
 
-    private void guardedPoll() {
-        if (!running.compareAndSet(false, true)) {
-            return; // a poll is already in flight; it will pick up any freshly committed rows
-        }
-        try {
-            pollAndPublish();
-        } catch (Exception e) {
-            LOG.errorf(e, "Outbox poll failed");
-        } finally {
-            running.set(false);
-        }
-    }
-
-    /**
-     * Publishes one batch of unpublished rows, oldest first. Each row is sent to Kafka keyed by its
-     * aggregate id; only after the broker acks is {@code published_at} stamped, in a short separate
-     * transaction with no I/O inside it. A broker outage aborts the whole tick so the batch is
-     * bounded to roughly one ack timeout instead of {@code batchSize} of them; a poison row is
-     * retried up to {@code maxRetries} times, then stamped {@code failed_at} and skipped forever.
-     */
-    public void pollAndPublish() {
-        List<OutboxEvent> batch = QuarkusTransaction.requiringNew()
-                .call(() -> outboxRepository.findUnpublishedForUpdate(batchSize));
-        for (OutboxEvent event : batch) {
-            try {
-                publish(event);
-                UUID id = event.getId();
-                QuarkusTransaction.requiringNew().run(() -> stampPublished(id));
-            } catch (TimeoutException | ExecutionException e) {
-                LOG.errorf(e, "Broker unreachable publishing outbox row id=%s; aborting this tick, "
-                        + "remaining rows retry on the next poll", event.getId());
-                break;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                LOG.warnf(e, "Interrupted awaiting broker ack for outbox row id=%s; aborting tick",
-                        event.getId());
-                break;
-            } catch (Exception e) {
-                recordFailedAttempt(event.getId(), e);
-            }
-        }
-    }
-
-    /**
-     * Records a per-row publish failure (poison payload / unknown topic - not a broker outage):
-     * increments the attempt counter and, once it reaches {@code maxRetries}, stamps
-     * {@code failed_at} so the row drops out of {@link OutboxRepository#findUnpublishedForUpdate}
-     * for good. Run in its own short transaction loading the managed entity (same pattern as
-     * {@link #stampPublished}); the next row in the batch is still attempted.
-     */
-    private void recordFailedAttempt(UUID id, Exception cause) {
-        int attempts = QuarkusTransaction.requiringNew().call(() -> {
-            OutboxEvent managed = outboxRepository.findById(id);
-            if (managed == null) {
-                return -1;
-            }
-            managed.setAttempts(managed.getAttempts() + 1);
-            if (managed.getAttempts() >= maxRetries) {
-                managed.setFailedAt(Instant.now());
-            }
-            return managed.getAttempts();
-        });
-        if (attempts < 0) {
-            return; // row vanished (e.g. purged) between the batch read and now
-        }
-        if (attempts >= maxRetries) {
-            LOG.errorf(cause, "Giving up on outbox row id=%s after %d attempts; marking it failed "
-                    + "and skipping it from now on", id, attempts);
-        } else {
-            LOG.warnf(cause, "Failed to publish outbox row id=%s (attempt %d/%d); will retry",
-                    id, attempts, maxRetries);
-        }
-    }
-
-    private void publish(OutboxEvent event) throws Exception {
-        String key = event.getAggregateId().toString();
-        CompletableFuture<Void> ack;
-
-        switch (event.getTopic()) {
+    @Override
+    protected CompletableFuture<Void> publish(OutboxEvent event) {
+        String key = event.aggregateKey();
+        return switch (event.getTopic()) {
             case "product-updated" -> {
                 ProductUpdatedEvent payload =
                         jsonb.fromJson(event.getPayload(), ProductUpdatedEvent.class);
-                ack = kafkaEventPublisher.publishProductUpdated(payload, key);
+                yield kafkaEventPublisher.publishProductUpdated(payload, key);
             }
             case "product-deleted" -> {
                 ProductDeletedEvent payload =
                         jsonb.fromJson(event.getPayload(), ProductDeletedEvent.class);
-                ack = kafkaEventPublisher.publishProductDeleted(payload, key);
+                yield kafkaEventPublisher.publishProductDeleted(payload, key);
             }
             default -> throw new IllegalStateException("Unknown outbox topic: " + event.getTopic());
-        }
-        ack.get(ACK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        };
+    }
+
+    @Override
+    protected void markPublished(OutboxEvent event) {
+        UUID id = event.getId();
+        QuarkusTransaction.requiringNew().run(() -> stampPublished(id));
+    }
+
+    @Override
+    protected int recordFailedAttempt(OutboxEvent event, int cap) {
+        UUID id = event.getId();
+        return QuarkusTransaction.requiringNew().call(() -> {
+            OutboxEvent managed = outboxRepository.findById(id);
+            if (managed == null) {
+                return -1; // row vanished (e.g. purged) between the batch read and now
+            }
+            managed.setAttempts(managed.getAttempts() + 1);
+            if (managed.getAttempts() >= cap) {
+                managed.setFailedAt(Instant.now());
+            }
+            return managed.getAttempts();
+        });
+    }
+
+    @Override
+    protected int batchSize() {
+        return batchSize;
+    }
+
+    @Override
+    protected int maxRetries() {
+        return maxRetries;
     }
 
     private void stampPublished(UUID id) {

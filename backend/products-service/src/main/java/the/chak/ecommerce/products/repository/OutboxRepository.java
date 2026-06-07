@@ -11,9 +11,12 @@ import the.chak.ecommerce.products.entity.OutboxEvent;
 public class OutboxRepository implements PanacheRepositoryBase<OutboxEvent, UUID> {
 
     /**
-     * Claims a batch of not-yet-published rows for the relay, oldest first.
-     * {@code FOR UPDATE SKIP LOCKED} lets multiple service instances run the relay
-     * concurrently without ever claiming the same row twice.
+     * Fetches a batch of not-yet-published, not-yet-failed rows for the relay, oldest first.
+     * {@code FOR UPDATE SKIP LOCKED} keeps two concurrent fetches from returning the same rows,
+     * so multiple instances can run the relay in parallel. The row locks are released when this
+     * fetch transaction commits - before the Kafka send - so a row can still be published more
+     * than once (two instances fetching either side of the commit, or a crash re-sending). That
+     * is by design: delivery is at-least-once and idempotent consumers absorb the duplicates.
      */
     public List<OutboxEvent> findUnpublishedForUpdate(int batchSize) {
         return getEntityManager()

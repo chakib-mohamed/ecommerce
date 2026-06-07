@@ -96,7 +96,7 @@ class OutboxRelayTest {
     void requestPoll_publishesFreshRow_withoutWaitingForTimer() {
         // given
         UUID aggregateId = UUID.randomUUID();
-        UUID rowId = insertUnpublished("product-deleted", aggregateId, "{\"productUuid\":\"" + aggregateId + "\"}");
+        UUID rowId = insertUnpublished("product-deleted", aggregateId, "{\"product_uuid\":\"" + aggregateId + "\"}");
 
         try (KafkaConsumer<String, String> consumer = newConsumer("product-deleted")) {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment

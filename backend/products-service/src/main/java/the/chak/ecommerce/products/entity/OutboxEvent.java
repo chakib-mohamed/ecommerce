@@ -11,12 +11,13 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import the.chak.ecommerce.outbox.OutboxRecord;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "outbox")
-public class OutboxEvent {
+public class OutboxEvent implements OutboxRecord {
 
     @Id
     private UUID id;
@@ -53,5 +54,15 @@ public class OutboxEvent {
         if (createdAt == null) {
             createdAt = Instant.now();
         }
+    }
+
+    @Override
+    public Object recordId() {
+        return id;
+    }
+
+    @Override
+    public String aggregateKey() {
+        return aggregateId.toString();
     }
 }

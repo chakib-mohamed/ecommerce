@@ -3,6 +3,7 @@ package the.chak.ecommerce.pricing.entity;
 import java.time.Instant;
 import java.util.UUID;
 import io.quarkus.mongodb.panache.common.MongoEntity;
+import the.chak.ecommerce.outbox.OutboxRecord;
 
 /**
  * Transactional-outbox document. Written to the {@code outbox} collection in the same Mongo
@@ -11,7 +12,7 @@ import io.quarkus.mongodb.panache.common.MongoEntity;
  * until the broker acks; the relay stamps it on success.
  */
 @MongoEntity(collection = "outbox")
-public class OutboxEntry {
+public class OutboxEntry implements OutboxRecord {
 
     /** Event id, mapped to {@code _id}; also the Kafka dedup handle for idempotent consumers. */
     public UUID id;
@@ -39,4 +40,14 @@ public class OutboxEntry {
     /** Set when the entry exhausts its retry cap; a non-null value excludes it from the relay so a
      *  poison entry never blocks or re-burns the relay. Kept in the collection for inspection. */
     public Instant failedAt;
+
+    @Override
+    public Object recordId() {
+        return id;
+    }
+
+    @Override
+    public String aggregateKey() {
+        return aggregateId;
+    }
 }

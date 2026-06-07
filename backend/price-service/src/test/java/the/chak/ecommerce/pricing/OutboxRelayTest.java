@@ -134,7 +134,7 @@ class OutboxRelayTest {
         entry.aggregateId = productId;
         entry.eventType = "price-changed";
         entry.topic = "price-changed";
-        entry.payload = "{\"productId\":\"" + productId + "\",\"newPrice\":" + newPrice + "}";
+        entry.payload = "{\"product_id\":\"" + productId + "\",\"new_price\":" + newPrice + "}";
         entry.createdAt = Instant.now();
         return entry;
     }

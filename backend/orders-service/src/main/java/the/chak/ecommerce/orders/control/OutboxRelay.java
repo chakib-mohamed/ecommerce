@@ -3,37 +3,24 @@ package the.chak.ecommerce.orders.control;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.json.bind.Jsonb;
-import jakarta.json.bind.JsonbBuilder;
 import io.quarkus.scheduler.Scheduled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.entity.OutboxEntry;
 import the.chak.ecommerce.orders.repository.OutboxRepository;
+import the.chak.ecommerce.outbox.AbstractOutboxRelay;
 
 /**
- * Polling-publisher half of the transactional outbox. A scheduled tick (and a best-effort
- * post-commit wake-up from {@code OrderService}) reads entries that the write-path committed in the
- * same Mongo transaction as the business change, emits each to Kafka keyed by its order id, and
- * stamps {@code publishedAt} once the broker acks. Delivery is at-least-once: a crash between send
- * and stamp re-sends on the next tick, which idempotent consumers absorb.
+ * Order-specific outbox relay. All scheduling, batching, and at-least-once failure handling live in
+ * {@link AbstractOutboxRelay}; this subclass supplies only the Mongo fetch, the {@code order-initiated}
+ * publish, and the single-document stamping (no transaction needed for a single Mongo write).
  */
 @ApplicationScoped
-public class OutboxRelay {
-
-    private static final Logger LOG = Logger.getLogger(OutboxRelay.class);
-    private static final long ACK_TIMEOUT_SECONDS = 30;
+public class OutboxRelay extends AbstractOutboxRelay<OutboxEntry> {
 
     @Inject
     OutboxRepository outboxRepository;
@@ -47,35 +34,14 @@ public class OutboxRelay {
     @ConfigProperty(name = "orders.outbox.max-retries", defaultValue = "5")
     int maxRetries;
 
-    /** Coalesces overlapping scheduled ticks and on-demand wake-ups into a single in-flight run. */
-    private final AtomicBoolean running = new AtomicBoolean(false);
-
-    /** Off-request thread for {@link #requestPoll()} so a post-commit signal never blocks the caller. */
-    private ExecutorService pollExecutor;
-
-    /** Plain (camelCase) JSON-B used only to read the stored payload back into an event object;
-     *  it matches {@link OutboxEventFactory}'s writer. The Kafka wire format is decided later by the
-     *  channel's {@code JsonbSerializer} (CDI-managed JSON-B) and is snake_case. */
-    private Jsonb jsonb;
-
     @PostConstruct
-    void init() {
-        pollExecutor = Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, "outbox-relay");
-            t.setDaemon(true);
-            return t;
-        });
-        jsonb = JsonbBuilder.create();
+    void onStart() {
+        init();
     }
 
     @PreDestroy
-    void shutdown() {
-        pollExecutor.shutdownNow();
-        try {
-            jsonb.close();
-        } catch (Exception e) {
-            LOG.warnf(e, "Failed to close JSON-B");
-        }
+    void onStop() {
+        shutdown();
     }
 
     @Scheduled(every = "{orders.outbox.poll-interval}",
@@ -84,82 +50,43 @@ public class OutboxRelay {
         guardedPoll();
     }
 
-    /** Best-effort post-commit wake-up: publish without waiting for the next scheduled tick. */
-    public void requestPoll() {
-        pollExecutor.execute(this::guardedPoll);
+    @Override
+    protected List<OutboxEntry> fetchBatch(int size) {
+        return outboxRepository.findUnpublished(size);
     }
 
-    private void guardedPoll() {
-        if (!running.compareAndSet(false, true)) {
-            return; // a poll is already in flight; it will pick up any freshly committed entries
-        }
-        try {
-            pollAndPublish();
-        } catch (Exception e) {
-            LOG.errorf(e, "Outbox poll failed");
-        } finally {
-            running.set(false);
-        }
-    }
-
-    /**
-     * Publishes one batch of unpublished entries, oldest first. Each entry is sent to Kafka keyed by
-     * its order id; only after the broker acks is {@code publishedAt} stamped (a single-document
-     * update - no transaction needed). A broker outage aborts the whole tick so the batch is bounded
-     * to roughly one ack timeout instead of {@code batchSize} of them; a poison entry is retried up
-     * to {@code maxRetries} times, then stamped {@code failedAt} and skipped forever.
-     */
-    public void pollAndPublish() {
-        List<OutboxEntry> batch = outboxRepository.findUnpublished(batchSize);
-        for (OutboxEntry entry : batch) {
-            try {
-                publish(entry);
-                stampPublished(entry);
-            } catch (TimeoutException | ExecutionException e) {
-                LOG.errorf(e, "Broker unreachable publishing outbox entry id=%s; aborting this tick, "
-                        + "remaining entries retry on the next poll", entry.id);
-                break;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                LOG.warnf(e, "Interrupted awaiting broker ack for outbox entry id=%s; aborting tick",
-                        entry.id);
-                break;
-            } catch (Exception e) {
-                recordFailedAttempt(entry, e);
-            }
-        }
-    }
-
-    /**
-     * Records a per-entry publish failure (poison payload / unknown topic - not a broker outage):
-     * increments the attempt counter and, once it reaches {@code maxRetries}, stamps {@code failedAt}
-     * so the entry drops out of {@link OutboxRepository#findUnpublished} for good. Persisted as a
-     * single-document update; the next entry in the batch is still attempted.
-     */
-    private void recordFailedAttempt(OutboxEntry entry, Exception cause) {
-        entry.attempts++;
-        if (entry.attempts >= maxRetries) {
-            entry.failedAt = Instant.now();
-            LOG.errorf(cause, "Giving up on outbox entry id=%s after %d attempts; marking it failed "
-                    + "and skipping it from now on", entry.id, entry.attempts);
-        } else {
-            LOG.warnf(cause, "Failed to publish outbox entry id=%s (attempt %d/%d); will retry",
-                    entry.id, entry.attempts, maxRetries);
-        }
-        outboxRepository.update(entry);
-    }
-
-    private void publish(OutboxEntry entry) throws Exception {
+    @Override
+    protected CompletableFuture<Void> publish(OutboxEntry entry) {
         if (!"order-initiated".equals(entry.topic)) {
             throw new IllegalStateException("Unknown outbox topic: " + entry.topic);
         }
         OrderDTO payload = jsonb.fromJson(entry.payload, OrderDTO.class);
-        CompletableFuture<Void> ack = publisher.publishOrderInitiated(payload, entry.aggregateId);
-        ack.get(ACK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        return publisher.publishOrderInitiated(payload, entry.aggregateKey());
     }
 
-    private void stampPublished(OutboxEntry entry) {
+    @Override
+    protected void markPublished(OutboxEntry entry) {
         entry.publishedAt = Instant.now();
         outboxRepository.update(entry);
+    }
+
+    @Override
+    protected int recordFailedAttempt(OutboxEntry entry, int cap) {
+        entry.attempts++;
+        if (entry.attempts >= cap) {
+            entry.failedAt = Instant.now();
+        }
+        outboxRepository.update(entry);
+        return entry.attempts;
+    }
+
+    @Override
+    protected int batchSize() {
+        return batchSize;
+    }
+
+    @Override
+    protected int maxRetries() {
+        return maxRetries;
     }
 }

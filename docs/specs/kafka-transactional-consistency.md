@@ -97,7 +97,7 @@ New Liquibase changeset `005-add-outbox.sql`, registered in
 | `aggregate_id` | `uuid` | the product uuid — **used as the Kafka message key** for per-aggregate ordering |
 | `event_type` | `varchar` | logical event, e.g. `product-updated` / `product-deleted` |
 | `topic` | `varchar` | destination topic name |
-| `payload` | `text` (or `jsonb`) | JSON-B-serialized event body (camelCase — see §3.4) |
+| `payload` | `text` (or `jsonb`) | JSON-B-serialized event body (snake_case — same as the wire form, see §3.4) |
 | `created_at` | `timestamptz` | set on insert; relay orders by this |
 | `published_at` | `timestamptz` NULL | NULL until the broker acks; set on success |
 
@@ -150,8 +150,11 @@ Documented parameters: **poll interval** (start ~1s, tunable), **batch size** (b
 - Reuse the existing event classes in `products-api`
   (`control/events/ProductUpdatedEvent`, `ProductDeletedEvent`) as the serialized payload
   shape — no new DTOs.
-- Payloads stay **camelCase**. Per `docs/conventions/json-serialization-conventions.md`,
-  JSON-B Kafka payloads are independent of the HTTP snake_case strategy.
+- The stored payload is serialized with the **CDI-managed JSON-B** — the same instance the
+  outgoing channel's `JsonbSerializer` uses. So the at-rest form is already **snake_case**,
+  identical to the wire; there is no separate internal format. Per
+  `docs/conventions/json-serialization-conventions.md`, JSON-B Kafka payloads follow the same
+  `LOWER_CASE_WITH_UNDERSCORES` strategy as the HTTP API.
 - Keep `io.quarkus.kafka.client.serialization.JsonbSerializer` on the outgoing channels —
   never the Kafka library's `JsonSerializer` (architecture convention).
 
@@ -282,7 +285,7 @@ in `docs/tasks/` as a follow-up:
   transaction".
 - ✅ `@Transactional` on control layer only; the transaction touches only Postgres; the
   Kafka `send()` is outside it (in the relay).
-- ✅ Kafka payloads camelCase; `JsonbSerializer` retained.
+- ✅ Kafka payloads snake_case (at rest and on the wire); `JsonbSerializer` retained.
 - ✅ Reuses existing `products-api` event classes — no new DTOs, no HTTP contract change
   (so the OpenAPI gate does not apply; this spec is the artifact for approval).
 - ✅ Liquibase changeset for schema (no manual schema changes).
