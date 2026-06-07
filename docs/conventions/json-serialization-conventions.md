@@ -32,7 +32,19 @@ quarkus.jackson.fail-on-unknown-properties=false
 
 ## Kafka events
 
-`JsonbSerializer` and `JsonbDeserializer` (used in all Kafka channels) create their own plain Jsonb instance, independent of the CDI-managed one. Kafka event field names therefore remain camelCase regardless of the JSON-B naming strategy configured for HTTP. Do not rely on `LOWER_CASE_WITH_UNDERSCORES` applying to Kafka payloads — use consistent camelCase in `control/events/` classes.
+`JsonbSerializer` and `JsonbDeserializer` (used in all Kafka channels) resolve the **CDI-managed
+`Jsonb`** bean — the same one `CustomJsonbConfigCustomizer` configures. Kafka payloads therefore
+follow the project-wide `LOWER_CASE_WITH_UNDERSCORES` strategy and are **snake_case on the wire**,
+exactly like HTTP JSON (e.g. `productId` → `product_id`, `newPrice` → `new_price`, `productUuid`
+→ `product_uuid`). Java fields in `control/events/` classes stay camelCase (normal Java); only the
+serialized names are snake_case. Producers and consumers share this strategy, so the formats match
+on both sides. Verified on Quarkus 3.17.6 — an earlier note claimed these serializers used a
+separate plain Jsonb instance and stayed camelCase; that is not the case.
+
+The transactional outbox follows the same rule for its **stored** payload: the `OutboxEventFactory`
+serializes the event body with the injected CDI `Jsonb`, and the relay reads it back with that same
+bean before publishing. So the at-rest payload is snake_case too — at-rest == wire == snake_case,
+with a single configured serializer and no separate internal format.
 
 ## Annotation exceptions
 

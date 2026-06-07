@@ -25,15 +25,19 @@ public class KafkaTestResource implements QuarkusTestResourceLifecycleManager {
 
     private void createTopics() {
         try {
-            container.execInContainer("kafka-topics", "--create", "--bootstrap-server", "localhost:9092",
-                    "--topic", "product-updated", "--if-not-exists", "--partitions", "1", "--replication-factor", "1")
-                    .getExitCode();
-            container.execInContainer("kafka-topics", "--create", "--bootstrap-server", "localhost:9092",
-                    "--topic", "product-deleted", "--if-not-exists", "--partitions", "1", "--replication-factor", "1")
-                    .getExitCode();
+            createTopic("product-updated");
+            createTopic("product-deleted");
+            createTopic("product-updated-dlq");
+            createTopic("product-deleted-dlq");
         } catch (Exception e) {
             throw new RuntimeException("Failed to create Kafka topics", e);
         }
+    }
+
+    private void createTopic(String topic) throws Exception {
+        container.execInContainer("kafka-topics", "--create", "--bootstrap-server", "localhost:9092",
+                "--topic", topic, "--if-not-exists", "--partitions", "1", "--replication-factor", "1")
+                .getExitCode();
     }
 
     @Override

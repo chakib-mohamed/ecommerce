@@ -136,6 +136,12 @@
       <version>1.0.0-SNAPSHOT</version>
     </dependency>
 
+    <dependency>
+      <groupId>chakmed.ecommerce</groupId>
+      <artifactId>outbox-common</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+
 
     <dependency>
       <groupId>io.quarkus</groupId>
@@ -144,6 +150,10 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-messaging-kafka</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-scheduler</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>

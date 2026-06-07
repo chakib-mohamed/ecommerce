@@ -14,8 +14,6 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
-import org.eclipse.microprofile.reactive.messaging.Channel;
-import org.eclipse.microprofile.reactive.messaging.Emitter;
 
 @Authenticated
 @RequestScoped
@@ -26,10 +24,6 @@ public class OrdersResource implements OrdersApi {
 
     @Inject
     OrderService orderService;
-
-    @Inject
-    @Channel("order-initiated")
-    Emitter<OrderDTO> orderEmitter;
 
     @Context
     SecurityContext sec;
@@ -87,8 +81,6 @@ public class OrdersResource implements OrdersApi {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
         Order confirmed = orderService.confirmOrder(orderID);
-        OrderDTO orderDTO = orderMapper.orderToOrderDto(confirmed);
-        orderEmitter.send(orderDTO);
         return Response.ok(confirmed).status(200).build();
     }
 }

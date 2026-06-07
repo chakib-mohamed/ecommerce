@@ -10,11 +10,17 @@ import java.util.stream.Collectors;
 import the.chak.ecommerce.orders.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.entity.OrderStatus;
+import com.mongodb.client.ClientSession;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.ReplaceOptions;
 import io.quarkus.panache.common.Page;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
+import the.chak.ecommerce.orders.entity.OutboxEntry;
+import the.chak.ecommerce.orders.repository.OutboxRepository;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 import the.chak.ecommerce.orders.boundary.dto.Tuple;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
@@ -35,6 +41,18 @@ public class OrderService {
 
     @Inject
     the.chak.ecommerce.orders.repository.OrderRepository orderRepository;
+
+    @Inject
+    MongoClient mongoClient;
+
+    @Inject
+    OutboxRepository outboxRepository;
+
+    @Inject
+    OutboxEventFactory outboxEventFactory;
+
+    @Inject
+    OutboxRelay outboxRelay;
 
     public Order saveOrder(Order order) {
         order.setCreationDate(LocalDateTime.now());
@@ -109,14 +127,38 @@ public class OrderService {
         return new Tuple<>(totalCount, result);
     }
 
+    /**
+     * Confirms an order and emits an {@code order-initiated} event without the dual-write hazard:
+     * the {@link Order} document (status CONFIRMED) and a matching outbox entry are committed in a
+     * single Mongo transaction (replica-set required), so the event can never be lost relative to
+     * the business change. {@link OutboxRelay} drains the entry to the broker; this method only
+     * nudges it awake after the commit.
+     */
     public Order confirmOrder(String orderId) {
         Order order = orderRepository.findById(new org.bson.types.ObjectId(orderId));
         if (order == null) {
             return null;
         }
         order.setStatus(OrderStatus.CONFIRMED);
-        orderRepository.persistOrUpdate(order);
+
+        OutboxEntry outboxEntry = outboxEventFactory.orderInitiated(order);
+
+        Order toWrite = order;
+        try (ClientSession session = mongoClient.startSession()) {
+            session.withTransaction(() -> {
+                orderRepository.mongoCollection().replaceOne(
+                        session,
+                        Filters.eq("_id", toWrite.id),
+                        toWrite,
+                        new ReplaceOptions().upsert(true));
+                outboxRepository.mongoCollection().insertOne(session, outboxEntry);
+                return null;
+            });
+        }
         LOG.infof("Order confirmed orderId=%s userId=%s", order.getId(), order.getUserID());
+
+        // Best-effort wake-up; if it is lost the scheduled tick still drains the entry.
+        outboxRelay.requestPoll();
         return order;
     }
 

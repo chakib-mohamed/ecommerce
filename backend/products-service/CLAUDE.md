@@ -21,6 +21,8 @@ This service is a **producer** on two topics:
 - `product-deleted` — emitted on product deletion
 
 Serializer: `io.quarkus.kafka.client.serialization.JsonbSerializer`. Dev bootstrap: `localhost:9092`.
+The serializer uses the CDI-managed `Jsonb`, so event payloads are **snake_case on the wire**
+(`productId` → `product_id`), same as the HTTP API.
 
 ## Image Storage
 

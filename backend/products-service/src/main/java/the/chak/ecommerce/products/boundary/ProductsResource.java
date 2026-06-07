@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.QueryParam;
@@ -15,7 +14,6 @@ import the.chak.ecommerce.products.boundary.dto.ProductDto;
 import the.chak.ecommerce.products.boundary.mapper.ProductMapper;
 import the.chak.ecommerce.products.control.ProductService;
 import the.chak.ecommerce.products.control.StorageService;
-import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 
 @Path("/products")
 public class ProductsResource implements ProductsApi {
@@ -28,9 +26,6 @@ public class ProductsResource implements ProductsApi {
 
     @Inject
     StorageService storageService;
-
-    @Inject
-    Event<ProductUpdatedEvent> productUpdatedEvent;
 
     @Override
     public List<ProductDto> getProducts(
@@ -60,7 +55,6 @@ public class ProductsResource implements ProductsApi {
         var product = productMapper.toEntity(saveProductDto);
         byte[] imageBytes = saveProductDto.getImage();
         ProductDto createdDto = productMapper.toDto(productService.saveProduct(product, imageBytes));
-        productUpdatedEvent.fire(new ProductUpdatedEvent(createdDto));
         return Response.status(Response.Status.CREATED).entity(createdDto).build();
     }
 
@@ -69,7 +63,6 @@ public class ProductsResource implements ProductsApi {
         var product = productMapper.toEntity(saveProductDto);
         byte[] imageBytes = saveProductDto.getImage();
         ProductDto updatedDto = productMapper.toDto(productService.updateProduct(product, imageBytes));
-        productUpdatedEvent.fire(new ProductUpdatedEvent(updatedDto));
         return Response.ok(updatedDto).build();
     }
 
