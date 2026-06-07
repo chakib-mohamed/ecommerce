@@ -3,6 +3,7 @@ package the.chak.ecommerce.products.control;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -113,7 +114,7 @@ class CategoryServiceTest {
         // given
         String label = "Electronics";
         Map<String, Criteria> params = Map.of("label", new Criteria(Criteria.Operator.EQUALS, label));
-        when(categoryRepository.findByCriteria(params)).thenReturn(List.of(new Category()));
+        when(categoryRepository.findByCriteria(anyMap())).thenReturn(List.of(new Category()));
 
         // when
         List<Category> results = categoryService.findByCriteria(params);
@@ -138,7 +139,7 @@ class CategoryServiceTest {
     void findByCriteria_paginatedWithAllowedField_returnsPage() {
         // given
         Map<String, Criteria> params = Map.of("label", new Criteria(Criteria.Operator.LIKE, "Tech%"));
-        when(categoryRepository.findByCriteria(params, 0, 2))
+        when(categoryRepository.findByCriteria(anyMap(), eq(0), eq(2)))
                 .thenReturn(List.of(new Category(), new Category()));
 
         // when

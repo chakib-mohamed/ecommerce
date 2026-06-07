@@ -28,6 +28,8 @@ import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.entity.OrderStatus;
 import the.chak.ecommerce.orders.entity.ProductVO;
 import the.chak.ecommerce.orders.repository.OrderRepository;
+import the.chak.ecommerce.orders.repository.OrderSearch;
+import the.chak.ecommerce.orders.repository.PagedResult;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
 import the.chak.ecommerce.products.boundary.dto.PromotionDto;
 
@@ -116,8 +118,8 @@ class OrderServiceTest {
         SearchOrdersCommand cmd = new SearchOrdersCommand();
         cmd.setUserID("user-1");
 
-        Tuple<Long, List<Order>> expected = new Tuple<>(1L, List.of(new Order()));
-        when(orderRepository.search(cmd)).thenReturn(expected);
+        PagedResult<Order> expected = new PagedResult<>(1L, List.of(new Order()));
+        when(orderRepository.search(any(OrderSearch.class))).thenReturn(expected);
 
         // when
         Tuple<Long, List<Order>> result = orderService.searchOrders(cmd);

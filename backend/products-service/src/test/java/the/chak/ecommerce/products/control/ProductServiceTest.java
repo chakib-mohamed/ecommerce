@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -291,7 +292,8 @@ class ProductServiceTest {
         // given
         String title = "Searchable";
         Map<String, Criteria> params = Map.of("title", new Criteria(Criteria.Operator.EQUALS, title));
-        when(productRepository.findByCriteria(params, 0, 10)).thenReturn(List.of(new Product()));
+        when(productRepository.findByCriteria(anyMap(), eq(0), eq(10)))
+                .thenReturn(List.of(new Product()));
 
         // when
         List<Product> results = productService.findByCriteria(params, 0, 10);

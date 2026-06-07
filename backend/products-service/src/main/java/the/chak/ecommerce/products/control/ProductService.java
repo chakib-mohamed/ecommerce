@@ -178,6 +178,7 @@ public class ProductService {
                 throw new BadRequestException("Invalid search field: " + key);
             }
         });
-        return productRepository.findByCriteria(params, pageIndex, pageSize);
+        return productRepository.findByCriteria(
+                CriteriaMapper.toQueryCriteria(params), pageIndex, pageSize);
     }
 }

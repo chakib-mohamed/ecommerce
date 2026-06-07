@@ -17,7 +17,9 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import the.chak.ecommerce.orders.entity.OutboxEntry;
+import the.chak.ecommerce.orders.repository.OrderSearch;
 import the.chak.ecommerce.orders.repository.OutboxRepository;
+import the.chak.ecommerce.orders.repository.PagedResult;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 import the.chak.ecommerce.orders.boundary.dto.Tuple;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
@@ -103,7 +105,12 @@ public class OrderService {
     }
 
     public Tuple<Long, List<Order>> searchOrders(SearchOrdersCommand searchOrdersCommand) {
-        return orderRepository.search(searchOrdersCommand);
+        OrderSearch search = new OrderSearch(
+                searchOrdersCommand.getUserID(),
+                searchOrdersCommand.getOffset(),
+                searchOrdersCommand.getLimit());
+        PagedResult<Order> result = orderRepository.search(search);
+        return new Tuple<>(result.total(), result.items());
     }
 
     /**

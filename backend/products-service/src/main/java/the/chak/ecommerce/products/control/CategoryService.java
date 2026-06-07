@@ -43,12 +43,13 @@ public class CategoryService {
 
     public List<Category> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {
         validateFields(params);
-        return categoryRepository.findByCriteria(params, pageIndex, pageSize);
+        return categoryRepository.findByCriteria(
+                CriteriaMapper.toQueryCriteria(params), pageIndex, pageSize);
     }
 
     public List<Category> findByCriteria(Map<String, Criteria> params) {
         validateFields(params);
-        return categoryRepository.findByCriteria(params);
+        return categoryRepository.findByCriteria(CriteriaMapper.toQueryCriteria(params));
     }
 
     private void validateFields(Map<String, Criteria> params) {

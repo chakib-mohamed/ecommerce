@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
-import the.chak.ecommerce.products.boundary.dto.Criteria;
 import the.chak.ecommerce.products.entity.Product;
 
 @ApplicationScoped
@@ -46,7 +45,7 @@ public class ProductRepository implements PanacheRepository<Product> {
         find("from Product p left join fetch p.categories where p.id in ?1", productIds).list();
     }
 
-    public List<Product> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {
+    public List<Product> findByCriteria(Map<String, QueryCriteria> params, int pageIndex, int pageSize) {
         return find(buildCriteriaQuery(params), toQueryParams(params))
                 .page(pageIndex, pageSize).list();
     }
@@ -55,15 +54,15 @@ public class ProductRepository implements PanacheRepository<Product> {
         getEntityManager().merge(product);
     }
 
-    private String buildCriteriaQuery(Map<String, Criteria> params) {
+    private String buildCriteriaQuery(Map<String, QueryCriteria> params) {
         var query = new StringBuilder("1=1");
         params.forEach((key, criteria) -> query.append(" and ").append(key)
-                .append(criteria.getOperator().getValue()).append(" :").append(key));
+                .append(criteria.operator().sql()).append(" :").append(key));
         return query.toString();
     }
 
-    private Map<String, Object> toQueryParams(Map<String, Criteria> params) {
+    private Map<String, Object> toQueryParams(Map<String, QueryCriteria> params) {
         return params.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValue()));
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().value()));
     }
 }
