@@ -41,6 +41,22 @@ class BceArchitectureTest {
     }
 
     @Test
+    @DisplayName("Fails the build if the repository layer depends on the boundary or control layer")
+    void repository_mustNotDependOn_boundaryOrControl() {
+        // given
+        ArchRule rule = noClasses()
+                .that().resideInAPackage("..repository..")
+                .should().dependOnClassesThat()
+                .resideInAnyPackage("..boundary..", "..control..")
+                .as("Repositories must not depend on boundary or control - "
+                        + "accept and return neutral query types instead")
+                .allowEmptyShould(true);
+
+        // then
+        rule.check(classes);
+    }
+
+    @Test
     @DisplayName("Fails the build if control depends on boundary classes other than DTOs")
     void control_mustNotDependOn_nonDtoBoundaryClasses() {
         // given

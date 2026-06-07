@@ -6,4 +6,8 @@ import the.chak.ecommerce.pricing.entity.Price;
 
 @ApplicationScoped
 public class PriceRepository implements PanacheMongoRepository<Price> {
+
+    public Price findByProductId(String productId) {
+        return find("productId", productId).firstResult();
+    }
 }

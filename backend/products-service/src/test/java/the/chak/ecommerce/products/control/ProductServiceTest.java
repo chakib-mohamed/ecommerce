@@ -6,10 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -32,9 +30,7 @@ import the.chak.ecommerce.products.boundary.dto.Criteria;
 import the.chak.ecommerce.products.repository.OutboxRepository;
 import the.chak.ecommerce.products.repository.ProductRepository;
 import jakarta.ws.rs.BadRequestException;
-import jakarta.persistence.EntityManager;
 import jakarta.enterprise.event.Event;
-import io.quarkus.hibernate.orm.panache.PanacheQuery;
 
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
@@ -47,9 +43,6 @@ class ProductServiceTest {
 
     @Mock
     StorageService storageService;
-
-    @Mock
-    EntityManager em;
 
     @Mock
     OutboxRepository outboxRepository;
@@ -116,10 +109,7 @@ class ProductServiceTest {
         Product product = new Product();
         UUID uuid = UUID.randomUUID();
         product.setUuid(uuid);
-
-        PanacheQuery query = mock(PanacheQuery.class);
-        when(query.firstResult()).thenReturn(null);
-        when(productRepository.find("uuid", uuid)).thenReturn(query);
+        when(productRepository.findByUuid(uuid)).thenReturn(null);
 
         // when & then
         assertThrows(ProductNotFoundException.class,
@@ -135,10 +125,7 @@ class ProductServiceTest {
         existing.id = 1L;
         existing.setUuid(uuid);
         existing.setImageKey("old-key");
-
-        PanacheQuery query = mock(PanacheQuery.class);
-        when(query.firstResult()).thenReturn(existing);
-        when(productRepository.find("uuid", uuid)).thenReturn(query);
+        when(productRepository.findByUuid(uuid)).thenReturn(existing);
 
         byte[] newBytes = jpegBytes();
         when(storageService.uploadImage(newBytes)).thenReturn("new-key");
@@ -154,7 +141,7 @@ class ProductServiceTest {
         assertEquals(1L, result.id);
         verify(storageService).uploadImage(newBytes);
         verify(storageService).deleteImage("old-key");
-        verify(em).merge(update);
+        verify(productRepository).merge(update);
     }
 
     @Test
@@ -166,10 +153,7 @@ class ProductServiceTest {
         existing.id = 1L;
         existing.setUuid(uuid);
         existing.setImageKey("existing-key");
-
-        PanacheQuery query = mock(PanacheQuery.class);
-        when(query.firstResult()).thenReturn(existing);
-        when(productRepository.find("uuid", uuid)).thenReturn(query);
+        when(productRepository.findByUuid(uuid)).thenReturn(existing);
 
         Product update = new Product();
         update.setUuid(uuid);
@@ -181,7 +165,7 @@ class ProductServiceTest {
         assertEquals("existing-key", result.getImageKey());
         verify(storageService, never()).uploadImage(any());
         verify(storageService, never()).deleteImage(any());
-        verify(em).merge(update);
+        verify(productRepository).merge(update);
     }
 
     @Test
@@ -192,10 +176,7 @@ class ProductServiceTest {
         Product product = new Product();
         product.setImageKey("img-key");
         product.setUuid(uuid);
-
-        PanacheQuery query = mock(PanacheQuery.class);
-        when(query.firstResult()).thenReturn(product);
-        when(productRepository.find("uuid", uuid)).thenReturn(query);
+        when(productRepository.findByUuid(uuid)).thenReturn(product);
 
         OutboxEvent row = new OutboxEvent();
         when(outboxEventFactory.productDeleted(eq(uuid), any(ProductDeletedEvent.class))).thenReturn(row);
@@ -215,9 +196,7 @@ class ProductServiceTest {
     void deleteProduct_nonExistentProduct_doesNothing() {
         // given
         UUID uuid = UUID.randomUUID();
-        PanacheQuery query = mock(PanacheQuery.class);
-        when(query.firstResult()).thenReturn(null);
-        when(productRepository.find("uuid", uuid)).thenReturn(query);
+        when(productRepository.findByUuid(uuid)).thenReturn(null);
 
         // when
         productService.deleteProduct(uuid);
@@ -233,10 +212,7 @@ class ProductServiceTest {
         UUID uuid = UUID.randomUUID();
         Product product = new Product();
         product.setUuid(uuid);
-
-        PanacheQuery query = mock(PanacheQuery.class);
-        when(query.firstResult()).thenReturn(product);
-        when(productRepository.find("uuid", uuid)).thenReturn(query);
+        when(productRepository.findByUuid(uuid)).thenReturn(product);
 
         // when
         productService.updatePrice(uuid.toString(), 25.0);
@@ -250,9 +226,7 @@ class ProductServiceTest {
     void updatePrice_unknownProduct_logsAndReturns() {
         // given
         UUID uuid = UUID.randomUUID();
-        PanacheQuery query = mock(PanacheQuery.class);
-        when(query.firstResult()).thenReturn(null);
-        when(productRepository.find("uuid", uuid)).thenReturn(query);
+        when(productRepository.findByUuid(uuid)).thenReturn(null);
 
         // when
         productService.updatePrice(uuid.toString(), 50.0);
@@ -269,20 +243,14 @@ class ProductServiceTest {
         Product p2 = new Product();
         p2.id = 2L;
         List<Product> productsList = List.of(p1, p2);
-
-        PanacheQuery query1 = mock(PanacheQuery.class);
-        when(query1.page(0, 2)).thenReturn(query1);
-        when(query1.list()).thenReturn(productsList);
-        when(productRepository.find("from Product p left join fetch p.promotions")).thenReturn(query1);
-
-        PanacheQuery query2 = mock(PanacheQuery.class);
-        when(productRepository.find("from Product p left join fetch p.categories where p.id in ?1", List.of(1L, 2L))).thenReturn(query2);
+        when(productRepository.listWithPromotions(0, 2)).thenReturn(productsList);
 
         // when
         List<Product> page = productService.getProducts(0, 2);
 
         // then
         assertEquals(2, page.size());
+        verify(productRepository).primeCategories(List.of(1L, 2L));
     }
 
     @Test
@@ -293,13 +261,7 @@ class ProductServiceTest {
         Product product = new Product();
         product.id = 1L;
         product.setUuid(uuid);
-
-        PanacheQuery query1 = mock(PanacheQuery.class);
-        when(query1.firstResultOptional()).thenReturn(Optional.of(product));
-        when(productRepository.find("from Product p left join fetch p.promotions where p.uuid = ?1", uuid)).thenReturn(query1);
-
-        PanacheQuery query2 = mock(PanacheQuery.class);
-        when(productRepository.find("from Product p left join fetch p.categories where p.id = ?1", 1L)).thenReturn(query2);
+        when(productRepository.findByUuidWithPromotions(uuid)).thenReturn(Optional.of(product));
 
         // when
         Optional<Product> result = productService.getProductWithAssociations(uuid);
@@ -307,6 +269,7 @@ class ProductServiceTest {
         // then
         assertTrue(result.isPresent());
         assertEquals(uuid, result.get().getUuid());
+        verify(productRepository).primeCategories(1L);
     }
 
     @Test
@@ -314,9 +277,7 @@ class ProductServiceTest {
     void getProductWithAssociations_nonExistentProduct_returnsEmpty() {
         // given
         UUID uuid = UUID.randomUUID();
-        PanacheQuery query = mock(PanacheQuery.class);
-        when(query.firstResultOptional()).thenReturn(Optional.empty());
-        when(productRepository.find(anyString(), (Object[]) any())).thenReturn(query);
+        when(productRepository.findByUuidWithPromotions(uuid)).thenReturn(Optional.empty());
 
         // when
         Optional<Product> result = productService.getProductWithAssociations(uuid);
@@ -331,11 +292,8 @@ class ProductServiceTest {
         // given
         String title = "Searchable";
         Map<String, Criteria> params = Map.of("title", new Criteria(Criteria.Operator.EQUALS, title));
-
-        PanacheQuery query = mock(PanacheQuery.class);
-        when(query.page(0, 10)).thenReturn(query);
-        when(query.list()).thenReturn(List.of(new Product()));
-        when(productRepository.find(anyString(), anyMap())).thenReturn(query);
+        when(productRepository.findByCriteria(anyMap(), eq(0), eq(10)))
+                .thenReturn(List.of(new Product()));
 
         // when
         List<Product> results = productService.findByCriteria(params, 0, 10);

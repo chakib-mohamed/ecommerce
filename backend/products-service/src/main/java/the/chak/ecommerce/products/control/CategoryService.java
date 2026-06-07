@@ -3,11 +3,9 @@ package the.chak.ecommerce.products.control;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import the.chak.ecommerce.products.boundary.dto.Criteria;
@@ -20,9 +18,6 @@ import the.chak.ecommerce.products.repository.CategoryRepository;
 public class CategoryService {
 
     private static final Set<String> ALLOWED_CATEGORY_FIELDS = Set.of("id", "label");
-
-    @Inject
-    EntityManager em;
 
     @Inject
     CategoryRepository categoryRepository;
@@ -38,7 +33,7 @@ public class CategoryService {
     public void updateCategory(Category category) {
         var existing = categoryRepository.findById(category.id);
         if (existing != null) {
-            em.merge(category);
+            categoryRepository.merge(category);
         }
     }
 
@@ -47,35 +42,21 @@ public class CategoryService {
     }
 
     public List<Category> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {
-        var query = new StringBuilder("1=1");
-        params.forEach((key, criteria) -> {
-            if (!ALLOWED_CATEGORY_FIELDS.contains(key)) {
-                throw new BadRequestException("Invalid search field: " + key);
-            }
-            query.append(" and ").append(key)
-                    .append(criteria.getOperator().getValue()).append(" :").append(key);
-        });
-
-        return categoryRepository.find(query.toString(),
-                        params.entrySet().stream().collect(
-                                Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValue())))
-                .page(pageIndex, pageSize)
-                .list();
+        validateFields(params);
+        return categoryRepository.findByCriteria(
+                CriteriaMapper.toQueryCriteria(params), pageIndex, pageSize);
     }
 
     public List<Category> findByCriteria(Map<String, Criteria> params) {
-        var query = new StringBuilder("1=1");
-        params.forEach((key, criteria) -> {
+        validateFields(params);
+        return categoryRepository.findByCriteria(CriteriaMapper.toQueryCriteria(params));
+    }
+
+    private void validateFields(Map<String, Criteria> params) {
+        params.keySet().forEach(key -> {
             if (!ALLOWED_CATEGORY_FIELDS.contains(key)) {
                 throw new BadRequestException("Invalid search field: " + key);
             }
-            query.append(" and ").append(key)
-                    .append(criteria.getOperator().getValue()).append(" :").append(key);
         });
-
-        return categoryRepository.find(query.toString(),
-                        params.entrySet().stream().collect(
-                                Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValue())))
-                .list();
     }
 }

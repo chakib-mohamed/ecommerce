@@ -14,7 +14,6 @@ import the.chak.ecommerce.products.entity.ProductMongoEntity;
 import the.chak.ecommerce.products.repository.ProductMongoRepository;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @ApplicationScoped
@@ -33,13 +32,12 @@ public class ProductService {
     }
 
     public void onProductDeleted(ProductDeletedEvent productDeletedEvent) {
-        productMongoRepository.delete("productID = :productID",
-                Map.of("productID", productDeletedEvent.getProductUuid()));
+        productMongoRepository.deleteByProductId(productDeletedEvent.getProductUuid());
         LOG.infof("Featured product deleted productId=%s", productDeletedEvent.getProductUuid());
     }
 
     public List<ProductMongoEntity> listProducts(int pageIndex, int pageSize) {
-        return productMongoRepository.findAll().page(pageIndex, pageSize).list();
+        return productMongoRepository.list(pageIndex, pageSize);
     }
 
     private ProductMongoEntity mapProductToProductMongoEntity(ProductDto product) {
