@@ -36,6 +36,19 @@ yarn-error.log*
 docs/reviews/
 docs/tasks/
 
+# AI assistant / editor tooling (local config)
+.cursorrules
+.windsurfrules
+.gemini/
+.kiro/
+.qoder/
+.opencode.json
+.mcp.json
+.github/code-review-graph.instruction.md
+AGENTS.md
+GEMINI.md
+QODER.md
+
 # Misc
 *.bu
 # Added by code-review-graph
