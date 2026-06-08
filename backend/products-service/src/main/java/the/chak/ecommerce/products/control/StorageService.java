@@ -37,7 +37,10 @@ public class StorageService {
     }
 
     public String uploadImage(byte[] data) {
-        String key = UUID.randomUUID().toString();
+        return uploadImage(UUID.randomUUID().toString(), data);
+    }
+
+    public String uploadImage(String key, byte[] data) {
         s3.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucketName)
