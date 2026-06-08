@@ -37,7 +37,7 @@ class SeedProductImagesTest {
     void seededImageKey_returnsImageBytes() {
         byte[] image = given().when().get("/products/images/{key}", EXPECTED_IMAGE_KEY)
                 .then().statusCode(200)
-                .contentType("image/jpeg")
+                .contentType("image/webp")
                 .extract().asByteArray();
 
         assertNotNull(image);

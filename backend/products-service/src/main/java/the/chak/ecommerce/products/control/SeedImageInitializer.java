@@ -15,7 +15,7 @@ import jakarta.inject.Inject;
 
 /**
  * Dev/test-only default-image seeding. On startup, for each locally-seeded product this
- * uploads a committed placeholder JPEG to object storage under a deterministic key and sets
+ * uploads a committed WebP image to object storage under a deterministic key and sets
  * the product's {@code image_key} to that key (only when it is still null, so an
  * API-uploaded image is never clobbered).
  *
@@ -71,7 +71,7 @@ public class SeedImageInitializer {
     }
 
     private byte[] readSeedImage(String key) {
-        String resource = CLASSPATH_DIR + key + ".jpg";
+        String resource = CLASSPATH_DIR + key + ".webp";
         try (InputStream in = Thread.currentThread().getContextClassLoader()
                 .getResourceAsStream(resource)) {
             if (in == null) {

@@ -65,7 +65,7 @@ public class StorageService {
         LOG.infof("Image deleted key=%s", key);
     }
 
-    private String detectContentType(byte[] data) {
+    public String detectContentType(byte[] data) {
         if (data.length >= 3 && (data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8
                 && (data[2] & 0xFF) == 0xFF) {
             return "image/jpeg";
