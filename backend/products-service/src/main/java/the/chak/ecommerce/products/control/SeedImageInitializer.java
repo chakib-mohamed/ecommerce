@@ -5,9 +5,9 @@ import java.io.InputStream;
 import java.util.Map;
 import java.util.UUID;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -19,12 +19,13 @@ import jakarta.inject.Inject;
  * the product's {@code image_key} to that key (only when it is still null, so an
  * API-uploaded image is never clobbered).
  *
- * <p>Gated by {@code products.seed-images.enabled} (a runtime flag, on for {@code %dev} and
- * {@code %test}, off by default) so production neither uploads images nor sets {@code
- * image_key}. The upload runs on every startup, which restores objects after the local
+ * <p>The bean is registered only under the {@code dev} and {@code test} profiles
+ * ({@code @UnlessBuildProfile("prod")}), so a production build neither uploads images nor sets
+ * {@code image_key}. The upload runs on every startup, which restores objects after the local
  * object store is reset between runs.
  */
 @ApplicationScoped
+@UnlessBuildProfile("prod")
 public class SeedImageInitializer {
 
     private static final Logger LOG = Logger.getLogger(SeedImageInitializer.class);
@@ -52,13 +53,7 @@ public class SeedImageInitializer {
     @Inject
     SeedImageAssigner seedImageAssigner;
 
-    @ConfigProperty(name = "products.seed-images.enabled")
-    boolean enabled;
-
     void onStart(@Observes StartupEvent event) {
-        if (!enabled) {
-            return;
-        }
         int uploaded = 0;
         int updated = 0;
         for (Map.Entry<UUID, String> seed : SEED_IMAGES.entrySet()) {

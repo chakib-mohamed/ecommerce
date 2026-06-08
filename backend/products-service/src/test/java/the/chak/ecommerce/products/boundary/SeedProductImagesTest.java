@@ -14,9 +14,9 @@ import the.chak.ecommerce.products.StorageTestResource;
 
 /**
  * Verifies the dev/test-only default-image seeding end of things that the test harness can
- * observe: with {@code products.seed-images.enabled=true} (on for the {@code test} profile,
- * mirroring dev), the startup initializer uploads each committed placeholder JPEG to object
- * storage under its deterministic key, so the image endpoint serves it.
+ * observe: under the {@code test} profile (where the initializer is registered, mirroring
+ * dev), the startup initializer uploads each committed placeholder JPEG to object storage
+ * under its deterministic key, so the image endpoint serves it.
  *
  * <p>The matching {@code image_key} assignment on seeded product rows is covered by
  * {@code SeedImageAssignerTest}: the Liquibase dev-seed rows (004) are not loaded under the
