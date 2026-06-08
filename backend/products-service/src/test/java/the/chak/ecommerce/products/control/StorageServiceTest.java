@@ -1,6 +1,7 @@
 package the.chak.ecommerce.products.control;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -106,6 +108,23 @@ class StorageServiceTest {
         // then
         assertNotNull(key);
         verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    @DisplayName("Stores bytes under the supplied key and returns that key")
+    void uploadImage_withExplicitKey_usesThatKeyAndDetectsContentType() {
+        // given
+        byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00, 0x10};
+        ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
+
+        // when
+        String key = storageService.uploadImage("seed-marble-dining-table", jpeg);
+
+        // then
+        assertEquals("seed-marble-dining-table", key);
+        verify(s3).putObject(captor.capture(), any(RequestBody.class));
+        assertEquals("seed-marble-dining-table", captor.getValue().key());
+        assertEquals("image/jpeg", captor.getValue().contentType());
     }
 
     // -- downloadImage ------------------------------------------------------

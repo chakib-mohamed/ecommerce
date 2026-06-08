@@ -51,7 +51,7 @@ public interface ProductsApi {
 
         @GET
         @Path("/images/{imageKey}")
-        @Produces("image/jpeg")
+        @Produces({"image/jpeg", "image/png", "image/gif", "image/webp"})
         Response getImage(@PathParam("imageKey") String imageKey);
 
 }

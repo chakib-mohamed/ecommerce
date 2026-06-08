@@ -75,6 +75,6 @@ public class ProductsResource implements ProductsApi {
     @Override
     public Response getImage(String imageKey) {
         byte[] imageData = storageService.downloadImage(imageKey);
-        return Response.ok(imageData).build();
+        return Response.ok(imageData).type(storageService.detectContentType(imageData)).build();
     }
 }

@@ -217,7 +217,7 @@ class ProductsResourceTest {
 
         // then
         byte[] downloadedImage = response.then().statusCode(200)
-                .contentType("image/jpeg")
+                .contentType("image/gif")
                 .extract().asByteArray();
         assertNotNull(downloadedImage);
         assertTrue(downloadedImage.length > 0);

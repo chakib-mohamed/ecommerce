@@ -37,7 +37,10 @@ public class StorageService {
     }
 
     public String uploadImage(byte[] data) {
-        String key = UUID.randomUUID().toString();
+        return uploadImage(UUID.randomUUID().toString(), data);
+    }
+
+    public String uploadImage(String key, byte[] data) {
         s3.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucketName)
@@ -62,7 +65,7 @@ public class StorageService {
         LOG.infof("Image deleted key=%s", key);
     }
 
-    private String detectContentType(byte[] data) {
+    public String detectContentType(byte[] data) {
         if (data.length >= 3 && (data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8
                 && (data[2] & 0xFF) == 0xFF) {
             return "image/jpeg";
