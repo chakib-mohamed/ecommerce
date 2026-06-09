@@ -4,9 +4,21 @@ Applies to all Quarkus services.
 
 ## Package Conventions
 
+Each service follows a four-package BCE layout under its root package, with **`repository` as a top-level sibling** of `boundary`, `control`, and `entity` — never nested inside `control`:
+
+```
+the.chak.ecommerce.<service>/
+├── boundary     # JAX-RS resources (@Path) + boundary/dto
+├── control      # services, control/events (Kafka payloads), exceptions
+├── entity       # @Entity / @MongoEntity persistence classes
+└── repository   # Panache repositories
+```
+
 All DTOs (request/response objects, value objects, commands) live in `boundary/dto/` within each service or shared-api module. The `entity/` package is reserved exclusively for persistence-annotated domain objects (Panache entities and their embedded value objects).
 
 Kafka event payloads live in `control/events/` — they are messaging objects, not HTTP DTOs, so they stay in the control layer.
+
+These placements are enforced by `BceArchitectureTest` in each service: `@Path` resources must reside in `boundary`, persistence entities in `entity`, `*Exception` classes in `control`, and any `PanacheRepositoryBase`/`PanacheMongoRepositoryBase` implementation in `repository`.
 
 ## Reactive Stack Policy
 
