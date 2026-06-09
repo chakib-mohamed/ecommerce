@@ -117,4 +117,20 @@ class BceArchitectureTest {
         // then
         rule.check(classes);
     }
+
+    @Test
+    @DisplayName("Fails the build if a Panache repository lives outside the repository package")
+    void panacheRepositories_mustResideIn_repositoryPackage() {
+        // given
+        ArchRule rule = classes()
+                .that().areAssignableTo("io.quarkus.hibernate.orm.panache.PanacheRepositoryBase")
+                .or().areAssignableTo("io.quarkus.mongodb.panache.PanacheMongoRepositoryBase")
+                .should().resideInAPackage("..repository..")
+                .as("Panache repositories must reside in the repository package, "
+                        + "not nested inside control, boundary, or entity")
+                .allowEmptyShould(true);
+
+        // then
+        rule.check(classes);
+    }
 }
