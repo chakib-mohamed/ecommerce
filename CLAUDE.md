@@ -86,6 +86,7 @@ All documentation artifacts live under `docs/`:
 | `docs/tasks/` | Task plans and to-do lists — named `<feature>-plan.md` / `<feature>-todo.md` |
 | `docs/reviews/` | Code review notes |
 | `docs/conventions/` | Backend coding conventions (architecture, JSON, exceptions, persistence, testing, logging) |
+| `docs/adr/` | Architecture Decision Records — numbered `NNNN-<slug>.md`, one accepted decision per file; see `docs/adr/README.md` |
 
 Never place documentation files at the repo root or in any other directory.
 
