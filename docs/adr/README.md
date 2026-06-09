@@ -18,3 +18,7 @@ consequences accepted.
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0002](0002-transactional-outbox-and-mongo-replica-set.md) | Transactional outbox for event publishing (+ Mongo replica set) | Accepted |
+| [0003](0003-java-21-lts-baseline.md) | Java 21 LTS as the backend baseline | Accepted |
+| [0004](0004-testcontainers-over-dev-services.md) | Testcontainers over Quarkus Dev Services | Accepted |
+| [0005](0005-trivy-dependency-scan-quality-gate.md) | Trivy dependency scanning as a CI quality gate | Accepted |
+| [0006](0006-make-and-compose-profiles-build-interface.md) | Make + Docker Compose profiles as the build/run interface | Accepted |
