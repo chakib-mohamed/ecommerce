@@ -42,19 +42,27 @@ visualized in **Grafana**, with **Jaeger** as the trace backend. Concretely:
    header code.
 
 2. **Jaeger is the trace backend, over Zipkin.** Jaeger ingests OTLP **natively** (gRPC 4317 /
-   HTTP 4318), so services export straight to it. Zipkin does not ingest OTLP — it would require an
-   OTel Collector to translate or non-OTLP per-service exporters. **No OTel Collector for now;**
-   direct OTLP → Jaeger keeps dev infra minimal. (A Collector remains a future option if we need
-   routing/sampling/multi-exporter.)
+   HTTP 4318). Zipkin does not — it would require translation or non-OTLP per-service exporters.
 
-3. **Split observability by signal.** **Micrometer → Prometheus** for metrics
+3. **Route traces through an OpenTelemetry Collector, for tail sampling.** Services do not export to
+   Jaeger directly; they export OTLP to a central `otel-collector` (the **contrib** distro, which
+   ships the `tail_sampling` processor), which forwards to Jaeger. The Collector earns its keep
+   through **tail sampling**: it buffers the whole trace before deciding, so it keeps 100% of error
+   and slow traces and samples only ~10% of routine ones. Head sampling at the source cannot do this
+   — it drops blindly, errors included. Consequently services sample at `always_on` (the Collector
+   sees every span and owns the keep/drop decision). The Collector takes the host OTLP ports
+   (4317/4318); Jaeger's OTLP listener stays internal (`jaeger:4317`) for the Collector→Jaeger hop.
+   The Collector is config-only (no application code) and also leaves room for later routing /
+   multi-exporter without touching services.
+
+4. **Split observability by signal.** **Micrometer → Prometheus** for metrics
    (`micrometer-registry-prometheus` on the gateway via Actuator;
    `quarkus-micrometer-registry-prometheus` on Quarkus); **OTel** for traces. On the **gateway**,
    Spring's tracing API is Micrometer-Tracing, so we keep that API but swap its implementation from
    Brave/Zipkin to the **OTel SDK** via `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`,
    so its spans converge with the Quarkus services' OTel spans in one Jaeger trace.
 
-4. **Retire `X-Request-ID`; standardize on `traceId`.** OTel places `traceId`/`spanId` in the MDC of
+5. **Retire `X-Request-ID`; standardize on `traceId`.** OTel places `traceId`/`spanId` in the MDC of
    *every* request regardless of sampling (sampling governs only export, not id generation), so the
    hand-rolled `requestId` is redundant for internal correlation and — unlike `requestId` — links
    into Jaeger. We remove the `requestId` MDC plumbing from the 6 Quarkus filters and the gateway
@@ -67,7 +75,8 @@ visualized in **Grafana**, with **Jaeger** as the trace backend. Concretely:
 |---|---|---|---|
 | Tracing API/standard | OpenTelemetry + OTLP | Brave/Sleuth (Zipkin-native) | No cheap Kafka propagation; JVM/Spring-centric; not the cross-language standard |
 | Trace backend | Jaeger (native OTLP) | Zipkin | No native OTLP ingest → would force a Collector or non-OTLP exporters |
-| Collector | None (direct OTLP→Jaeger) | OTel Collector now | Extra moving part not yet needed for dev |
+| Collector | OTel Collector (contrib) in front of Jaeger | None (direct OTLP→Jaeger) | Direct export forces head sampling at the source, which drops error traces blindly; the Collector enables tail sampling |
+| Sampling | Tail sampling at the Collector (`always_on` at source) | Head-based ratio at the source | Head sampling decides before the trace completes, so it cannot guarantee keeping errors/slow traces |
 | Metrics | Micrometer + Prometheus | OTel metrics | Micrometer/Prometheus is the more mature path in Spring/Quarkus today; richer Grafana ecosystem |
 | Correlation id | `traceId` only | Keep `X-Request-ID` in parallel | Redundant once `traceId` is in MDC for all requests; two ids add log noise and upkeep |
 
@@ -79,12 +88,17 @@ visualized in **Grafana**, with **Jaeger** as the trace backend. Concretely:
 - `traceId`/`spanId` on every log line, pivotable to Jaeger.
 - Per-service metrics in Prometheus + Grafana; the previously inert gateway tracing deps are put to use.
 - OTLP keeps us portable — swapping Jaeger for Grafana Tempo later is a compose change, not code.
+- Tail sampling at the Collector keeps every error and slow trace while sampling routine ones, so the
+  traces most worth having are never dropped; the Collector is also a seam for future routing/exporters.
 
 **Negative / costs**
-- New infra to run locally (Jaeger, Prometheus, Grafana) — placed under an `observability` compose
-  profile so `make infra` stays lean.
-- Sampling must be configured per environment (`always_on` in dev, `parentbased_traceidratio` in prod)
-  to control trace volume.
+- New infra to run locally (OTel Collector, Jaeger, Prometheus, Grafana) — placed under an
+  `observability` compose profile so `make infra` stays lean.
+- The Collector is one more component to run and configure, and it buffers traces in memory for
+  `decision_wait` before exporting (a small added latency before a trace is visible in Jaeger).
+- Services must export at `always_on` so the Collector sees every span; tail sampling needs all spans
+  of a trace on one Collector instance — fine for the single Collector here, but scaling out later
+  would require a load-balancing exporter in front.
 - Removing `requestId` touches all 6 service filters and the gateway; any external consumer that
   relied on `X-Request-ID` must move to the echoed `traceId` response header.
 - Two libraries in play (Micrometer for metrics, OTel for traces) — accepted as the mature-per-signal

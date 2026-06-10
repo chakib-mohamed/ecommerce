@@ -1,0 +1,12 @@
+# Prometheus scrape configuration for the local observability stack.
+# Phase 1 ships only Prometheus's own self-scrape so the server comes up healthy
+# with one UP target. The gateway scrape job is added in Phase 2 and the six
+# Quarkus service jobs in Phase 4 — see docs/tasks/observability-plan.md.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

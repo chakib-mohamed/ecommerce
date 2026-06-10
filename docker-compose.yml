@@ -351,6 +351,93 @@ services:
       timeout: 5s
       retries: 5
 
+  # --------------------------------------------------------------------------
+  # Observability stack (tracing + metrics) — opt-in via the `observability`
+  # profile so `make infra` stays lean. Services export OTLP to the Collector,
+  # which tail-samples and forwards traces to Jaeger; Prometheus scrapes the
+  # services' metrics; Grafana visualizes both. Wiring the services to the
+  # Collector is Phases 2–3.
+  # --------------------------------------------------------------------------
+
+  otel-collector:
+    profiles: [observability]
+    # -contrib distro: the core Collector image does not ship the tail_sampling processor.
+    # Pinned to 0.114.0 — the 0.116.0 image ships a dynamically-linked binary on a distroless
+    # base with no loader, so it fails to exec ("no such file or directory").
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - 4317:4317   # OTLP gRPC — receives from services (and host-run `make dev-*`)
+      - 4318:4318   # OTLP HTTP
+    depends_on:
+      - jaeger
+    networks:
+      - backend
+    # No healthcheck: the -contrib image is distroless (no shell), so a CMD-SHELL probe
+    # can't run. depends_on (start order) is enough; the OTLP receiver retries to Jaeger.
+
+  jaeger:
+    profiles: [observability]
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      # Enable native OTLP ingest so the Collector can forward traces over OTLP.
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - 16686:16686   # Jaeger UI
+      # OTLP (4317/4318) is reachable internally as jaeger:4317 on the backend network;
+      # not published to the host — the Collector owns the host OTLP ports.
+    networks:
+      - backend
+    # No healthcheck: the all-in-one image is minimal (no shell/wget/curl), so a
+    # CMD-SHELL probe can't run. Nothing gates on it via depends_on conditions.
+
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - 9090:9090
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:11.4.0
+    environment:
+      # Dev convenience: anonymous Admin access so the UI and dashboards open
+      # without a login. `admin/admin` still works for the login form.
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - 3000:3000
+    depends_on:
+      - prometheus
+      - jaeger
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
 networks:
   frontend:
   backend:
@@ -358,3 +445,5 @@ networks:
 volumes:
   mongodb_data:
   postgres_data:
+  prometheus_data:
+  grafana_data:

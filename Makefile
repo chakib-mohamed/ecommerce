@@ -5,7 +5,7 @@
 .DEFAULT_GOAL := help
 
 .PHONY: help \
-        infra backend front up down logs \
+        infra observability backend front up down logs \
         build build-api build-front \
         dev-front dev-gateway \
         dev-authenticate dev-products dev-featured dev-orders dev-price
@@ -14,6 +14,7 @@
 help:
 	@echo "Run targets:"
 	@echo "  make infra            infra containers only (db/kafka/etc.)"
+	@echo "  make observability    tracing/metrics stack (jaeger/prometheus/grafana)"
 	@echo "  make backend          infra + backend services"
 	@echo "  make front            full stack (infra + backend + frontend)"
 	@echo "  make up               full stack (infra + backend + frontend)"
@@ -42,17 +43,21 @@ help:
 infra:
 	docker compose --profile infra up -d
 
+## observability: bring up the tracing/metrics stack only (jaeger/prometheus/grafana)
+observability:
+	docker compose --profile observability up -d
+
 ## backend: bring up infra + backend services
 backend:
 	docker compose --profile infra --profile backend up -d
 
-## front: bring up the full stack
+## front: bring up the full stack (incl. observability)
 front:
-	docker compose --profile infra --profile backend --profile frontend up -d
+	docker compose --profile infra --profile backend --profile frontend --profile observability up -d
 
-## up: bring up the full stack
+## up: bring up the full stack (incl. observability)
 up:
-	docker compose --profile infra --profile backend --profile frontend up -d
+	docker compose --profile infra --profile backend --profile frontend --profile observability up -d
 
 ## down: stop & remove every container across all profiles
 down:

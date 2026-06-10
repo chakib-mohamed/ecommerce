@@ -12,10 +12,9 @@ and visualizable in Grafana.
 - One trace spans the gateway and every downstream service it touches, over HTTP **and** Kafka.
 - `traceId` / `spanId` appear on every log line, so logs pivot to traces.
 - Per-service metrics (request rate, latency, error rate, JVM, Kafka) in Prometheus + Grafana.
-- A local observability stack (Jaeger + Prometheus + Grafana) startable from the Makefile.
+- A local observability stack (OTel Collector + Jaeger + Prometheus + Grafana) startable from the Makefile.
 
 **Out of scope:**
-- OpenTelemetry Collector — services export OTLP directly to Jaeger for now (later follow-up).
 - Log aggregation (Loki/ELK) — logs stay on stdout, now carrying `traceId`.
 - Frontend (browser) tracing.
 
@@ -62,18 +61,29 @@ no hand-written client filter is needed.
 
 | Concern | Choice |
 |---|---|
-| Trace backend | Jaeger all-in-one, native OTLP ingest (gRPC 4317 / HTTP 4318, UI 16686) |
+| Trace pipeline | services → **OTel Collector** (OTLP in on 4317/4318) → Jaeger (OTLP out) |
+| Trace backend | Jaeger all-in-one, native OTLP ingest (UI 16686; OTLP internal as `jaeger:4317`) |
 | Metrics store | Prometheus (scrapes `/q/metrics` on Quarkus, `/actuator/prometheus` on gateway) |
 | Visualization | Grafana, provisioned with Prometheus + Jaeger datasources |
 | Propagation | W3C `traceparent` across HTTP and Kafka, end to end |
-| Quarkus tracing | `quarkus-opentelemetry` extension, OTLP exporter |
+| Quarkus tracing | `quarkus-opentelemetry` extension, OTLP exporter → `otel-collector:4317` |
 | Quarkus metrics | `quarkus-micrometer-registry-prometheus` extension |
 | Gateway tracing | `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp` (replaces brave/zipkin) |
 | Gateway metrics | `micrometer-registry-prometheus` (already present), `prometheus` actuator endpoint exposed |
-| Sampling | dev: `always_on`; prod: `parentbased_traceidratio` (~0.1) |
+| Sampling | services export `always_on`; **tail sampling at the Collector** — keep all error/slow traces, sample ~10% of the rest |
 | Logs | log format gains `traceId=%X{traceId} spanId=%X{spanId}`; `requestId` removed (see decision below) |
 
 Compose services live under an `observability` profile so `make infra` stays lean.
+
+**Decision — route traces through an OpenTelemetry Collector.** Every service exports OTLP to a
+central `otel-collector` (contrib distro, for the `tail_sampling` processor), which forwards traces
+to Jaeger over OTLP. The Collector exists for **tail sampling**: because it buffers the whole trace
+before deciding, it keeps 100% of error and slow traces and samples only ~10% of routine ones —
+something head sampling at the source cannot do (it drops blindly, errors included). For this to
+work the services sample at `always_on` so the Collector sees every span; the keep/drop decision
+lives in the Collector, not the services. The Collector owns the host OTLP ports (4317/4318); Jaeger's
+OTLP listener stays internal (`jaeger:4317`) for the Collector→Jaeger hop. Trade-off: one extra
+container to run, accepted for not losing the traces that matter.
 
 ---
 
@@ -94,8 +104,10 @@ filter already skips `/actuator`). No business API changes, so no OpenAPI contra
 1. `make up` + `make observability`; generate traffic (login → browse products → create order,
    which fans out to products-service + price-service and triggers a Kafka product/price event
    consumed by featured-products-service).
-2. **Jaeger** (:16686): one trace spans gateway → orders → products → pricing over HTTP **and**
-   products → (Kafka) → featured-products — direct proof gaps #1 and #2 are closed.
+2. **Jaeger** (:16686): one trace — exported by every service to the Collector, tail-sampled, and
+   forwarded to Jaeger — spans gateway → orders → products → pricing over HTTP **and**
+   products → (Kafka) → featured-products — direct proof gaps #1 and #2 are closed. An errored or
+   slow request is always retained (tail-sampling keep policies), even though routine ones are sampled.
 3. **Prometheus** (:9090): all 7 targets `UP`.
 4. **Grafana** (:3000): dashboard renders; trace links resolve to Jaeger.
 5. `grep traceId=<id>` across `make logs` returns correlated lines from every service in the path.
