@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: ecommerce-api-gateway
+  reactor:
+    # Restore the trace context into ThreadLocal across reactive operators, so
+    # traceId/spanId reach the log MDC and the X-Trace-Id response header.
+    context-propagation: auto
   cloud:
     gateway:
       routes:
