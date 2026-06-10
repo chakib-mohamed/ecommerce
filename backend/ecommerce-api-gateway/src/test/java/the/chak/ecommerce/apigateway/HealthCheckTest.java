@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -17,6 +18,9 @@ import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
+// Boot disables metrics export in tests by default; enable metrics (not tracing) so the
+// Prometheus scrape endpoint is registered for the exposure assertion below.
+@AutoConfigureObservability(tracing = false, metrics = true)
 @Testcontainers
 @ActiveProfiles("test")
 @Tag("integration")
@@ -53,6 +57,13 @@ class HealthCheckTest {
     @DisplayName("Returns 200 on the readiness probe")
     void readiness_returns200() {
         webTestClient.get().uri("/actuator/health/readiness").exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    @DisplayName("Exposes the Prometheus scrape endpoint")
+    void prometheus_returns200() {
+        webTestClient.get().uri("/actuator/prometheus").exchange()
                 .expectStatus().isOk();
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import io.micrometer.tracing.Tracer;
 import the.chak.ecommerce.apigateway.boundary.dto.RevokeTokenRequest;
 import the.chak.ecommerce.apigateway.control.TokenUtils;
 import the.chak.ecommerce.apigateway.util.TestJwtTokenGenerator;
@@ -27,6 +28,11 @@ class ApiGatewayControllerTest {
 
     @MockBean
     private TokenUtils tokenUtils;
+
+    // The WebFlux slice picks up GatewayRequestLoggingFilter (a WebFilter) but not the
+    // tracing auto-configuration, so its Tracer dependency must be supplied here.
+    @MockBean
+    private Tracer tracer;
 
     @Test
     @WithMockUser
