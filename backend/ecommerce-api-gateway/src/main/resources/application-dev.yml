@@ -48,10 +48,10 @@ spring:
           filters:
             - StripPrefix=1
 
-        - id: price-service-payments
+        - id: price-service-pricing
           uri: http://localhost:8085
           predicates:
-            - Path=/api/payments/**
+            - Path=/api/pricing/**
           filters:
             - StripPrefix=1
 

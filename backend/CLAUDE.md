@@ -27,7 +27,7 @@ just fail at the gateway.
 | `dev-products`      | 8082 | `/api/products/**`, `/api/categories/**`, `/api/promotions/**` |
 | `dev-featured`      | 8083 | `/api/products/featured` |
 | `dev-orders`        | 8084 | `/api/orders/**`, `/api/cart/**` |
-| `dev-price`         | 8085 | `/api/prices/**`, `/api/payments/**` |
+| `dev-price`         | 8085 | `/api/prices/**`, `/api/pricing/**` |
 
 Run `make help` for the full target list. The gateway is Spring Boot — see
 `ecommerce-api-gateway/CLAUDE.md`.
