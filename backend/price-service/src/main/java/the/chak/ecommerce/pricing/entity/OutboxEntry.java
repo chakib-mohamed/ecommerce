@@ -29,6 +29,11 @@ public class OutboxEntry implements OutboxRecord {
     /** JSON-B-serialized event body (camelCase); re-serialized to the wire by the channel serializer. */
     public String payload;
 
+    /** W3C {@code traceparent} of the request that produced this event, captured at write time so the
+     *  off-request relay can re-parent the Kafka producer span onto the originating trace. Null when
+     *  no active span was in scope (e.g. tests with the OTel SDK disabled) or for pre-fix documents. */
+    public String traceparent;
+
     public Instant createdAt;
 
     public Instant publishedAt;

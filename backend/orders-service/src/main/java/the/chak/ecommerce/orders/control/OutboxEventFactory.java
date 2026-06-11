@@ -11,6 +11,7 @@ import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.entity.OutboxEntry;
+import the.chak.ecommerce.outbox.OutboxTracing;
 
 /**
  * Builds {@link OutboxEntry} documents from order domain state. The event body is the boundary
@@ -41,6 +42,7 @@ public class OutboxEventFactory {
         entry.eventType = TOPIC_ORDER_INITIATED;
         entry.topic = TOPIC_ORDER_INITIATED;
         entry.payload = jsonb.toJson(toDto(order, orderId));
+        entry.traceparent = OutboxTracing.currentTraceparent();
         entry.createdAt = Instant.now();
         return entry;
     }

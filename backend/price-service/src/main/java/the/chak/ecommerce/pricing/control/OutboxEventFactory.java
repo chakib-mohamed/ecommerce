@@ -5,6 +5,7 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.json.bind.Jsonb;
+import the.chak.ecommerce.outbox.OutboxTracing;
 import the.chak.ecommerce.pricing.control.events.PriceChangedEvent;
 import the.chak.ecommerce.pricing.entity.OutboxEntry;
 
@@ -31,6 +32,7 @@ public class OutboxEventFactory {
         entry.eventType = TOPIC_PRICE_CHANGED;
         entry.topic = TOPIC_PRICE_CHANGED;
         entry.payload = jsonb.toJson(event);
+        entry.traceparent = OutboxTracing.currentTraceparent();
         entry.createdAt = Instant.now();
         return entry;
     }

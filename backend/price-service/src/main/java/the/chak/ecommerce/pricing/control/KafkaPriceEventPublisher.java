@@ -3,6 +3,8 @@ package the.chak.ecommerce.pricing.control;
 import java.util.concurrent.CompletableFuture;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.opentelemetry.context.Context;
+import io.smallrye.reactive.messaging.TracingMetadata;
 import io.smallrye.reactive.messaging.kafka.api.OutgoingKafkaRecordMetadata;
 import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
@@ -26,15 +28,21 @@ public class KafkaPriceEventPublisher {
     Emitter<PriceChangedEvent> emitter;
 
     /**
-     * Publishes a {@code price-changed} event with the given Kafka message key. The returned future
+     * Publishes a {@code price-changed} event with the given Kafka message key, parenting the
+     * producer span on {@code parent} (the originating request's trace). The returned future
      * completes when the broker acks (or completes exceptionally on nack).
      */
-    public CompletableFuture<Void> publishPriceChanged(PriceChangedEvent event, String key) {
+    public CompletableFuture<Void> publishPriceChanged(
+            PriceChangedEvent event, String key, Context parent) {
         LOG.infof("Publishing price-changed event productId=%s newPrice=%.2f",
                 event.getProductId(), event.getNewPrice());
         CompletableFuture<Void> ack = new CompletableFuture<>();
+        // TracingMetadata.withCurrent carries the outbox-stored parent context on the message itself;
+        // SmallRye's outgoing Kafka tracing reads getCurrentContext() as the producer span's parent,
+        // so a relay publish stays in the request's trace even across the background-thread hop.
         Metadata metadata = Metadata.of(
-                OutgoingKafkaRecordMetadata.<String>builder().withKey(key).build());
+                OutgoingKafkaRecordMetadata.<String>builder().withKey(key).build(),
+                TracingMetadata.withCurrent(parent));
         emitter.send(Message.of(event, metadata,
                 () -> {
                     ack.complete(null);

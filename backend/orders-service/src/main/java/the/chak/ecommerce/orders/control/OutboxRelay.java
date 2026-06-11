@@ -7,12 +7,14 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.opentelemetry.context.Context;
 import io.quarkus.scheduler.Scheduled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.entity.OutboxEntry;
 import the.chak.ecommerce.orders.repository.OutboxRepository;
 import the.chak.ecommerce.outbox.AbstractOutboxRelay;
+import the.chak.ecommerce.outbox.OutboxTracing;
 
 /**
  * Order-specific outbox relay. All scheduling, batching, and at-least-once failure handling live in
@@ -61,7 +63,8 @@ public class OutboxRelay extends AbstractOutboxRelay<OutboxEntry> {
             throw new IllegalStateException("Unknown outbox topic: " + entry.topic);
         }
         OrderDTO payload = jsonb.fromJson(entry.payload, OrderDTO.class);
-        return publisher.publishOrderInitiated(payload, entry.aggregateKey());
+        Context parent = OutboxTracing.extract(entry.traceparent);
+        return publisher.publishOrderInitiated(payload, entry.aggregateKey(), parent);
     }
 
     @Override

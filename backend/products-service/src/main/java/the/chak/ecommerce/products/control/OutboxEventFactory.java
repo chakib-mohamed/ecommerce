@@ -4,6 +4,7 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.json.bind.Jsonb;
+import the.chak.ecommerce.outbox.OutboxTracing;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 import the.chak.ecommerce.products.entity.OutboxEvent;
@@ -39,6 +40,7 @@ public class OutboxEventFactory {
         row.setEventType(topic);
         row.setTopic(topic);
         row.setPayload(jsonb.toJson(payload));
+        row.setTraceparent(OutboxTracing.currentTraceparent());
         return row;
     }
 }

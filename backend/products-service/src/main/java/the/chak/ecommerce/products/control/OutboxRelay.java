@@ -8,10 +8,12 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.opentelemetry.context.Context;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.scheduler.Scheduled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import the.chak.ecommerce.outbox.AbstractOutboxRelay;
+import the.chak.ecommerce.outbox.OutboxTracing;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 import the.chak.ecommerce.products.entity.OutboxEvent;
@@ -64,16 +66,17 @@ public class OutboxRelay extends AbstractOutboxRelay<OutboxEvent> {
     @Override
     protected CompletableFuture<Void> publish(OutboxEvent event) {
         String key = event.aggregateKey();
+        Context parent = OutboxTracing.extract(event.getTraceparent());
         return switch (event.getTopic()) {
             case "product-updated" -> {
                 ProductUpdatedEvent payload =
                         jsonb.fromJson(event.getPayload(), ProductUpdatedEvent.class);
-                yield kafkaEventPublisher.publishProductUpdated(payload, key);
+                yield kafkaEventPublisher.publishProductUpdated(payload, key, parent);
             }
             case "product-deleted" -> {
                 ProductDeletedEvent payload =
                         jsonb.fromJson(event.getPayload(), ProductDeletedEvent.class);
-                yield kafkaEventPublisher.publishProductDeleted(payload, key);
+                yield kafkaEventPublisher.publishProductDeleted(payload, key, parent);
             }
             default -> throw new IllegalStateException("Unknown outbox topic: " + event.getTopic());
         };
