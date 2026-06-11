@@ -17,6 +17,6 @@ public interface PricingApiClient {
 
     @Timeout(2000)
     @POST
-    Response calculatePrice(PricingOrder order);
+    Response calculatePrice(PricingRequest request);
 
 }
