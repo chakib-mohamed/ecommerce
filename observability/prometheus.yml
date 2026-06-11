@@ -1,6 +1,6 @@
 # Prometheus scrape configuration for the local observability stack.
-# Phase 1 shipped Prometheus's own self-scrape; Phase 2 adds the gateway job below.
-# The six Quarkus service jobs are added in Phase 4 — see docs/tasks/observability-plan.md.
+# Phase 1 shipped Prometheus's own self-scrape; Phase 2 added the gateway job;
+# Phase 4 adds the Quarkus service jobs below — see docs/tasks/observability-plan.md.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -16,3 +16,30 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ["api-gateway:8080"]
+
+  # Quarkus services — Micrometer renders Prometheus-format metrics at /q/metrics.
+  # Each listens on container port 8080, reachable by service name on the backend network.
+  - job_name: authenticate-service
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["authenticate-service:8080"]
+
+  - job_name: products-service
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["products-service:8080"]
+
+  - job_name: featured-products-service
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["featured-products-service:8080"]
+
+  - job_name: orders-service
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["orders-service:8080"]
+
+  - job_name: price-service
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["price-service:8080"]
