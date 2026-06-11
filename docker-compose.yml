@@ -157,6 +157,7 @@ services:
     environment:
       - QUARKUS_PROFILE=prod
       - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017/?replicaSet=rs0
+      - JWT_PUBLIC_KEY
     depends_on:
       mongodb:
         condition: service_healthy
@@ -191,6 +192,7 @@ services:
       - QUARKUS_PROFILE=prod
       - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017/?replicaSet=rs0
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - JWT_PUBLIC_KEY
     depends_on:
       mongodb:
         condition: service_healthy

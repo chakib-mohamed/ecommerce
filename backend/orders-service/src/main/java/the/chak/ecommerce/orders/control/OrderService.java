@@ -20,6 +20,8 @@ import the.chak.ecommerce.orders.entity.OutboxEntry;
 import the.chak.ecommerce.orders.repository.OrderSearch;
 import the.chak.ecommerce.orders.repository.OutboxRepository;
 import the.chak.ecommerce.orders.repository.PagedResult;
+import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
+import the.chak.ecommerce.orders.boundary.dto.ProductVO;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 import the.chak.ecommerce.orders.boundary.dto.Tuple;
 import the.chak.ecommerce.products.boundary.dto.ProductDto;
@@ -72,9 +74,9 @@ public class OrderService {
                     .orElse(null));
         });
 
-        PricingOrder pricingOrder = new PricingOrder();
+        OrderDTO pricingOrder = new OrderDTO();
         pricingOrder.setProducts(order.getProducts().stream().map(p -> {
-            PricingOrder.PricingOrderProduct item = new PricingOrder.PricingOrderProduct();
+            ProductVO item = new ProductVO();
             item.setProductID(p.getProductID());
             item.setQty(p.getQty());
             item.setPrice(p.getPrice());
@@ -82,8 +84,13 @@ public class OrderService {
             return item;
         }).toList());
 
+        // The order id is not yet assigned (persist happens after pricing) and price-service mints
+        // its own processId, so the envelope id is left unset.
+        PricingRequest pricingRequest = new PricingRequest();
+        pricingRequest.setOrder(pricingOrder);
+
         long start = System.currentTimeMillis();
-        Response response = pricingApiClient.calculatePrice(pricingOrder);
+        Response response = pricingApiClient.calculatePrice(pricingRequest);
         LOG.infof("POST pricing-service /pricing/calculate products=%d status=%d elapsed=%dms",
                 pricingOrder.getProducts().size(), response.getStatus(),
                 System.currentTimeMillis() - start);

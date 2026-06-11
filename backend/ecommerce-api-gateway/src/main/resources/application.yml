@@ -53,10 +53,10 @@ spring:
           filters:
             - StripPrefix=1
 
-        - id: price-service-payments
+        - id: price-service-pricing
           uri: http://price-service:8080
           predicates:
-            - Path=/api/payments/**
+            - Path=/api/pricing/**
           filters:
             - StripPrefix=1
   jackson:
