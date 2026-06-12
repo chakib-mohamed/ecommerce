@@ -55,99 +55,50 @@ Standard key names used across services:
 | `userId` | string | authenticated user identity |
 | `productId` | UUID string | product identifier |
 | `orderId` | string | order identifier |
-| `requestId` | UUID string | correlation ID across services (see §4) |
+| `traceId` | hex string | trace correlation ID across services — auto-stamped via MDC (see §4) |
+| `spanId` | hex string | current span within the trace — auto-stamped via MDC (see §4) |
 | `elapsed` | integer (ms) | duration of a cross-service call |
 | `total` | decimal | monetary total |
 | `items` / `products` | integer | count |
 
 ---
 
-## 4. Correlation ID (requestId) via MDC
+## 4. Correlation ID (traceId / spanId) via MDC
 
-Every log line in a request thread should include a `requestId` so you can correlate logs across services without a full APM stack.
+Every log line in a request thread carries a `traceId` and `spanId` so you can correlate logs
+across services **and pivot straight into Jaeger**. These come from OpenTelemetry — there is no
+hand-rolled correlation id to manage.
+
+> **`X-Request-ID` is retired.** The old UUID `requestId` (minted at the gateway, forwarded as
+> `X-Request-ID`, stamped into MDC by each service's filter) has been removed. `traceId` supersedes
+> it: it is present in the MDC of *every* request regardless of sampling, and — unlike `requestId` —
+> it links directly to the trace in Jaeger. Standardize on `traceId`.
 
 ### How it flows
 
-1. **Gateway** generates a UUID `requestId` if the incoming request has no `X-Request-ID` header; otherwise reuses the client-supplied value.
-2. **Gateway** forwards the ID as `X-Request-ID` to every downstream service.
-3. **Each Quarkus service** reads `X-Request-ID` in its `RequestLoggingFilter` and puts it into MDC.
-4. **Log format** in `application.properties` includes `%X{requestId}` so every log line in the thread carries the ID automatically.
-5. **Filter clears MDC** in the response phase to avoid thread-pool leaks.
-
-### Quarkus — filter pattern
-
-The filter implements both `ContainerRequestFilter` and `ContainerResponseFilter`:
-
-```java
-@Provider
-public class RequestLoggingFilter implements ContainerRequestFilter, ContainerResponseFilter {
-
-    private static final Logger LOG = Logger.getLogger(RequestLoggingFilter.class);
-    private static final Set<String> SKIP_PATHS = Set.of("/q/health", "/q/metrics", "/q/ready", "/q/live");
-
-    @Context UriInfo info;
-    @Context HttpServerRequest request;
-
-    @Override
-    public void filter(ContainerRequestContext ctx) {
-        String path = info.getPath();
-        if (SKIP_PATHS.stream().anyMatch(path::startsWith)) return;
-
-        String requestId = Optional.ofNullable(ctx.getHeaderString("X-Request-ID"))
-                .orElse(UUID.randomUUID().toString());
-        MDC.put("requestId", requestId);
-
-        String userId = Optional.ofNullable(ctx.getSecurityContext())
-                .map(SecurityContext::getUserPrincipal)
-                .map(Principal::getName)
-                .orElse("anonymous");
-
-        LOG.infof("%s %s userId=%s requestId=%s", ctx.getMethod(), path, userId, requestId);
-    }
-
-    @Override
-    public void filter(ContainerRequestContext req, ContainerResponseContext res) {
-        MDC.remove("requestId");
-    }
-}
-```
+1. **OpenTelemetry auto-instrumentation** (the `opentelemetry-*` libraries on the classpath) starts a
+   span for every inbound request and propagates the W3C `traceparent` header across HTTP and Kafka —
+   no client filter or header code needed.
+2. **`traceId`/`spanId` land in MDC automatically.** The OTel logging integration populates them, so
+   the log format only has to reference them — services do **not** `MDC.put(...)` them by hand.
+3. **Request filters stay** — they still log method/path/userId (see §5) — but no longer touch any
+   correlation id.
+4. **Gateway echoes the trace id** back to the client as an `X-Trace-Id` response header, for a
+   client-facing handle into the trace.
 
 ### Quarkus — log format
 
-Add to every Quarkus service `application.properties`:
+Every Quarkus service `application.properties` references the OTel-populated MDC keys:
 ```properties
-quarkus.log.console.format=%d{HH:mm:ss} %-5p [%c{2.}] requestId=%X{requestId} %s%e%n
+quarkus.log.console.format=%d{HH:mm:ss} %-5p [%c{2.}] traceId=%X{traceId} spanId=%X{spanId} %s%e%n
 ```
 
-### Gateway — MDC with WebFlux
+### Gateway
 
-Spring Cloud Gateway is reactive (WebFlux). MDC is thread-local and does not propagate across reactor threads automatically. The recommended approach:
-
-- **Do not rely on MDC in gateway log patterns** for automatic propagation.
-- Instead, log `requestId` **explicitly** in the gateway `WebFilter` log line.
-- The `GlobalFilter` that injects `X-Request-ID` into downstream requests should log the value directly.
-
-Spring Boot 3 with Micrometer's `ContextPropagation` can bridge MDC to Reactor context, but that requires the `micrometer-observation` setup which is not currently in the gateway. Leave it out of scope unless full distributed tracing via Zipkin/Brave is wired end-to-end.
-
-### Gateway — GlobalFilter pattern
-
-```java
-@Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
-public class RequestIdGlobalFilter implements GlobalFilter {
-
-    @Override
-    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        String requestId = Optional.ofNullable(
-                exchange.getRequest().getHeaders().getFirst("X-Request-ID"))
-            .orElse(UUID.randomUUID().toString());
-
-        return chain.filter(exchange.mutate()
-            .request(r -> r.headers(h -> h.set("X-Request-ID", requestId)))
-            .build());
-    }
-}
-```
+The gateway uses `micrometer-tracing-bridge-otel`, which bridges the active span's `traceId`/`spanId`
+into the logging context, so its log pattern carries them the same way. The gateway also sets the
+`X-Trace-Id` response header from the current span. (No MDC propagation plumbing is required — this
+is handled by the tracing bridge, not by hand.)
 
 ---
 
@@ -156,7 +107,7 @@ public class RequestIdGlobalFilter implements GlobalFilter {
 | Layer | Rule |
 |-------|------|
 | `boundary/` resource classes | **No logging.** Resources are thin delegates; they do not own decisions. |
-| `boundary/` filters (`@Provider`) | Log inbound requests only — method, path, userId, requestId. Nothing else. |
+| `boundary/` filters (`@Provider`) | Log inbound requests only — method, path, userId. Nothing else (`traceId`/`spanId` are stamped automatically via MDC). |
 | `control/` services | Log business outcomes: what was created/updated/deleted, what events were sent/received. |
 | `control/` API clients | Log the outbound call before it happens and the outcome (status + elapsed time) after. |
 | `entity/` | Never log. |

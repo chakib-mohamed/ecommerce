@@ -47,6 +47,29 @@ not wired into the Makefile — the K8s path is a separate follow-up.
 See `backend/CLAUDE.md` for backend build commands, testing conventions, and framework specifics.
 See `frontend/CLAUDE.md` for frontend dev commands.
 
+### Observability
+
+Distributed tracing + metrics across all 7 backend services. The local stack — **OTel Collector +
+Jaeger + Prometheus + Grafana** — runs under the `observability` Docker Compose profile (`make
+observability`, also folded into `make up`):
+
+| UI | URL | Purpose |
+|----|-----|---------|
+| Jaeger | http://localhost:16686 | traces |
+| Prometheus | http://localhost:9090 | metrics + targets |
+| Grafana | http://localhost:3000 | dashboards (anon admin; *Ecommerce Overview* auto-provisioned) |
+
+- Every service exports OTLP to `otel-collector:4317`; the Collector **tail-samples** (keeps all
+  error/slow traces, ~10% of the rest) and forwards to Jaeger. One request is one connected trace
+  across the gateway, downstream HTTP calls, **and** Kafka (including outbox-published events).
+- Metrics are scraped by Prometheus from each service (gateway `/actuator/prometheus`, Quarkus
+  `/q/metrics`) — config in `observability/prometheus.yml`; Grafana provisioning in
+  `observability/grafana/provisioning/`.
+- Logs carry `traceId`/`spanId` (pivot logs → Jaeger). **`X-Request-ID` is retired** — the gateway
+  echoes the trace id back as an `X-Trace-Id` response header.
+
+Spec: `docs/specs/observability.md`. Logging/correlation rules: `docs/conventions/logging-conventions.md`.
+
 ### JSON Serialization Rules
 
 All HTTP API JSON across every service must follow these rules:

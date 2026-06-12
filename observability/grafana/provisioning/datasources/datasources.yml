@@ -1,6 +1,6 @@
 # Grafana datasource provisioning — Prometheus (metrics) + Jaeger (traces).
 # Loaded automatically on startup from /etc/grafana/provisioning/datasources.
-# Dashboards are provisioned later in Phase 6.
+# Dashboards are provisioned alongside, under ../dashboards (see dashboards.yml).
 apiVersion: 1
 
 datasources:

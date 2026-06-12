@@ -9,7 +9,9 @@ must appear as **one connected trace**, and every service must export metrics sc
 and visualizable in Grafana.
 
 **Goals:**
-- One trace spans the gateway and every downstream service it touches, over HTTP **and** Kafka.
+- One trace spans the gateway and every downstream service it touches, over HTTP **and** Kafka —
+  including events published via the transactional outbox, whose relay re-parents the producer span
+  on the originating request (`OutboxTracing`, `outbox-common`).
 - `traceId` / `spanId` appear on every log line, so logs pivot to traces.
 - Per-service metrics (request rate, latency, error rate, JVM, Kafka) in Prometheus + Grafana.
 - A local observability stack (OTel Collector + Jaeger + Prometheus + Grafana) startable from the Makefile.
@@ -84,6 +86,102 @@ work the services sample at `always_on` so the Collector sees every span; the ke
 lives in the Collector, not the services. The Collector owns the host OTLP ports (4317/4318); Jaeger's
 OTLP listener stays internal (`jaeger:4317`) for the Collector→Jaeger hop. Trade-off: one extra
 container to run, accepted for not losing the traces that matter.
+
+---
+
+## Monitoring Stack — Interaction Diagram
+
+How the four monitoring containers wire together at runtime, the files/datasources that configure
+each one, and the **direction (push/pull)** and **timing (sync/async)** of every hop. Spans
+originate in the services (W3C `traceparent` across HTTP and Kafka); metrics are exposed by each
+service and pulled by Prometheus.
+
+> **Reading the arrows:** each arrow points from the **initiator of the connection** to its target.
+> For *push* links (OTLP export) the data travels the same direction as the arrow; for *pull* links
+> (Prometheus scrape, Grafana query) the request goes along the arrow and the **data flows back**.
+
+```mermaid
+flowchart LR
+    subgraph SRC["Instrumented backend services — span emitters + metric exposers"]
+        GW["ecommerce-api-gateway<br/>Spring Boot · :8080<br/>micrometer-tracing-bridge-otel"]
+        QK["5 Quarkus services<br/>authenticate · products · featured-products<br/>orders · price · :8080<br/>quarkus-opentelemetry"]
+    end
+
+    subgraph PIPE["Trace pipeline"]
+        COL["OTel Collector (contrib)<br/>OTLP in :4317 gRPC / :4318 HTTP<br/>tail_sampling + batch"]
+    end
+
+    subgraph STORE["Backends"]
+        JAEGER["Jaeger all-in-one<br/>OTLP in jaeger:4317 (internal)<br/>UI :16686 · in-memory store"]
+        PROM["Prometheus · :9090<br/>TSDB → prometheus_data"]
+    end
+
+    GRAF["Grafana · :3000<br/>state → grafana_data"]
+    OP(("Operator<br/>browser"))
+
+    %% ---- Traces: PUSH / async ----
+    GW  -- "OTLP/gRPC · push · async<br/>otel-collector:4317" --> COL
+    QK  -- "OTLP/gRPC · push · async<br/>otel-collector:4317" --> COL
+    COL -- "OTLP/gRPC · push · async<br/>jaeger:4317" --> JAEGER
+
+    %% ---- Metrics: PULL / sync (scrape) ----
+    PROM -- "GET /actuator/prometheus<br/>pull · sync · every 15s" --> GW
+    PROM -- "GET /q/metrics<br/>pull · sync · every 15s" --> QK
+
+    %% ---- Grafana datasource queries: PULL / sync ----
+    GRAF -- "PromQL · pull · sync<br/>http://prometheus:9090" --> PROM
+    GRAF -- "trace query · pull · sync<br/>http://jaeger:16686" --> JAEGER
+
+    %% ---- Operator UIs (host-published) ----
+    OP -- ":3000" --> GRAF
+    OP -- ":16686" --> JAEGER
+    OP -- ":9090" --> PROM
+
+    %% ---- Config / provisioning files (mounted :ro) ----
+    FCOL["observability/<br/>otel-collector-config.yaml"]:::cfg -. configures .-> COL
+    FPROM["observability/<br/>prometheus.yml"]:::cfg -. scrape config .-> PROM
+    FDS["grafana/provisioning/datasources/<br/>datasources.yml"]:::cfg -. provisions datasources .-> GRAF
+    FDASH["grafana/provisioning/dashboards/<br/>dashboards.yml + ecommerce-overview.json"]:::cfg -. provisions dashboard .-> GRAF
+
+    classDef cfg fill:#f5f5f5,stroke:#999,stroke-dasharray:3 3,color:#333;
+```
+
+### Communication, per hop
+
+| Hop | Protocol / endpoint | Initiated by | Push/Pull | Sync/Async | Cadence |
+|-----|---------------------|--------------|-----------|------------|---------|
+| services → Collector | OTLP/gRPC `otel-collector:4317` (HTTP `:4318` available) | the service SDK | **push** | **async** — batched, off the request thread | continuous |
+| Collector → Jaeger | OTLP/gRPC `jaeger:4317` (internal only) | the Collector | **push** | **async** — after the 10 s tail-sampling buffer + `batch` | continuous |
+| Prometheus → gateway | HTTP `GET /actuator/prometheus` | Prometheus | **pull** (scrape) | **sync** request/response | every 15 s |
+| Prometheus → Quarkus ×5 | HTTP `GET /q/metrics` | Prometheus | **pull** (scrape) | **sync** request/response | every 15 s |
+| Grafana → Prometheus | HTTP PromQL `http://prometheus:9090` | Grafana | **pull** (query) | **sync** — on panel render/refresh | on demand |
+| Grafana → Jaeger | HTTP trace query `http://jaeger:16686` | Grafana | **pull** (query) | **sync** — on trace lookup | on demand |
+| Operator → Grafana / Jaeger / Prometheus UIs | HTTP host ports `:3000` / `:16686` / `:9090` | browser | pull | sync | on demand |
+
+Why the split: traces are **pushed** because the source decides when a span ends and can't be polled
+for in-flight work; metrics are **pulled** because Prometheus owns the scrape schedule and target
+discovery, and a missed scrape is itself a health signal. The Collector→Jaeger hop is async by
+design — tail sampling must buffer the *whole* trace before deciding keep/drop, so export lags the
+spans by up to `decision_wait` (10 s).
+
+### Files & datasources involved
+
+| Component | Artifact | File / volume (mounted `:ro` unless a volume) | Role |
+|-----------|----------|-----------------------------------------------|------|
+| OTel Collector | config | `observability/otel-collector-config.yaml` | OTLP receivers (4317/4318), `tail_sampling` policies, `otlp/jaeger` exporter |
+| Prometheus | scrape config | `observability/prometheus.yml` | 7 jobs: self + gateway + 5 Quarkus |
+| Prometheus | metric store | `prometheus_data` volume | TSDB persistence across restarts |
+| Grafana | datasources | `observability/grafana/provisioning/datasources/datasources.yml` | **Prometheus** (`uid: prometheus`, default) + **Jaeger** (`uid: jaeger`), `access: proxy` |
+| Grafana | dashboard provider | `observability/grafana/provisioning/dashboards/dashboards.yml` | file provider scanning the dir for `*.json` |
+| Grafana | dashboard | `observability/grafana/provisioning/dashboards/ecommerce-overview.json` | *Ecommerce Overview* (RED + JVM + Kafka, by `job`) |
+| Grafana | internal state | `grafana_data` volume | users, prefs, UI-side edits (survives restart) |
+| Jaeger | trace store | — (all-in-one, **in-memory**; no volume) | traces are lost on restart by design (local dev) |
+| each service | trace/metric SDK config | service `application.properties` / gateway `application.yml` | OTLP endpoint, `always_on` sampler, Micrometer Prometheus registry |
+
+All four config files reach their container through the bind mounts declared on the `observability`
+profile in `docker-compose.yml`; the two named volumes (`prometheus_data`, `grafana_data`) hold the
+only state that must outlive a container restart. Jaeger intentionally keeps none — acceptable for a
+local stack.
 
 ---
 

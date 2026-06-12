@@ -101,7 +101,27 @@ sh .githooks/install.sh      # or: git config core.hooksPath .githooks
 
 ## Logging
 
-See `docs/conventions/logging-conventions.md` for logging rules — structured format, correlation IDs via MDC, layer placement, Kafka symmetry, sensitive data, and cross-service elapsed time.
+See `docs/conventions/logging-conventions.md` for logging rules — structured format, `traceId`/`spanId` correlation via MDC, layer placement, Kafka symmetry, sensitive data, and cross-service elapsed time.
+
+## Observability
+
+All 6 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
+(metrics); the gateway uses `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`. Per
+service:
+
+- **Tracing** — OTLP endpoint `http://otel-collector:4317`, sampler `quarkus.otel.traces.sampler=always_on`
+  (the Collector tail-samples). Auto-instrumentation covers JAX-RS, Rest Client, JDBC/Mongo, and
+  SmallRye Reactive Messaging, so HTTP and Kafka spans join one trace with no hand-written propagation.
+- **Metrics** — Prometheus exposition at `/q/metrics` (Quarkus) / `/actuator/prometheus` (gateway);
+  scrape targets in `observability/prometheus.yml`.
+- **Logs** — `quarkus.log.console.format` stamps `traceId=%X{traceId} spanId=%X{spanId}` (OTel
+  populates MDC automatically). `requestId`/`X-Request-ID` is retired.
+
+**Outbox trace propagation:** the transactional outbox relay publishes on a background thread after
+the request ends, so it re-parents the Kafka producer span on the originating request via a
+`traceparent` stored on the outbox record — shared helper `OutboxTracing` in `outbox-common`. See
+`memory/project_outbox_breaks_kafka_trace_continuity.md`. Full stack/usage: root `CLAUDE.md` →
+*Observability* and `docs/specs/observability.md`.
 
 ## Service-Specific Details
 
