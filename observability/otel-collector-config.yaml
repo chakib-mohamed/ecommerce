@@ -1,0 +1,43 @@
+# OpenTelemetry Collector — the single ingestion point for traces.
+# All services export OTLP here; the Collector tail-samples and forwards to Jaeger.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Tail sampling decides per-trace AFTER the whole trace is buffered, so we keep
+  # every error and slow trace and sample only the routine ones. This is why
+  # services export at always_on — the keep/drop decision lives here, not at the source.
+  tail_sampling:
+    decision_wait: 10s
+    policies:
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: keep-slow
+        type: latency
+        latency:
+          threshold_ms: 500
+      - name: sample-the-rest
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+  batch: {}
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [tail_sampling, batch]
+      exporters: [otlp/jaeger]

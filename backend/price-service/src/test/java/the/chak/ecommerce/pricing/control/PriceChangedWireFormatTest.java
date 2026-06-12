@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 import jakarta.inject.Inject;
+import io.opentelemetry.context.Context;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -46,7 +47,8 @@ class PriceChangedWireFormatTest {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
             // when - the real producer path serializes the event onto the topic
-            publisher.publishPriceChanged(new PriceChangedEvent(productId.toString(), 42.0), productId.toString());
+            publisher.publishPriceChanged(new PriceChangedEvent(productId.toString(), 42.0),
+                    productId.toString(), Context.root());
 
             // then - the wire payload uses snake_case field names, never camelCase
             String wire = awaitWire(consumer, productId.toString(), Duration.ofSeconds(20));

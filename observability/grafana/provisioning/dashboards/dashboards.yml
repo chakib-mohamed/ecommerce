@@ -1,0 +1,14 @@
+# Grafana dashboard provisioning — loads JSON dashboards from disk on startup.
+# Mounted at /etc/grafana/provisioning/dashboards (see docker-compose.yml grafana volume).
+# Grafana scans `path` for *.json and ignores this .yml.
+apiVersion: 1
+
+providers:
+  - name: ecommerce
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

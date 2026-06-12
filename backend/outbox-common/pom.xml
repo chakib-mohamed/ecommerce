@@ -46,6 +46,14 @@
             <artifactId>quarkus-jsonb</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- OTel API for the W3C traceparent capture/extract in OutboxTracing; the services bring
+             the full quarkus-opentelemetry (SDK + Kafka instrumentation) at runtime. Version is
+             managed by quarkus-bom. -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
 
         <dependency>
             <groupId>io.quarkus</groupId>

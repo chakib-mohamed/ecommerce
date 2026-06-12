@@ -49,7 +49,7 @@ class OutboxRelayBreakTest {
     @DisplayName("A broker outage aborts the batch after the first row and never burns a retry")
     void brokerOutage_abortsBatch_afterFirstRow_withoutBurningRetries() {
         // given - a broker that rejects every send, and three healthy unpublished rows
-        when(publisher.publishProductUpdated(any(), any()))
+        when(publisher.publishProductUpdated(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("broker down")));
         UUID id1 = insertUnpublished("product-updated", UUID.randomUUID());
         UUID id2 = insertUnpublished("product-updated", UUID.randomUUID());
@@ -59,7 +59,7 @@ class OutboxRelayBreakTest {
         relay.pollAndPublish();
 
         // then - only the first row is attempted (loop breaks); none stamped or counted
-        verify(publisher, times(1)).publishProductUpdated(any(), any());
+        verify(publisher, times(1)).publishProductUpdated(any(), any(), any());
         for (UUID id : List.of(id1, id2, id3)) {
             OutboxEvent reloaded = findById(id);
             assertNull(reloaded.getPublishedAt());

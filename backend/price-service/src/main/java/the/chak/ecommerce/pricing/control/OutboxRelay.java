@@ -7,9 +7,11 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.opentelemetry.context.Context;
 import io.quarkus.scheduler.Scheduled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import the.chak.ecommerce.outbox.AbstractOutboxRelay;
+import the.chak.ecommerce.outbox.OutboxTracing;
 import the.chak.ecommerce.pricing.control.events.PriceChangedEvent;
 import the.chak.ecommerce.pricing.entity.OutboxEntry;
 import the.chak.ecommerce.pricing.repository.OutboxRepository;
@@ -61,7 +63,8 @@ public class OutboxRelay extends AbstractOutboxRelay<OutboxEntry> {
             throw new IllegalStateException("Unknown outbox topic: " + entry.topic);
         }
         PriceChangedEvent payload = jsonb.fromJson(entry.payload, PriceChangedEvent.class);
-        return publisher.publishPriceChanged(payload, entry.aggregateKey());
+        Context parent = OutboxTracing.extract(entry.traceparent);
+        return publisher.publishPriceChanged(payload, entry.aggregateKey(), parent);
     }
 
     @Override

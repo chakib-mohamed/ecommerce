@@ -2,6 +2,12 @@ server:
   port: 8080
 
 spring:
+  application:
+    name: ecommerce-api-gateway
+  reactor:
+    # Restore the trace context into ThreadLocal across reactive operators, so
+    # traceId/spanId reach the log MDC and the X-Trace-Id response header.
+    context-propagation: auto
   cloud:
     gateway:
       routes:
@@ -90,5 +96,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,info,prometheus
+  tracing:
+    sampling:
+      # Export every span; the OTel Collector owns the keep/drop decision (tail sampling).
+      probability: 1.0
+  otlp:
+    tracing:
+      # Spans go to the OTel Collector over OTLP/gRPC; it tail-samples and forwards to Jaeger.
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+      transport: grpc
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},traceId=%X{traceId:-},spanId=%X{spanId:-}]"
 

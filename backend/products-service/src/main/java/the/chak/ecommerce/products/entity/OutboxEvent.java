@@ -34,6 +34,11 @@ public class OutboxEvent implements OutboxRecord {
     @Column(columnDefinition = "jsonb")
     private String payload;
 
+    /** W3C {@code traceparent} of the request that produced this event, captured at write time so the
+     *  off-request relay can re-parent the Kafka producer span onto the originating trace. Null when
+     *  no active span was in scope (e.g. tests with the OTel SDK disabled). */
+    private String traceparent;
+
     private Instant createdAt;
 
     private Instant publishedAt;
