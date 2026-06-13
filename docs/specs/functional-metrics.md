@@ -9,15 +9,14 @@ The existing *Ecommerce Overview* dashboard shows infra health (request rate, la
 which answers *"is the service up and fast?"* but not *"are people buying things?"*.
 
 This spec defines a curated set of **functional KPIs** — orders, revenue distribution, auth
-success/failure, catalog changes, pricing/discounts, and event flow — so operators can see the
+success/failure, catalog changes, and pricing/discounts — so operators can see the
 *business* pulse of the platform alongside its technical health.
 
 **Goals:**
-- A small, high-signal set of business meters recorded in the control layer of the 5 Quarkus services.
+- A small, high-signal set of business meters recorded in the control layer of the 4 Quarkus services.
 - Each meter scrapeable by Prometheus at the existing `/q/metrics` endpoints (no new wiring).
 - A new provisioned *Business KPIs* Grafana dashboard rendering them (orders/min, order value
-  p50/p95, login success vs failure, catalog mutations, discount amounts, featured cache size,
-  events consumed/min).
+  p50/p95, login success vs failure, catalog mutations, discount amounts).
 
 **Out of scope:**
 - Gateway metrics — the Spring Cloud Gateway already exports per-route RED metrics; it gets no
@@ -39,9 +38,13 @@ success/failure, catalog changes, pricing/discounts, and event flow — so opera
   `boundary/` resources or `repository/` (per `docs/conventions/architecture-conventions.md`).
 - **Visualization — a new dashboard.** A new provisioned *Business KPIs* dashboard; the existing
   *Ecommerce Overview* dashboard is left untouched.
-- **Scope — the 5 Quarkus services only:** `authenticate`, `products`, `featured-products`,
+- **Scope — the 4 Quarkus services that own business behaviour:** `authenticate`, `products`,
   `orders`, `price`. All already ship `quarkus-micrometer-registry-prometheus` and expose
   `/q/metrics`; `MeterRegistry` is CDI-injectable with no extra configuration.
+- **`featured-products` excluded.** It is a read-model projection: its meters would measure the
+  Kafka read-model sync (events consumed, cache size) — system/integration health, not business
+  behaviour. The underlying business events are already counted at their source in `products`
+  (`catalog_products_mutations_total`), so featured-products gets no functional meters here.
 
 ---
 
@@ -61,8 +64,6 @@ the exact control method (and failure branch) verified against the current code.
 | products | `catalog_promotions_mutations_total` | counter | `op=create\|delete` | `PromotionService.savePromotion` / `deletePromotion` |
 | products | `catalog_images_uploaded_total` | counter | — | image-upload branch in `ProductService.saveProduct` / `updateProduct` |
 | products | `catalog_price_updates_consumed_total` | counter | — | `ProductService.updatePrice` (Kafka consumer) |
-| featured-products | `featured_events_consumed_total` | counter | `type=updated\|deleted` | `KafkaEventConsumer.consumeProductUpdated` / `consumeProductDeleted` |
-| featured-products | `featured_cache_size` | gauge | — | bound to `productMongoRepository.count()` |
 | orders | `orders_created_total` | counter | — | `OrderService.saveOrder` |
 | orders | `order_value_amount` | summary | — | `OrderService.saveOrder` — records `order.getPrice()` (set from the pricing call) |
 | orders | `orders_confirmed_total` | counter | — | `OrderService.confirmOrder` |
@@ -76,9 +77,6 @@ the exact control method (and failure branch) verified against the current code.
 - **Distribution summaries** — `order_value_amount` and `pricing_discount_amount` are
   `DistributionSummary` meters configured with `.publishPercentileHistogram()`, so Grafana can
   render p50/p95 via `histogram_quantile` over the emitted buckets.
-- **Gauge** — `featured_cache_size` is a `Gauge` registered once (e.g. via
-  `Gauge.builder(...).register(registry)`) bound to `productMongoRepository.count()`; it is read on
-  scrape, not incremented.
 - **Failure semantics differ by service** — record the failure increment *at the point the domain
   signals failure*:
   - **Login** signals failure by returning `Optional.empty()` (no exception thrown — the timing-safe
