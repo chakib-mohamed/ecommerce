@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.control;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -28,6 +29,9 @@ public class PricingService {
     @Inject
     ApplyPromotionsService applyPromotionsService;
 
+    @Inject
+    MeterRegistry meterRegistry;
+
     private KieContainer kieContainer;
 
     @PostConstruct
@@ -45,6 +49,7 @@ public class PricingService {
     public PriceCalculationResponse calculate(PriceCalculationRequest request) {
         OrderDTO order = request.getOrder();
         if (order == null || order.getProducts() == null || order.getProducts().isEmpty()) {
+            recordCalculation(MetricNames.OUTCOME_FAILURE);
             throw new InvalidOrderException();
         }
 
@@ -59,9 +64,14 @@ public class PricingService {
         order.setPrice(Double.parseDouble(String.format(Locale.US, "%.2f", total)));
 
         String processId = UUID.randomUUID().toString();
+        recordCalculation(MetricNames.OUTCOME_SUCCESS);
         LOG.infof("Pricing calculation complete processId=%s total=%.2f", processId, order.getPrice());
 
         return new PriceCalculationResponse(processId, order);
+    }
+
+    private void recordCalculation(String outcome) {
+        meterRegistry.counter(MetricNames.PRICING_CALCULATIONS, MetricNames.TAG_OUTCOME, outcome).increment();
     }
 
     private void applyDroolsRules(OrderDTO order) {

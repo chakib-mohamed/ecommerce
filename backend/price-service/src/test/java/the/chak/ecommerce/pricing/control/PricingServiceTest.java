@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -19,12 +21,17 @@ class PricingServiceTest {
 
     PricingService pricingService;
 
+    // A real registry so pricing calculation counters are recorded and assertable.
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     @BeforeEach
     void setUp() {
         // ApplyPromotionsService is pure logic; Drools runs in-process from a classpath rule
         // file - neither needs a container, so no @QuarkusTest is required.
         pricingService = new PricingService();
         pricingService.applyPromotionsService = new ApplyPromotionsService();
+        pricingService.applyPromotionsService.meterRegistry = meterRegistry;
+        pricingService.meterRegistry = meterRegistry;
         pricingService.init();
     }
 
@@ -104,6 +111,37 @@ class PricingServiceTest {
         // then
         assertNotNull(response.getId());
         assertEquals(36, response.getId().length()); // UUID string length
+    }
+
+    // --metrics ------------------------------------------------------------
+
+    @Test
+    @DisplayName("Counts a success outcome when a valid order is priced")
+    void calculate_validOrder_recordsSuccessOutcome() {
+        // given
+        PriceCalculationRequest request = requestWith(product("p1", 1, 10.0, null));
+
+        // when
+        pricingService.calculate(request);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("pricing.calculations").tag("outcome", "success").counter().count(),
+                0.001);
+    }
+
+    @Test
+    @DisplayName("Counts a failure outcome when the order is invalid")
+    void calculate_invalidOrder_recordsFailureOutcome() {
+        // given
+        PriceCalculationRequest request = new PriceCalculationRequest();
+        request.setOrder(null);
+
+        // when / then
+        assertThrows(InvalidOrderException.class, () -> pricingService.calculate(request));
+        assertEquals(1.0,
+                meterRegistry.get("pricing.calculations").tag("outcome", "failure").counter().count(),
+                0.001);
     }
 
     // -- helpers ------------------------------------------------------------

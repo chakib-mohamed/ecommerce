@@ -4,6 +4,7 @@ import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.ReplaceOptions;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -41,8 +42,12 @@ public class PriceService {
     @Inject
     OutboxRelay outboxRelay;
 
+    @Inject
+    MeterRegistry meterRegistry;
+
     public Price update(String productId, Double price) {
         if (price == null || price <= 0) {
+            recordPriceUpdate(MetricNames.OUTCOME_FAILURE);
             throw new InvalidPriceException();
         }
 
@@ -68,10 +73,15 @@ public class PriceService {
                 return null;
             });
         }
+        recordPriceUpdate(MetricNames.OUTCOME_SUCCESS);
         LOG.infof("Price updated productId=%s newPrice=%.2f", productId, price);
 
         // Best-effort wake-up; if it is lost the scheduled tick still drains the entry.
         outboxRelay.requestPoll();
         return entity;
+    }
+
+    private void recordPriceUpdate(String outcome) {
+        meterRegistry.counter(MetricNames.PRICING_PRICE_UPDATES, MetricNames.TAG_OUTCOME, outcome).increment();
     }
 }
