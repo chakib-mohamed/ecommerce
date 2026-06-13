@@ -15,6 +15,8 @@ import java.util.List;
 
 import static org.mockito.Mockito.verify;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.bson.types.ObjectId;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
@@ -57,6 +60,11 @@ class OrderServiceTest {
     @Mock
     OrderRepository orderRepository;
 
+    // A real registry (not a mock) so meter increments are actually recorded and assertable.
+    // @InjectMocks injects @Spy fields, so OrderService receives this registry.
+    @Spy
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     // --saveOrder ----------------------------------------------------------
 
     @Test
@@ -68,6 +76,36 @@ class OrderServiceTest {
 
         // when & then
         assertThrows(ProductNotFoundException.class, () -> orderService.saveOrder(order));
+    }
+
+    @Test
+    @DisplayName("Counts the created order and records its value on a successful save")
+    void saveOrder_success_recordsCreatedCounterAndValue() {
+        // given
+        ProductDto product = productDto("Widget", 50.0, null);
+        when(productsApiClient.getProduct("prod-1")).thenReturn(product);
+        mockPricingResult(120.0);
+        Order order = newOrder("prod-1", 2);
+
+        // when
+        orderService.saveOrder(order);
+
+        // then
+        assertEquals(1.0, meterRegistry.get("orders.created").counter().count(), 0.001);
+        assertEquals(1L, meterRegistry.get("order.value.amount").summary().count());
+        assertEquals(120.0, meterRegistry.get("order.value.amount").summary().totalAmount(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Records no order-created metric when the product cannot be found")
+    void saveOrder_productNotFound_doesNotRecordCreatedMetric() {
+        // given
+        when(productsApiClient.getProduct("missing-prod")).thenReturn(null);
+        Order order = newOrder("missing-prod", 1);
+
+        // when & then
+        assertThrows(ProductNotFoundException.class, () -> orderService.saveOrder(order));
+        assertNull(meterRegistry.find("orders.created").counter());
     }
 
     @Test
@@ -188,6 +226,20 @@ class OrderServiceTest {
 
         // then
         assertNull(result);
+    }
+
+    @Test
+    @DisplayName("Records no orders-confirmed metric when the order id does not exist")
+    void confirmOrder_nonExistentOrderId_doesNotIncrementConfirmedCounter() {
+        // given
+        String fakeId = new ObjectId().toString();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(null);
+
+        // when
+        orderService.confirmOrder(fakeId);
+
+        // then
+        assertNull(meterRegistry.find("orders.confirmed").counter());
     }
 
     // --helpers ------------------------------------------------------------
