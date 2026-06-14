@@ -10,6 +10,7 @@ import the.chak.ecommerce.orders.control.exceptions.CartNotFoundException;
 import the.chak.ecommerce.orders.entity.Cart;
 import the.chak.ecommerce.orders.entity.CartItem;
 import the.chak.ecommerce.orders.entity.Order;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -31,6 +32,9 @@ public class CartService {
 
     @Inject
     the.chak.ecommerce.orders.repository.CartRepository cartRepository;
+
+    @Inject
+    MeterRegistry meterRegistry;
 
     public CartResponse addItem(String userId, AddItemRequest request) {
         Cart cart = cartRepository.findByUserId(userId).orElseGet(() -> {
@@ -102,8 +106,12 @@ public class CartService {
 
     public Order checkout(String userId) {
         Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new CartNotFoundException(userId));
+                .orElseThrow(() -> {
+                    recordCheckout(MetricNames.OUTCOME_FAILURE);
+                    return new CartNotFoundException(userId);
+                });
         if (cart.items.isEmpty()) {
+            recordCheckout(MetricNames.OUTCOME_FAILURE);
             throw new CartEmptyException();
         }
 
@@ -122,8 +130,13 @@ public class CartService {
 
         orderService.saveOrder(order);
         cartRepository.delete(cart);
+        recordCheckout(MetricNames.OUTCOME_SUCCESS);
         LOG.infof("Cart cleared userId=%s", userId);
         return order;
+    }
+
+    private void recordCheckout(String outcome) {
+        meterRegistry.counter(MetricNames.CHECKOUTS, MetricNames.TAG_OUTCOME, outcome).increment();
     }
 
     private CartResponse toResponse(Cart cart) {

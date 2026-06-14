@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +51,9 @@ class PriceOutboxWritePathTest {
     @Inject
     OutboxRepository outboxRepository;
 
+    @Inject
+    MeterRegistry meterRegistry;
+
     @ConfigProperty(name = "kafka.bootstrap.servers")
     String bootstrapServers;
 
@@ -57,6 +61,7 @@ class PriceOutboxWritePathTest {
     @DisplayName("Updating a price commits the price document and a price-changed outbox entry that the relay publishes keyed by the product id")
     void updatePrice_writesPriceChangedOutboxEntry_publishedKeyedByProductId() {
         String productId = UUID.randomUUID().toString();
+        double successesBefore = priceUpdateSuccessCount();
 
         try (KafkaConsumer<String, String> consumer = newConsumer("price-changed")) {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
@@ -68,6 +73,9 @@ class PriceOutboxWritePathTest {
             Price saved = priceRepository.find("productId", productId).firstResult();
             assertNotNull(saved, "the price document should be persisted");
             assertEquals(42.0, saved.price, 0.001);
+
+            // and - a success outcome is recorded for the update
+            assertEquals(successesBefore + 1.0, priceUpdateSuccessCount(), 0.001);
 
             // and - exactly the relay's keyed message lands; no unkeyed dual-write copy
             List<ConsumerRecord<String, String>> records =
@@ -85,6 +93,11 @@ class PriceOutboxWritePathTest {
     }
 
     // --- helpers -----------------------------------------------------------
+
+    private double priceUpdateSuccessCount() {
+        var counter = meterRegistry.find("pricing.price.updates").tag("outcome", "success").counter();
+        return counter == null ? 0.0 : counter.count();
+    }
 
     private List<OutboxEntry> outboxEntries(String productId) {
         return outboxRepository.find("aggregateId = ?1 and topic = ?2", productId, "price-changed").list();

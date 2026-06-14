@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.control;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,11 +23,15 @@ public class CategoryService {
     @Inject
     CategoryRepository categoryRepository;
 
+    @Inject
+    MeterRegistry meterRegistry;
+
     public Category saveCategory(Category category) {
         if (!findByCriteria(Map.of("label", new Criteria(Criteria.Operator.EQUALS, category.getLabel()))).isEmpty()) {
             throw new CategoryAlreadyExistsException(category.getLabel());
         }
         categoryRepository.persist(category);
+        recordCategoryMutation(MetricNames.OP_CREATE);
         return category;
     }
 
@@ -34,11 +39,17 @@ public class CategoryService {
         var existing = categoryRepository.findById(category.id);
         if (existing != null) {
             categoryRepository.merge(category);
+            recordCategoryMutation(MetricNames.OP_UPDATE);
         }
     }
 
     public void deleteCategory(Long categoryID) {
         categoryRepository.deleteById(categoryID);
+        recordCategoryMutation(MetricNames.OP_DELETE);
+    }
+
+    private void recordCategoryMutation(String op) {
+        meterRegistry.counter(MetricNames.CATALOG_CATEGORIES_MUTATIONS, MetricNames.TAG_OP, op).increment();
     }
 
     public List<Category> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {

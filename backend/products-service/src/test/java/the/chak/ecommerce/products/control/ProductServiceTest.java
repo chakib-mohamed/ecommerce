@@ -2,6 +2,7 @@ package the.chak.ecommerce.products.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +13,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -21,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.entity.OutboxEvent;
@@ -55,6 +59,10 @@ class ProductServiceTest {
 
     @Mock
     Event<OutboxAppended> outboxAppended;
+
+    // A real registry so catalog mutation/image/price counters are recorded and assertable.
+    @Spy
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @Test
     @DisplayName("Uploads the image and persists the product when image bytes are provided")
@@ -311,6 +319,184 @@ class ProductServiceTest {
         // when & then
         assertThrows(BadRequestException.class,
                 () -> productService.findByCriteria(params, 0, 10));
+    }
+
+    // --metrics ------------------------------------------------------------
+
+    @Test
+    @DisplayName("Counts a create mutation and an image upload when a product with an image is saved")
+    void saveProduct_withImageBytes_recordsCreateAndImageUpload() {
+        // given
+        byte[] imageBytes = jpegBytes();
+        when(storageService.uploadImage(imageBytes)).thenReturn("uploaded-key");
+        Product product = new Product();
+
+        // when
+        productService.saveProduct(product, imageBytes);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("catalog.products.mutations").tag("op", "create").counter().count(),
+                0.001);
+        assertEquals(1.0, meterRegistry.get("catalog.images.uploaded").counter().count(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Counts a create mutation but no image upload when a product is saved without an image")
+    void saveProduct_withoutImage_recordsCreateOnly() {
+        // given
+        Product product = new Product();
+
+        // when
+        productService.saveProduct(product, null);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("catalog.products.mutations").tag("op", "create").counter().count(),
+                0.001);
+        assertNull(meterRegistry.find("catalog.images.uploaded").counter());
+    }
+
+    @Test
+    @DisplayName("Records no create mutation when persistence fails after the image upload")
+    void saveProduct_uploadFails_recordsNoCreateMutation() {
+        // given
+        byte[] imageBytes = jpegBytes();
+        when(storageService.uploadImage(imageBytes)).thenReturn("uploaded-key");
+        Product product = new Product();
+        doThrow(new RuntimeException("DB Error")).when(productRepository).persist(product);
+
+        // when & then
+        assertThrows(RuntimeException.class, () -> productService.saveProduct(product, imageBytes));
+        assertNull(meterRegistry.find("catalog.products.mutations").counter());
+    }
+
+    @Test
+    @DisplayName("Counts an update mutation and an image upload when a product is updated with a new image")
+    void updateProduct_withNewImage_recordsUpdateAndImageUpload() {
+        // given
+        UUID uuid = UUID.randomUUID();
+        Product existing = new Product();
+        existing.id = 1L;
+        existing.setUuid(uuid);
+        existing.setImageKey("old-key");
+        when(productRepository.findByUuid(uuid)).thenReturn(existing);
+        byte[] newBytes = jpegBytes();
+        when(storageService.uploadImage(newBytes)).thenReturn("new-key");
+        Product update = new Product();
+        update.setUuid(uuid);
+
+        // when
+        productService.updateProduct(update, newBytes);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("catalog.products.mutations").tag("op", "update").counter().count(),
+                0.001);
+        assertEquals(1.0, meterRegistry.get("catalog.images.uploaded").counter().count(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Counts an update mutation but no image upload when a product is updated without a new image")
+    void updateProduct_withoutImage_recordsUpdateOnly() {
+        // given
+        UUID uuid = UUID.randomUUID();
+        Product existing = new Product();
+        existing.id = 1L;
+        existing.setUuid(uuid);
+        existing.setImageKey("existing-key");
+        when(productRepository.findByUuid(uuid)).thenReturn(existing);
+        Product update = new Product();
+        update.setUuid(uuid);
+
+        // when
+        productService.updateProduct(update, null);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("catalog.products.mutations").tag("op", "update").counter().count(),
+                0.001);
+        assertNull(meterRegistry.find("catalog.images.uploaded").counter());
+    }
+
+    @Test
+    @DisplayName("Records no update mutation when updating a product that does not exist")
+    void updateProduct_productNotFound_recordsNoUpdateMutation() {
+        // given
+        Product product = new Product();
+        UUID uuid = UUID.randomUUID();
+        product.setUuid(uuid);
+        when(productRepository.findByUuid(uuid)).thenReturn(null);
+
+        // when & then
+        assertThrows(ProductNotFoundException.class,
+                () -> productService.updateProduct(product, null));
+        assertNull(meterRegistry.find("catalog.products.mutations").counter());
+    }
+
+    @Test
+    @DisplayName("Counts a delete mutation when an existing product is deleted")
+    void deleteProduct_existingProduct_recordsDeleteMutation() {
+        // given
+        UUID uuid = UUID.randomUUID();
+        Product product = new Product();
+        product.setImageKey("img-key");
+        product.setUuid(uuid);
+        when(productRepository.findByUuid(uuid)).thenReturn(product);
+        when(outboxEventFactory.productDeleted(eq(uuid), any(ProductDeletedEvent.class)))
+                .thenReturn(new OutboxEvent());
+
+        // when
+        productService.deleteProduct(uuid);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("catalog.products.mutations").tag("op", "delete").counter().count(),
+                0.001);
+    }
+
+    @Test
+    @DisplayName("Records no delete mutation when deleting a product that does not exist")
+    void deleteProduct_nonExistentProduct_recordsNoDeleteMutation() {
+        // given
+        UUID uuid = UUID.randomUUID();
+        when(productRepository.findByUuid(uuid)).thenReturn(null);
+
+        // when
+        productService.deleteProduct(uuid);
+
+        // then
+        assertNull(meterRegistry.find("catalog.products.mutations").counter());
+    }
+
+    @Test
+    @DisplayName("Counts a consumed price update when the product is known")
+    void updatePrice_knownProduct_recordsConsumedPriceUpdate() {
+        // given
+        UUID uuid = UUID.randomUUID();
+        Product product = new Product();
+        product.setUuid(uuid);
+        when(productRepository.findByUuid(uuid)).thenReturn(product);
+
+        // when
+        productService.updatePrice(uuid.toString(), 25.0);
+
+        // then
+        assertEquals(1.0, meterRegistry.get("catalog.price.updates.consumed").counter().count(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Records no consumed price update when the product is unknown")
+    void updatePrice_unknownProduct_recordsNoConsumedPriceUpdate() {
+        // given
+        UUID uuid = UUID.randomUUID();
+        when(productRepository.findByUuid(uuid)).thenReturn(null);
+
+        // when
+        productService.updatePrice(uuid.toString(), 50.0);
+
+        // then
+        assertNull(meterRegistry.find("catalog.price.updates.consumed").counter());
     }
 
     private static byte[] jpegBytes() {

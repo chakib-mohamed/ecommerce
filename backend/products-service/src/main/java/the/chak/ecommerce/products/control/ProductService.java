@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.control;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +48,9 @@ public class ProductService {
     @Inject
     StorageService storageService;
 
+    @Inject
+    MeterRegistry meterRegistry;
+
     @Transactional
     public Optional<Product> getProductWithAssociations(UUID uuid) {
         var maybeProduct = productRepository.findByUuidWithPromotions(uuid);
@@ -68,9 +72,11 @@ public class ProductService {
                 storageService.deleteImage(imageKey);
                 throw e;
             }
+            recordImageUploaded();
         } else {
             persistProduct(product);
         }
+        recordProductMutation(MetricNames.OP_CREATE);
         LOG.infof("Product created productId=%s title=%s", product.getUuid(), product.getTitle());
         return product;
     }
@@ -101,10 +107,12 @@ public class ProductService {
             if (oldImageKey != null) {
                 storageService.deleteImage(oldImageKey);
             }
+            recordImageUploaded();
         } else {
             product.setImageKey(oldImageKey);
             mergeProduct(product);
         }
+        recordProductMutation(MetricNames.OP_UPDATE);
         LOG.infof("Product updated productId=%s title=%s", product.getUuid(), product.getTitle());
         return product;
     }
@@ -146,6 +154,7 @@ public class ProductService {
                 product.getUuid(), new ProductDeletedEvent(product.getUuid()));
         outboxRepository.persist(row);
         outboxAppended.fire(OutboxAppended.INSTANCE);
+        recordProductMutation(MetricNames.OP_DELETE);
         LOG.infof("Product deleted productId=%s", uuid);
         return imageKey;
     }
@@ -158,6 +167,7 @@ public class ProductService {
             return;
         }
         product.setPrice(newPrice);
+        meterRegistry.counter(MetricNames.CATALOG_PRICE_UPDATES_CONSUMED).increment();
         LOG.infof("Price updated on product productId=%s newPrice=%s", productId, newPrice);
     }
 
@@ -180,5 +190,13 @@ public class ProductService {
         });
         return productRepository.findByCriteria(
                 CriteriaMapper.toQueryCriteria(params), pageIndex, pageSize);
+    }
+
+    private void recordProductMutation(String op) {
+        meterRegistry.counter(MetricNames.CATALOG_PRODUCTS_MUTATIONS, MetricNames.TAG_OP, op).increment();
+    }
+
+    private void recordImageUploaded() {
+        meterRegistry.counter(MetricNames.CATALOG_IMAGES_UPLOADED).increment();
     }
 }

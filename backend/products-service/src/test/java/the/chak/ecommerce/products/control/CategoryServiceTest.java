@@ -1,6 +1,7 @@
 package the.chak.ecommerce.products.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
@@ -8,6 +9,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
 import jakarta.ws.rs.BadRequestException;
@@ -16,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import the.chak.ecommerce.products.boundary.dto.Criteria;
 import the.chak.ecommerce.products.control.exceptions.CategoryAlreadyExistsException;
@@ -30,6 +34,10 @@ class CategoryServiceTest {
 
     @Mock
     CategoryRepository categoryRepository;
+
+    // A real registry so category mutation counters are recorded and assertable.
+    @Spy
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @Test
     @DisplayName("Persists and returns the category when its label is new")
@@ -158,5 +166,87 @@ class CategoryServiceTest {
         // when & then
         assertThrows(BadRequestException.class,
                 () -> categoryService.findByCriteria(params, 0, 10));
+    }
+
+    // --metrics ------------------------------------------------------------
+
+    @Test
+    @DisplayName("Counts a create mutation when a category with a new label is saved")
+    void saveCategory_newLabel_recordsCreateMutation() {
+        // given
+        Category category = new Category();
+        category.setLabel("Electronics");
+        when(categoryRepository.findByCriteria(anyMap())).thenReturn(List.of());
+
+        // when
+        categoryService.saveCategory(category);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("catalog.categories.mutations").tag("op", "create").counter().count(),
+                0.001);
+    }
+
+    @Test
+    @DisplayName("Records no create mutation when the category label already exists")
+    void saveCategory_duplicateLabel_recordsNoCreateMutation() {
+        // given
+        Category category = new Category();
+        category.setLabel("Electronics");
+        when(categoryRepository.findByCriteria(anyMap())).thenReturn(List.of(new Category()));
+
+        // when & then
+        assertThrows(CategoryAlreadyExistsException.class, () -> categoryService.saveCategory(category));
+        assertNull(meterRegistry.find("catalog.categories.mutations").counter());
+    }
+
+    @Test
+    @DisplayName("Counts an update mutation when an existing category is merged")
+    void updateCategory_existingId_recordsUpdateMutation() {
+        // given
+        Long id = 1L;
+        Category update = new Category();
+        update.id = id;
+        update.setLabel("Updated Label");
+        when(categoryRepository.findById(id)).thenReturn(new Category());
+
+        // when
+        categoryService.updateCategory(update);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("catalog.categories.mutations").tag("op", "update").counter().count(),
+                0.001);
+    }
+
+    @Test
+    @DisplayName("Records no update mutation when the category id does not exist")
+    void updateCategory_nonExistentId_recordsNoUpdateMutation() {
+        // given
+        Long id = 999L;
+        Category ghost = new Category();
+        ghost.id = id;
+        when(categoryRepository.findById(id)).thenReturn(null);
+
+        // when
+        categoryService.updateCategory(ghost);
+
+        // then
+        assertNull(meterRegistry.find("catalog.categories.mutations").counter());
+    }
+
+    @Test
+    @DisplayName("Counts a delete mutation when a category is removed")
+    void deleteCategory_recordsDeleteMutation() {
+        // given
+        Long id = 1L;
+
+        // when
+        categoryService.deleteCategory(id);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("catalog.categories.mutations").tag("op", "delete").counter().count(),
+                0.001);
     }
 }

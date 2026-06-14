@@ -141,7 +141,7 @@ flowchart LR
     FCOL["observability/<br/>otel-collector-config.yaml"]:::cfg -. configures .-> COL
     FPROM["observability/<br/>prometheus.yml"]:::cfg -. scrape config .-> PROM
     FDS["grafana/provisioning/datasources/<br/>datasources.yml"]:::cfg -. provisions datasources .-> GRAF
-    FDASH["grafana/provisioning/dashboards/<br/>dashboards.yml + ecommerce-overview.json"]:::cfg -. provisions dashboard .-> GRAF
+    FDASH["grafana/provisioning/dashboards/<br/>dashboards.yml + ecommerce-overview.json + ecommerce-business.json"]:::cfg -. provisions dashboards .-> GRAF
 
     classDef cfg fill:#f5f5f5,stroke:#999,stroke-dasharray:3 3,color:#333;
 ```
@@ -174,6 +174,7 @@ spans by up to `decision_wait` (10 s).
 | Grafana | datasources | `observability/grafana/provisioning/datasources/datasources.yml` | **Prometheus** (`uid: prometheus`, default) + **Jaeger** (`uid: jaeger`), `access: proxy` |
 | Grafana | dashboard provider | `observability/grafana/provisioning/dashboards/dashboards.yml` | file provider scanning the dir for `*.json` |
 | Grafana | dashboard | `observability/grafana/provisioning/dashboards/ecommerce-overview.json` | *Ecommerce Overview* (RED + JVM + Kafka, by `job`) |
+| Grafana | dashboard | `observability/grafana/provisioning/dashboards/ecommerce-business.json` | *Ecommerce Business KPIs* (orders/revenue, auth, catalog, pricing — see `docs/specs/functional-metrics.md`) |
 | Grafana | internal state | `grafana_data` volume | users, prefs, UI-side edits (survives restart) |
 | Jaeger | trace store | — (all-in-one, **in-memory**; no volume) | traces are lost on restart by design (local dev) |
 | each service | trace/metric SDK config | service `application.properties` / gateway `application.yml` | OTLP endpoint, `always_on` sampler, Micrometer Prometheus registry |

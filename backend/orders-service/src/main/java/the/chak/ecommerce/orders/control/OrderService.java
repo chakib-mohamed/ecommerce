@@ -12,6 +12,8 @@ import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.ReplaceOptions;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
@@ -54,6 +56,9 @@ public class OrderService {
 
     @Inject
     OutboxRelay outboxRelay;
+
+    @Inject
+    MeterRegistry meterRegistry;
 
     public Order saveOrder(Order order) {
         order.setCreationDate(LocalDateTime.now());
@@ -98,6 +103,11 @@ public class OrderService {
         order.setPrice(result.getOrder().getPrice());
         order.setProcessID(result.getId());
         orderRepository.persist(order);
+        meterRegistry.counter(MetricNames.ORDERS_CREATED).increment();
+        DistributionSummary.builder(MetricNames.ORDER_VALUE)
+                .publishPercentileHistogram()
+                .register(meterRegistry)
+                .record(order.getPrice());
         LOG.infof("Order created orderId=%s userId=%s products=%d total=%.2f",
                 order.getId(), order.getUserID(), order.getProducts().size(), order.getPrice());
         return order;
@@ -148,6 +158,7 @@ public class OrderService {
                 return null;
             });
         }
+        meterRegistry.counter(MetricNames.ORDERS_CONFIRMED).increment();
         LOG.infof("Order confirmed orderId=%s userId=%s", order.getId(), order.getUserID());
 
         // Best-effort wake-up; if it is lost the scheduled tick still drains the entry.

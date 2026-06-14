@@ -10,6 +10,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import the.chak.ecommerce.orders.boundary.dto.AddItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.CartResponse;
@@ -45,6 +48,10 @@ class CartServiceTest {
 
     @Mock
     CartRepository cartRepository;
+
+    // A real registry so checkout outcome counters are recorded and assertable.
+    @Spy
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // --addItem ------------------------------------------------------------
 
@@ -266,6 +273,17 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("Records a failed checkout outcome when the cart is not found")
+    void checkout_noCart_recordsFailureOutcome() {
+        // given
+        when(cartRepository.findByUserId(anyString())).thenReturn(Optional.empty());
+
+        // when & then
+        assertThrows(CartNotFoundException.class, () -> cartService.checkout("no-such-user"));
+        assertEquals(1.0, meterRegistry.get("checkouts").tag("outcome", "failure").counter().count(), 0.001);
+    }
+
+    @Test
     @DisplayName("Throws CartEmptyException when checking out a cart with no items")
     void checkout_emptyCart_throwsCartEmptyException() {
         // given
@@ -274,6 +292,18 @@ class CartServiceTest {
 
         // when & then
         assertThrows(CartEmptyException.class, () -> cartService.checkout(USER_ID));
+    }
+
+    @Test
+    @DisplayName("Records a failed checkout outcome when the cart is empty")
+    void checkout_emptyCart_recordsFailureOutcome() {
+        // given
+        Cart cart = new Cart();
+        when(cartRepository.findByUserId(USER_ID)).thenReturn(Optional.of(cart));
+
+        // when & then
+        assertThrows(CartEmptyException.class, () -> cartService.checkout(USER_ID));
+        assertEquals(1.0, meterRegistry.get("checkouts").tag("outcome", "failure").counter().count(), 0.001);
     }
 
     @Test
@@ -293,5 +323,20 @@ class CartServiceTest {
         assertEquals(1, order.getProducts().size());
         verify(orderService).saveOrder(any(Order.class));
         verify(cartRepository).delete(cart);
+    }
+
+    @Test
+    @DisplayName("Records a successful checkout outcome on valid checkout")
+    void checkout_validCart_recordsSuccessOutcome() {
+        // given
+        Cart cart = new Cart();
+        cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 2)));
+        when(cartRepository.findByUserId(USER_ID)).thenReturn(Optional.of(cart));
+
+        // when
+        cartService.checkout(USER_ID);
+
+        // then
+        assertEquals(1.0, meterRegistry.get("checkouts").tag("outcome", "success").counter().count(), 0.001);
     }
 }
