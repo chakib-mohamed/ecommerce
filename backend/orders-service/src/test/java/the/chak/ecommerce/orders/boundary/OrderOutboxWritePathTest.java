@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,6 +67,9 @@ class OrderOutboxWritePathTest {
     @Inject
     OutboxRepository outboxRepository;
 
+    @Inject
+    MeterRegistry meterRegistry;
+
     @ConfigProperty(name = "kafka.bootstrap.servers")
     String bootstrapServers;
 
@@ -80,6 +84,7 @@ class OrderOutboxWritePathTest {
         order.setStatus(OrderStatus.INITIATED);
         orderRepository.persist(order);
         String orderId = order.id.toString();
+        double confirmedBefore = orderConfirmedCount();
 
         try (KafkaConsumer<String, String> consumer = newConsumer("order-initiated")) {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
@@ -91,6 +96,9 @@ class OrderOutboxWritePathTest {
             // then - the order is committed as CONFIRMED
             Order saved = orderRepository.findById(order.id);
             assertEquals(OrderStatus.CONFIRMED, saved.getStatus());
+
+            // and - an orders-confirmed metric is recorded for the confirm
+            assertEquals(confirmedBefore + 1.0, orderConfirmedCount(), 0.001);
 
             // and - exactly the relay's keyed message lands; no unkeyed dual-write copy
             List<ConsumerRecord<String, String>> records =
@@ -108,6 +116,11 @@ class OrderOutboxWritePathTest {
     }
 
     // --- helpers -----------------------------------------------------------
+
+    private double orderConfirmedCount() {
+        var counter = meterRegistry.find("orders.confirmed").counter();
+        return counter == null ? 0.0 : counter.count();
+    }
 
     private List<OutboxEntry> outboxEntries(String orderId) {
         return outboxRepository.find("aggregateId = ?1 and topic = ?2", orderId, "order-initiated").list();
