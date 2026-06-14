@@ -57,7 +57,7 @@ observability`, also folded into `make up`):
 |----|-----|---------|
 | Jaeger | http://localhost:16686 | traces |
 | Prometheus | http://localhost:9090 | metrics + targets |
-| Grafana | http://localhost:3000 | dashboards (anon admin; *Ecommerce Overview* auto-provisioned) |
+| Grafana | http://localhost:3000 | dashboards (anon admin; *Ecommerce Overview* + *Ecommerce Business KPIs* auto-provisioned) |
 
 - Every service exports OTLP to `otel-collector:4317`; the Collector **tail-samples** (keeps all
   error/slow traces, ~10% of the rest) and forwards to Jaeger. One request is one connected trace
@@ -67,8 +67,12 @@ observability`, also folded into `make up`):
   `observability/grafana/provisioning/`.
 - Logs carry `traceId`/`spanId` (pivot logs → Jaeger). **`X-Request-ID` is retired** — the gateway
   echoes the trace id back as an `X-Trace-Id` response header.
+- Beyond the auto-instrumented RED/JVM/Kafka signals, the four business-owning Quarkus services
+  (`authenticate`, `products`, `orders`, `price`) record curated **functional/business meters** in
+  their control layer (orders/revenue, auth success/failure, catalog mutations, pricing/discounts),
+  surfaced on the *Ecommerce Business KPIs* dashboard.
 
-Spec: `docs/specs/observability.md`. Logging/correlation rules: `docs/conventions/logging-conventions.md`.
+Specs: `docs/specs/observability.md`, `docs/specs/functional-metrics.md`. Logging/correlation rules: `docs/conventions/logging-conventions.md`.
 
 ### JSON Serialization Rules
 
