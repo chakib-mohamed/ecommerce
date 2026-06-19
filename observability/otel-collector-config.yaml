@@ -1,5 +1,6 @@
-# OpenTelemetry Collector — the single ingestion point for traces.
-# All services export OTLP here; the Collector tail-samples and forwards to Jaeger.
+# OpenTelemetry Collector — the single ingestion point for traces and logs.
+# All services export OTLP here; the Collector tail-samples traces and forwards them to
+# Jaeger, and forwards logs to Loki (native OTLP ingest) via the otlphttp exporter.
 receivers:
   otlp:
     protocols:
@@ -34,6 +35,10 @@ exporters:
     endpoint: jaeger:4317
     tls:
       insecure: true
+  # Loki ingests OTLP natively at /otlp; the legacy `loki` exporter is removed,
+  # so logs go over otlphttp. trace_id/span_id arrive as structured metadata.
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
 
 service:
   pipelines:
@@ -41,3 +46,7 @@ service:
       receivers: [otlp]
       processors: [tail_sampling, batch]
       exporters: [otlp/jaeger]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/loki]
