@@ -18,9 +18,6 @@ dist/
 node_modules/
 **/node_modules/
 
-# Python
-.venv/
-
 # Logs
 npm-debug.log*
 yarn-error.log*
@@ -44,12 +41,9 @@ docs/tasks/
 .qoder/
 .opencode.json
 .mcp.json
-.github/code-review-graph.instruction.md
 AGENTS.md
 GEMINI.md
 QODER.md
 
 # Misc
 *.bu
-# Added by code-review-graph
-.code-review-graph/
