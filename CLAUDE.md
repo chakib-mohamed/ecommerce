@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Overview
 
-Microservices-based ecommerce platform. Backend has 7 services: one Spring Boot API Gateway plus 6 Quarkus services. Frontend is React 18 + TypeScript + Vite.
+Microservices-based ecommerce platform. Backend has 6 services: one Spring Boot API Gateway plus 5 Quarkus services. Frontend is React 18 + TypeScript + Vite.
 
 ### Architecture
 
@@ -49,15 +49,16 @@ See `frontend/CLAUDE.md` for frontend dev commands.
 
 ### Observability
 
-Distributed tracing + metrics across all 7 backend services. The local stack — **OTel Collector +
-Jaeger + Prometheus + Grafana** — runs under the `observability` Docker Compose profile (`make
-observability`, also folded into `make up`):
+Distributed tracing, metrics, and logs across all 6 backend services. The local stack — **OTel
+Collector + Jaeger + Prometheus + Loki + Grafana** — runs under the `observability` Docker Compose
+profile (`make observability`, also folded into `make up`):
 
 | UI | URL | Purpose |
 |----|-----|---------|
 | Jaeger | http://localhost:16686 | traces |
 | Prometheus | http://localhost:9090 | metrics + targets |
-| Grafana | http://localhost:3000 | dashboards (anon admin; *Ecommerce Overview* + *Ecommerce Business KPIs* auto-provisioned) |
+| Loki | http://localhost:3100 | log store (query via Grafana Explore; `/ready` health) |
+| Grafana | http://localhost:3000 | dashboards + log search (anon admin; *Ecommerce Overview* + *Ecommerce Business KPIs* auto-provisioned) |
 
 - Every service exports OTLP to `otel-collector:4317`; the Collector **tail-samples** (keeps all
   error/slow traces, ~10% of the rest) and forwards to Jaeger. One request is one connected trace
@@ -65,8 +66,12 @@ observability`, also folded into `make up`):
 - Metrics are scraped by Prometheus from each service (gateway `/actuator/prometheus`, Quarkus
   `/q/metrics`) — config in `observability/prometheus.yml`; Grafana provisioning in
   `observability/grafana/provisioning/`.
-- Logs carry `traceId`/`spanId` (pivot logs → Jaeger). **`X-Request-ID` is retired** — the gateway
-  echoes the trace id back as an `X-Trace-Id` response header.
+- Logs ship over **OTLP** to the Collector, which forwards them to **Loki** (Quarkus
+  `quarkus.otel.logs.enabled=true`; gateway via Spring Boot OTLP logging + the Logback appender).
+  `traceId`/`spanId` arrive as **structured metadata**, so Grafana pivots both ways — log → trace
+  (Loki `derivedFields` → Jaeger) and trace → log (Jaeger `tracesToLogsV2` → Loki). Console/stdout
+  logging is unchanged (`make logs` still works). **`X-Request-ID` is retired** — the gateway echoes
+  the trace id back as an `X-Trace-Id` response header. Spec: `docs/specs/log-aggregation.md`.
 - Beyond the auto-instrumented RED/JVM/Kafka signals, the four business-owning Quarkus services
   (`authenticate`, `products`, `orders`, `price`) record curated **functional/business meters** in
   their control layer (orders/revenue, auth success/failure, catalog mutations, pricing/discounts),

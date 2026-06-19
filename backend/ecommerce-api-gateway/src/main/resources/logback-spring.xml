@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Adds the OpenTelemetry Logback appender so log records ship over OTLP to the Collector
+  (which forwards them to Loki). Spring Boot 3.4 auto-configures the OTLP LoggerProvider and
+  *installs* it into this appender at startup (management.otlp.logging.endpoint), but it does
+  not add the appender to Logback on its own — it must be declared here and attached to <root>.
+
+  The console appender is left as Spring Boot's default (honours logging.pattern.level from
+  application.yml), so stdout / `make logs` is unchanged — OTLP export is purely additive.
+-->
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+  <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+  <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+    <!-- trace_id/span_id come from the active span context automatically; also surface
+         the code location + MDC so structured metadata matches the Quarkus services. -->
+    <captureCodeAttributes>true</captureCodeAttributes>
+    <captureMdcAttributes>*</captureMdcAttributes>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="OTEL"/>
+  </root>
+</configuration>

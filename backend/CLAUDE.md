@@ -105,7 +105,7 @@ See `docs/conventions/logging-conventions.md` for logging rules — structured f
 
 ## Observability
 
-All 6 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
+All 5 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
 (metrics); the gateway uses `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`. Per
 service:
 
@@ -115,7 +115,10 @@ service:
 - **Metrics** — Prometheus exposition at `/q/metrics` (Quarkus) / `/actuator/prometheus` (gateway);
   scrape targets in `observability/prometheus.yml`.
 - **Logs** — `quarkus.log.console.format` stamps `traceId=%X{traceId} spanId=%X{spanId}` (OTel
-  populates MDC automatically). `requestId`/`X-Request-ID` is retired.
+  populates MDC automatically). `requestId`/`X-Request-ID` is retired. Logs are also shipped to
+  **Loki** over OTLP — `quarkus.otel.logs.enabled=true` (the gateway uses Spring Boot OTLP logging
+  + the OTel Logback appender); reuses the existing OTLP endpoint and `%test…sdk.disabled=true`
+  silences it in tests. Console/stdout is unchanged. See `docs/specs/log-aggregation.md`.
 
 **Outbox trace propagation:** the transactional outbox relay publishes on a background thread after
 the request ends, so it re-parents the Kafka producer span on the originating request via a

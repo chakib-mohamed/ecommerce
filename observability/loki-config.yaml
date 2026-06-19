@@ -1,0 +1,57 @@
+# Grafana Loki — single-binary (monolithic) mode for the local stack.
+#
+# Scale-up is config-only (see docs/adr/0007-log-aggregation-loki.md): the storage_config
+# and schema_config blocks below are kept isolated so swapping `filesystem` -> `s3`
+# (LocalStack today, real S3/GCS later) and moving to Simple Scalable targets is a
+# localized change — the application side (services -> otel-collector -> otlphttp -> Loki)
+# never changes.
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: info
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+# ---- Storage (the scale-up seam) -------------------------------------------
+# filesystem object store for dev. To scale: replace this block with `aws`/`gcs`
+# and point object_store in schema_config below at it — nothing else changes.
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+  filesystem:
+    directory: /loki/chunks
+
+# ---- Schema ----------------------------------------------------------------
+# TSDB index is the current Loki schema and the prerequisite for structured
+# metadata (so OTLP attributes like trace_id land as queryable fields, not text).
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+# Required so OTLP attributes (trace_id, span_id, service.*) are ingested as
+# structured metadata rather than being dropped or forced into labels.
+limits_config:
+  allow_structured_metadata: true
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  delete_request_store: filesystem
+
+# OTLP ingest is enabled by default at /otlp (the Collector pushes here via otlphttp).

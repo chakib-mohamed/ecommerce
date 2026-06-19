@@ -375,10 +375,29 @@ services:
       - 4318:4318   # OTLP HTTP
     depends_on:
       - jaeger
+      - loki
     networks:
       - backend
     # No healthcheck: the -contrib image is distroless (no shell), so a CMD-SHELL probe
-    # can't run. depends_on (start order) is enough; the OTLP receiver retries to Jaeger.
+    # can't run. depends_on (start order) is enough; the OTLP receiver retries to Jaeger/Loki.
+
+  loki:
+    profiles: [observability]
+    image: grafana/loki:3.3.2
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - 3100:3100   # LogQL query API + native OTLP ingest (/otlp)
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   jaeger:
     profiles: [observability]
@@ -431,6 +450,7 @@ services:
     depends_on:
       - prometheus
       - jaeger
+      - loki
     networks:
       - backend
     healthcheck:
@@ -449,3 +469,4 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  loki_data:

@@ -23,3 +23,4 @@ consequences accepted.
 | [0004](0004-testcontainers-over-dev-services.md) | Testcontainers over Quarkus Dev Services | Accepted |
 | [0005](0005-trivy-dependency-scan-quality-gate.md) | Trivy dependency scanning as a CI quality gate | Accepted |
 | [0006](0006-make-and-compose-profiles-build-interface.md) | Make + Docker Compose profiles as the build/run interface | Accepted |
+| [0007](0007-log-aggregation-loki.md) | Log aggregation: Grafana Loki, fed OTLP through the Collector | Accepted |

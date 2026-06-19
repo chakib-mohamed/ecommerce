@@ -106,6 +106,10 @@ management:
       # Spans go to the OTel Collector over OTLP/gRPC; it tail-samples and forwards to Jaeger.
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
       transport: grpc
+    logging:
+      # Log records go to the same Collector over OTLP/HTTP; it forwards them to Loki
+      # (additive — the console appender / `make logs` is untouched).
+      endpoint: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:http://otel-collector:4318/v1/logs}
 
 logging:
   pattern:
