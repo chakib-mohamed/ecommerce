@@ -17,7 +17,8 @@ and visualizable in Grafana.
 - A local observability stack (OTel Collector + Jaeger + Prometheus + Grafana) startable from the Makefile.
 
 **Out of scope:**
-- Log aggregation (Loki/ELK) — logs stay on stdout, now carrying `traceId`.
+- Log aggregation — delivered separately in `docs/specs/log-aggregation.md` (Grafana Loki,
+  fed OTLP logs through this same Collector). This spec leaves logs on stdout carrying `traceId`.
 - Frontend (browser) tracing.
 
 **Decision — retire the parallel `X-Request-ID` correlation id.** Once OTel is on the classpath,
