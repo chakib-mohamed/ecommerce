@@ -1,4 +1,4 @@
-# Grafana datasource provisioning — Prometheus (metrics) + Jaeger (traces).
+# Grafana datasource provisioning — Prometheus (metrics) + Jaeger (traces) + Loki (logs).
 # Loaded automatically on startup from /etc/grafana/provisioning/datasources.
 # Dashboards are provisioned alongside, under ../dashboards (see dashboards.yml).
 apiVersion: 1
@@ -18,3 +18,29 @@ datasources:
     access: proxy
     url: http://jaeger:16686
     editable: false
+    jsonData:
+      # Trace -> logs: from a span, jump to its Loki logs, filtered by trace id.
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: true
+        tags:
+          - key: service.name
+            value: service_name
+
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      # Log -> trace: trace_id arrives as structured metadata (OTLP-native ingest),
+      # so match it as a label and link the value to the Jaeger datasource.
+      derivedFields:
+        - name: TraceID
+          matcherType: label
+          matcherRegex: trace_id
+          url: '${__value.raw}'
+          datasourceUid: jaeger
