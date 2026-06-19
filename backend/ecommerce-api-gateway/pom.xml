@@ -30,6 +30,15 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- Aligns the OTel Logback appender with the instrumentation already pulled in
+           transitively (2.9.0); Spring Boot's BOM manages OTel core but not this alpha artifact. -->
+      <dependency>
+        <groupId>io.opentelemetry.instrumentation</groupId>
+        <artifactId>opentelemetry-instrumentation-bom-alpha</artifactId>
+        <version>2.9.0-alpha</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -63,6 +72,12 @@
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-exporter-otlp</artifactId>
+    </dependency>
+    <!-- Bridges Logback to OpenTelemetry so Spring Boot's OTLP logging auto-config
+         ships log records over OTLP to the Collector (version from the alpha BOM above). -->
+    <dependency>
+      <groupId>io.opentelemetry.instrumentation</groupId>
+      <artifactId>opentelemetry-logback-appender-1.0</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.cloud</groupId>
