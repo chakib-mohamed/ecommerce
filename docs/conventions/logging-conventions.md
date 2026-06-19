@@ -74,6 +74,14 @@ hand-rolled correlation id to manage.
 > it: it is present in the MDC of *every* request regardless of sampling, and — unlike `requestId` —
 > it links directly to the trace in Jaeger. Standardize on `traceId`.
 
+> **Aggregated in Loki.** Beyond stdout, logs ship over OTLP to the Collector, which forwards them
+> to **Grafana Loki** (Quarkus `quarkus.otel.logs.enabled=true`; the gateway via Spring Boot OTLP
+> logging + the OTel Logback appender). `traceId`/`spanId` arrive as **structured metadata** — not
+> re-parsed from text — so they stay queryable in LogQL and pivot both ways: log → trace (Loki
+> `derivedFields` → Jaeger) and trace → log (Jaeger `tracesToLogsV2` → Loki). The key=value format
+> below still applies; it is now also searchable via LogQL. The console handler is unchanged, so
+> `make logs` keeps working. Details: `docs/specs/log-aggregation.md`.
+
 ### How it flows
 
 1. **OpenTelemetry auto-instrumentation** (the `opentelemetry-*` libraries on the classpath) starts a
