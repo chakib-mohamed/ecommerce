@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../../components/UI/Button/Button';
-import { categories, products } from '../../../data/catalog';
 import { buildAnalytics } from '../../../lib/analytics';
 import { money } from '../../../lib/money';
+import { useCatalogCategories, useCatalogProducts } from '../../../lib/use-catalog';
 import CategoryDonut from './CategoryDonut';
 import SalesChart from './SalesChart';
 import StatCard from './StatCard';
@@ -15,7 +15,9 @@ const TH =
 /** Back-office overview — stat cards, sales trend, top sellers + revenue mix. */
 export default function Dashboard() {
   const navigate = useNavigate();
-  const analytics = useMemo(() => buildAnalytics(), []);
+  const products = useCatalogProducts();
+  const categories = useCatalogCategories();
+  const analytics = useMemo(() => buildAnalytics(products, categories), [products, categories]);
 
   const lowStock = products.filter((p) => p.stock <= 5);
   const subCount = categories.reduce((n, c) => n + c.subs.length, 0);
@@ -24,7 +26,7 @@ export default function Dashboard() {
   const prevMonth = analytics.sales[analytics.sales.length - 2].value;
   const monthDelta = ((lastMonth - prevMonth) / prevMonth) * 100;
   const totalUnits = analytics.productSales.reduce((s, p) => s + p.units, 0);
-  const avgOrder = Math.round(analytics.totalRevenue / totalUnits);
+  const avgOrder = totalUnits ? Math.round(analytics.totalRevenue / totalUnits) : 0;
 
   return (
     <div className="px-10 py-9 max-w-[1100px] flex-1">

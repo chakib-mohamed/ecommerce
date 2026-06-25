@@ -7,10 +7,10 @@ import Icon from "../../components/UI/Icon/Icon";
 import PhotoTile from "../../components/UI/PhotoTile/PhotoTile";
 import Qty from "../../components/UI/Qty/Qty";
 import Stars from "../../components/UI/Stars/Stars";
-import { products, type Swatch } from "../../data/catalog";
-import { catName, subName } from "../../lib/catalog-helpers";
+import { type Swatch } from "../../data/catalog";
 import { money } from "../../lib/money";
 import { useAddToCart } from "../../lib/use-add-to-cart";
+import { useCatalogProducts, useCatName, useSubName } from "../../lib/use-catalog";
 
 const WRAP = "max-w-[1180px] mx-auto px-6";
 const GLYPHS = ["", "◐", "◑", "✦"];
@@ -28,20 +28,28 @@ const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const addToCart = useAddToCart();
+  const products = useCatalogProducts();
+  const catName = useCatName();
+  const subName = useSubName();
 
   const product = products.find((x) => x.id === id) ?? products[0];
-  const [color, setColor] = useState<Swatch>(product.colors[0]);
+  const [color, setColor] = useState<Swatch>(product?.colors[0] ?? "sand");
   const [qty, setQty] = useState(1);
   const [shot, setShot] = useState(0);
   const [tab, setTab] = useState<Tab>("desc");
 
   useEffect(() => {
+    if (!product) return;
     setColor(product.colors[0]);
     setQty(1);
     setShot(0);
     // Reset selections whenever the viewed product changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product.id]);
+  }, [product?.id]);
+
+  if (!product) {
+    return <div className={`${WRAP} py-24 text-center text-muted`}>Loading product…</div>;
+  }
 
   const related = products.filter((x) => x.cat === product.cat && x.id !== product.id).slice(0, 4);
 
@@ -58,6 +66,7 @@ const ProductDetails: React.FC = () => {
         <div className="reveal lg:sticky lg:top-[88px]">
           <div className="rounded-lg overflow-hidden">
             <PhotoTile
+              src={product.image}
               tone={product.tone}
               name={product.name}
               glyph={GLYPHS[shot]}
@@ -72,7 +81,7 @@ const ProductDetails: React.FC = () => {
                 className="w-[72px] h-[72px] rounded-sm overflow-hidden p-0 cursor-pointer bg-transparent"
                 style={{ border: shot === i ? "2px solid var(--ink)" : "1.5px solid var(--line-2)" }}
               >
-                <PhotoTile tone={product.tone} label="" glyph={g} className="w-full h-full !text-[26px]" />
+                <PhotoTile src={product.image} tone={product.tone} label="" glyph={g} className="w-full h-full !text-[26px]" />
               </button>
             ))}
           </div>

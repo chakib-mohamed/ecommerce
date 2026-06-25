@@ -2,15 +2,54 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../../components/UI/Button/Button';
 import Icon from '../../../components/UI/Icon/Icon';
-import { categories, products } from '../../../data/catalog';
+import type { Product } from '../../../data/catalog';
 import { money } from '../../../lib/money';
+import { useCatalogCategories, useCatalogProducts } from '../../../lib/use-catalog';
 
 const TH = 'py-2.5 px-5 font-semibold text-xs tracking-[0.05em] uppercase text-muted whitespace-nowrap';
+
+/** Price/stock table for a group of products (a subcategory or a flat category). */
+function ProductTable({ products, onEdit }: { products: Product[]; onEdit: (id: string) => void }) {
+  return (
+    <table className="w-full border-collapse text-sm">
+      <thead>
+        <tr className="border-b border-line">
+          <th className={`${TH} text-left pl-7`} />
+          <th className={`${TH} text-right`}>Price</th>
+          <th className={`${TH} text-right`}>Stock</th>
+          <th className={`${TH} w-[60px]`} />
+        </tr>
+      </thead>
+      <tbody>
+        {products.map((p, i) => (
+          <tr
+            key={p.id}
+            className="border-t border-line"
+            style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }}
+          >
+            <td className="py-3 px-5 pl-7 font-medium">{p.name}</td>
+            <td className="py-3 px-5 text-right">{money(p.price)}</td>
+            <td className="py-3 px-5 text-right">
+              <span className={p.stock <= 5 ? 'text-accent font-semibold' : 'text-ink'}>{p.stock}</span>
+            </td>
+            <td className="py-3 px-5 text-right">
+              <Button variant="quiet" size="sm" onClick={() => onEdit(p.id)}>
+                Edit
+              </Button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 /** Admin product list — search + category/subcategory filters over a tree of
  *  collapsible category panels, each grouping its subcategories' products. */
 export default function AdminProducts() {
   const navigate = useNavigate();
+  const products = useCatalogProducts();
+  const categories = useCatalogCategories();
   const [filter, setFilter] = useState('');
   const [catFilter, setCatFilter] = useState('');
   const [subFilter, setSubFilter] = useState('');
@@ -26,17 +65,18 @@ export default function AdminProducts() {
       (!subFilter || p.sub === subFilter),
   );
 
+  // Group by subcategory where the backend provides them, and collect anything
+  // without a (matching) subcategory into a flat list under the category.
   const grouped = categories
-    .map((cat) => ({
-      ...cat,
-      subs: cat.subs
-        .map((sub) => ({
-          ...sub,
-          products: filtered.filter((p) => p.cat === cat.id && p.sub === sub.id),
-        }))
-        .filter((sub) => sub.products.length > 0),
-    }))
-    .filter((cat) => cat.subs.length > 0);
+    .map((cat) => {
+      const catProducts = filtered.filter((p) => p.cat === cat.id);
+      const subs = cat.subs
+        .map((sub) => ({ ...sub, products: catProducts.filter((p) => p.sub === sub.id) }))
+        .filter((sub) => sub.products.length > 0);
+      const loose = catProducts.filter((p) => !cat.subs.some((s) => s.id === p.sub));
+      return { ...cat, subs, loose };
+    })
+    .filter((cat) => cat.subs.length > 0 || cat.loose.length > 0);
 
   const clearFilters = () => {
     setCatFilter('');
@@ -113,7 +153,7 @@ export default function AdminProducts() {
       {/* grouped tables */}
       <div className="grid gap-3">
         {grouped.map((cat) => {
-          const count = cat.subs.reduce((n, s) => n + s.products.length, 0);
+          const count = cat.subs.reduce((n, s) => n + s.products.length, 0) + cat.loose.length;
           const isCollapsed = collapsed[cat.id];
           return (
             <div key={cat.id} className="bg-surface border-2 border-line rounded-md overflow-hidden">
@@ -143,38 +183,21 @@ export default function AdminProducts() {
                         {sub.products.length} item{sub.products.length === 1 ? '' : 's'}
                       </span>
                     </div>
-                    <table className="w-full border-collapse text-sm">
-                      <thead>
-                        <tr className="border-b border-line">
-                          <th className={`${TH} text-left pl-7`} />
-                          <th className={`${TH} text-right`}>Price</th>
-                          <th className={`${TH} text-right`}>Stock</th>
-                          <th className={`${TH} w-[60px]`} />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sub.products.map((p, i) => (
-                          <tr
-                            key={p.id}
-                            className="border-t border-line"
-                            style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }}
-                          >
-                            <td className="py-3 px-5 pl-7 font-medium">{p.name}</td>
-                            <td className="py-3 px-5 text-right">{money(p.price)}</td>
-                            <td className="py-3 px-5 text-right">
-                              <span className={p.stock <= 5 ? 'text-accent font-semibold' : 'text-ink'}>{p.stock}</span>
-                            </td>
-                            <td className="py-3 px-5 text-right">
-                              <Button variant="quiet" size="sm" onClick={() => navigate(`/admin/products/${p.id}/edit`)}>
-                                Edit
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <ProductTable
+                      products={sub.products}
+                      onEdit={(pid) => navigate(`/admin/products/${pid}/edit`)}
+                    />
                   </div>
                 ))}
+
+              {!isCollapsed && cat.loose.length > 0 && (
+                <div className="border-t border-line">
+                  <ProductTable
+                    products={cat.loose}
+                    onEdit={(pid) => navigate(`/admin/products/${pid}/edit`)}
+                  />
+                </div>
+              )}
             </div>
           );
         })}

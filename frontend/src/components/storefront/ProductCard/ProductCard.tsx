@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import type { Product } from "../../../data/catalog";
-import { subName } from "../../../lib/catalog-helpers";
+import { useSubName } from "../../../lib/use-catalog";
 import { money } from "../../../lib/money";
 import { useAddToCart } from "../../../lib/use-add-to-cart";
 import Button from "../../UI/Button/Button";
@@ -17,6 +17,7 @@ interface ProductCardProps {
 export default function ProductCard({ product: p, delay = 0 }: ProductCardProps) {
   const navigate = useNavigate();
   const addToCart = useAddToCart();
+  const subName = useSubName();
 
   return (
     <div className="reveal" style={{ animationDelay: delay + "ms" }}>
@@ -25,7 +26,7 @@ export default function ProductCard({ product: p, delay = 0 }: ProductCardProps)
         className="group cursor-pointer"
       >
         <div className="relative rounded-md overflow-hidden transition-[transform,box-shadow] duration-300 ease-editorial group-hover:-translate-y-1 group-hover:shadow-pop">
-          <PhotoTile tone={p.tone} name={p.name} className="aspect-[4/5] !text-[64px]" />
+          <PhotoTile src={p.image} tone={p.tone} name={p.name} className="aspect-[4/5] !text-[64px]" />
           {p.badge && (
             <span
               className="absolute top-3 left-3 inline-flex items-center text-[11px] font-bold tracking-[0.04em] uppercase px-[9px] py-[3px] rounded-full text-white"

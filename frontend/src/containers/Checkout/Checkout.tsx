@@ -7,6 +7,7 @@ import Icon from "../../components/UI/Icon/Icon";
 import PhotoTile from "../../components/UI/PhotoTile/PhotoTile";
 import { cartSubtotal, hydrateCart, shippingFor } from "../../lib/cart";
 import { money } from "../../lib/money";
+import { useCatalogProducts } from "../../lib/use-catalog";
 import type { AppDispatch, RootState } from "../../store";
 import { clearCart } from "../../store/StoreCart/store-cart-slice";
 
@@ -60,9 +61,10 @@ const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const lines = useSelector((state: RootState) => state.storeCart.items);
+  const products = useCatalogProducts();
 
-  const items = hydrateCart(lines);
-  const subtotal = cartSubtotal(lines);
+  const items = hydrateCart(lines, products);
+  const subtotal = cartSubtotal(lines, products);
   const shipping = shippingFor(subtotal);
   const total = subtotal + shipping;
 
@@ -163,6 +165,7 @@ const Checkout: React.FC = () => {
               <div key={it.key} className="flex gap-3 items-center">
                 <div className="w-11 h-[52px] rounded-[6px] overflow-hidden shrink-0">
                   <PhotoTile
+                    src={it.product.image}
                     tone={it.product.tone}
                     name={it.product.name}
                     label=""

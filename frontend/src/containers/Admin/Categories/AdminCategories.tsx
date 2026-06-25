@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ConfirmDialog from '../../../components/UI/ConfirmDialog/ConfirmDialog';
 import Button from '../../../components/UI/Button/Button';
-import { categories as seedCategories, type Category } from '../../../data/catalog';
+import { type Category } from '../../../data/catalog';
+import { useCatalogCategories } from '../../../lib/use-catalog';
 
 interface Editing {
   type: 'cat' | 'sub';
@@ -21,12 +22,19 @@ const EDIT_INPUT =
 /** Category accordion — rename, delete (with confirmation) and add sub­categories.
  *  Edits live in local state; persistence arrives with the real-data follow-up. */
 export default function AdminCategories() {
-  const [cats, setCats] = useState<Category[]>(seedCategories.map((c) => ({ ...c, subs: [...c.subs] })));
-  const [open, setOpen] = useState<string | null>(seedCategories[0]?.id ?? null);
+  const seedCategories = useCatalogCategories();
+  const [cats, setCats] = useState<Category[]>([]);
+  const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newSub, setNewSub] = useState('');
+
+  // Seed the editable copy from the loaded catalog (and re-seed if it changes).
+  useEffect(() => {
+    setCats(seedCategories.map((c) => ({ ...c, subs: [...c.subs] })));
+    setOpen((cur) => cur ?? seedCategories[0]?.id ?? null);
+  }, [seedCategories]);
 
   const startEdit = (type: 'cat' | 'sub', catId: string, subId: string | null, value: string) =>
     setEditing({ type, catId, subId, value });

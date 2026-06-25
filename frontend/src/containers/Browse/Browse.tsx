@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ProductCard from "../../components/storefront/ProductCard/ProductCard";
 import { Select } from "../../components/UI/Field/Field";
-import { categories, products, SWATCHES, type Swatch } from "../../data/catalog";
-import { catName, subName } from "../../lib/catalog-helpers";
+import { SWATCHES, type Swatch } from "../../data/catalog";
+import { useCatalogCategories, useCatalogProducts, useCatName, useSubName } from "../../lib/use-catalog";
 
 const WRAP = "max-w-[1180px] mx-auto px-6";
 
@@ -37,6 +37,10 @@ function TreeLink({ label, active, bold, small, onClick }: TreeLinkProps) {
 const Browse: React.FC = () => {
   const navigate = useNavigate();
   const { cat, sub } = useParams<{ cat?: string; sub?: string }>();
+  const products = useCatalogProducts();
+  const categories = useCatalogCategories();
+  const catName = useCatName();
+  const subName = useSubName();
   const [color, setColor] = useState<Swatch | null>(null);
   const [sort, setSort] = useState<Sort>("featured");
 

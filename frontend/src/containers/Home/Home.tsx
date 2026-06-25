@@ -1,6 +1,7 @@
-import { products } from "../../data/catalog";
 import ProductCard from "../../components/storefront/ProductCard/ProductCard";
 import Icon, { type IconName } from "../../components/UI/Icon/Icon";
+import type { Product } from "../../data/catalog";
+import { useCatalogProducts } from "../../lib/use-catalog";
 
 const WRAP = "max-w-[1180px] mx-auto px-6";
 
@@ -12,7 +13,8 @@ const EDITORIAL: [IconName, string, string][] = [
 
 /** Storefront home — a personalised "For you" feed of scroll rows + a grid. */
 const Home: React.FC = () => {
-  const scrollRow = (slice: typeof products, base: number) => (
+  const products = useCatalogProducts();
+  const scrollRow = (slice: Product[], base: number) => (
     <div className="flex gap-4 overflow-x-auto pb-2">
       {slice.map((p, i) => (
         <div key={p.id} className="shrink-0 basis-[140px]">

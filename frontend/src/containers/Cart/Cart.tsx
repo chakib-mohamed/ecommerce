@@ -7,7 +7,7 @@ import PhotoTile from "../../components/UI/PhotoTile/PhotoTile";
 import Qty from "../../components/UI/Qty/Qty";
 import { cartSubtotal, hydrateCart, shippingFor } from "../../lib/cart";
 import { money } from "../../lib/money";
-import { subName } from "../../lib/catalog-helpers";
+import { useCatalogProducts, useSubName } from "../../lib/use-catalog";
 import type { AppDispatch, RootState } from "../../store";
 import { removeLine, setLineQty } from "../../store/StoreCart/store-cart-slice";
 
@@ -17,9 +17,11 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const lines = useSelector((state: RootState) => state.storeCart.items);
+  const products = useCatalogProducts();
+  const subName = useSubName();
 
-  const items = hydrateCart(lines);
-  const subtotal = cartSubtotal(lines);
+  const items = hydrateCart(lines, products);
+  const subtotal = cartSubtotal(lines, products);
   const shipping = shippingFor(subtotal);
   const count = items.reduce((n, i) => n + i.qty, 0);
 
@@ -53,6 +55,7 @@ const Cart: React.FC = () => {
             >
               <div className="w-[88px] h-[104px] rounded-sm overflow-hidden shrink-0">
                 <PhotoTile
+                  src={it.product.image}
                   tone={it.product.tone}
                   name={it.product.name}
                   label=""

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
-import { categories } from "../../../data/catalog";
 import { cartCount } from "../../../lib/cart";
+import { useCatalogCategories } from "../../../lib/use-catalog";
 import type { AppDispatch, RootState } from "../../../store";
 import { openDrawer, openSearch } from "../../../store/StoreCart/store-cart-slice";
 import Icon from "../../UI/Icon/Icon";
@@ -15,6 +15,7 @@ export default function Header() {
   const dispatch = useDispatch<AppDispatch>();
   const { pathname } = useLocation();
   const [open, setOpen] = useState<string | null>(null);
+  const categories = useCatalogCategories();
 
   const count = useSelector((state: RootState) => cartCount(state.storeCart.items));
 

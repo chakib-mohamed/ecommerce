@@ -1,12 +1,13 @@
 /**
- * Mock back-office analytics — deterministic, seeded port of
+ * Back-office analytics — deterministic, seeded port of
  * design_handoff_cloud_shop/back-office.jsx `buildAnalytics()`.
  *
- * Like the rest of the redesign, this computes figures locally from the mock
- * catalog so the dashboard renders against stable data. A follow-up swaps these
- * for real `/api` analytics calls.
+ * The catalog is real (loaded from `/api`), but per-product *sales* figures are
+ * still synthesised deterministically from the product list — the backend has no
+ * sales/analytics endpoint yet. A follow-up swaps these for real `/api`
+ * analytics once that exists.
  */
-import { categories, products, type Product } from '../data/catalog';
+import { type Category, type Product } from '../data/catalog';
 
 export interface MonthSale {
   month: string;
@@ -43,7 +44,7 @@ const seedRand = (seed: number): (() => number) => {
 
 const MONTHS = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
 
-export function buildAnalytics(): Analytics {
+export function buildAnalytics(products: Product[], categories: Category[]): Analytics {
   const r = seedRand(42);
 
   // 12 months of sales — a gentle seasonal wave with a deterministic jitter.

@@ -23,6 +23,7 @@ import AdminLayout from "./hoc/AdminLayout/AdminLayout";
 import Layout from "./hoc/Layout/Layout";
 import { authService } from "./services";
 import { AppDispatch } from "./store";
+import { loadCatalog } from "./store/Catalog/catalog-slice";
 import { checkAuthenticationState } from "./store/Login/login-slice";
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
 
   useEffect(() => {
     dispatch(checkAuthenticationState());
+    dispatch(loadCatalog());
   }, [dispatch]);
 
   const handleOnIdle = (event?: Event) => {

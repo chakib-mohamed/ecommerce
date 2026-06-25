@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import { categories, shop } from "../../../data/catalog";
+import { shop } from "../../../data/catalog";
+import { useCatalogCategories } from "../../../lib/use-catalog";
 import Logo from "../../UI/Logo/Logo";
 
 /** Storefront footer — wordmark + tagline and the Shop (categories) column. */
 export default function Footer() {
   const navigate = useNavigate();
+  const categories = useCatalogCategories();
   return (
     <footer className="mt-[90px] border-t border-line bg-paper">
       <div className="max-w-[1180px] mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr_1fr] gap-8">

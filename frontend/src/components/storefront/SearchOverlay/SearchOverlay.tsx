@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { products } from "../../../data/catalog";
-import { catName } from "../../../lib/catalog-helpers";
+import { useCatalogProducts, useCatName } from "../../../lib/use-catalog";
 import { money } from "../../../lib/money";
 import type { AppDispatch, RootState } from "../../../store";
 import { closeSearch } from "../../../store/StoreCart/store-cart-slice";
@@ -15,6 +14,8 @@ export default function SearchOverlay() {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const open = useSelector((state: RootState) => state.storeCart.searchOpen);
+  const products = useCatalogProducts();
+  const catName = useCatName();
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -77,7 +78,7 @@ export default function SearchOverlay() {
             className="flex items-center gap-3 w-full px-[18px] py-3 border-0 bg-transparent cursor-pointer text-left hover:bg-paper-2"
           >
             <div className="w-10 h-12 rounded-[6px] overflow-hidden">
-              <PhotoTile tone={p.tone} name={p.name} label="" className="w-full h-full !text-[16px]" />
+              <PhotoTile src={p.image} tone={p.tone} name={p.name} label="" className="w-full h-full !text-[16px]" />
             </div>
             <div className="flex-grow">
               <div className="text-[15px]">{p.name}</div>
