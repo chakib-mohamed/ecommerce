@@ -1,7 +1,13 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { restApi } from '../../axios-instance';
 import { Category, Product } from '../../data/catalog';
-import { adaptCategory, adaptProduct, RawProduct } from '../../lib/catalog-adapter';
+import {
+  adaptCategory,
+  adaptProduct,
+  featuredKey,
+  RawCategory,
+  RawProduct,
+} from '../../lib/catalog-adapter';
 
 /**
  * Runtime catalog — products + categories loaded from the real `/api` and
@@ -20,8 +26,6 @@ const initialState: CatalogState = {
   status: 'idle',
 };
 
-const idOf = (p: RawProduct): string => String(p.productID ?? p.id ?? '');
-
 export const loadCatalog = createAsyncThunk('catalog/load', async () => {
   const [catsRes, prodsRes, featRes] = await Promise.all([
     restApi.get('/categories'),
@@ -30,13 +34,11 @@ export const loadCatalog = createAsyncThunk('catalog/load', async () => {
     restApi.get('/products/featured').catch(() => ({ data: [] as RawProduct[] })),
   ]);
 
-  const catData = (catsRes.data ?? {}) as Record<string, string>;
-  const categories = Object.keys(catData).map((id, i) =>
-    adaptCategory({ id, name: catData[id] }, i),
-  );
+  const catList = (Array.isArray(catsRes.data) ? catsRes.data : []) as RawCategory[];
+  const categories = catList.map((c, i) => adaptCategory(c, i));
 
   const featList = (Array.isArray(featRes.data) ? featRes.data : []) as RawProduct[];
-  const featuredIds = new Set(featList.map(idOf));
+  const featuredIds = new Set(featList.map(featuredKey));
 
   const prodList = (Array.isArray(prodsRes.data) ? prodsRes.data : []) as RawProduct[];
   const products = prodList.map((p) => adaptProduct(p, featuredIds));
