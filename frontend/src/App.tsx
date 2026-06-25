@@ -4,8 +4,12 @@ import { useDispatch } from "react-redux";
 import { Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Account from "./containers/Account/Account";
 import AddProduct from "./containers/AddProduct/AddProduct";
+import Browse from "./containers/Browse/Browse";
 import Cart from "./containers/Cart/Cart";
+import Checkout from "./containers/Checkout/Checkout";
+import Confirm from "./containers/Checkout/Confirm";
 import Home from "./containers/Home/Home";
 import Login from "./containers/Login/Login";
 import SessionTimeout from "./containers/Login/SessionTimeout";
@@ -44,7 +48,13 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/session-timeout" element={<SessionTimeout />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/browse" element={<Browse />} />
+          <Route path="/browse/:cat" element={<Browse />} />
+          <Route path="/browse/:cat/:sub" element={<Browse />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/confirm" element={<Confirm />} />
           <Route path="/product/:id" element={<ProductDetails />} />
           <Route path="/add-Product" element={<AddProduct />} />
           <Route path="/manage-products" element={<ManageProducts />} />
