@@ -63,7 +63,7 @@ const Account: React.FC = () => {
               Open the back-office to manage products &amp; orders.
             </p>
           </div>
-          <Button variant="primary" onClick={() => navigate("/manage-products")}>
+          <Button variant="primary" onClick={() => navigate("/admin")}>
             Back-office <Icon name="arrow" size={16} />
           </Button>
         </div>

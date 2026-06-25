@@ -16,6 +16,11 @@ const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
     return <>{children}</>;
   }
 
+  // Back-office owns the full viewport via its own sidebar shell — no storefront chrome.
+  if (pathname.startsWith("/admin")) {
+    return <>{children}</>;
+  }
+
   // Checkout / confirmation use a minimal secure header, no nav/footer/drawer.
   if (pathname.startsWith("/checkout") || pathname.startsWith("/confirm")) {
     return (
