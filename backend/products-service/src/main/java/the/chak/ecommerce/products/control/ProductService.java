@@ -17,8 +17,10 @@ import the.chak.ecommerce.products.boundary.dto.ProductDto;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
 import the.chak.ecommerce.products.control.exceptions.ProductNotFoundException;
+import the.chak.ecommerce.products.entity.Category;
 import the.chak.ecommerce.products.entity.OutboxEvent;
 import the.chak.ecommerce.products.entity.Product;
+import the.chak.ecommerce.products.repository.CategoryRepository;
 import the.chak.ecommerce.products.repository.OutboxRepository;
 import the.chak.ecommerce.products.repository.ProductRepository;
 
@@ -32,6 +34,9 @@ public class ProductService {
 
     @Inject
     ProductRepository productRepository;
+
+    @Inject
+    CategoryRepository categoryRepository;
 
     @Inject
     OutboxRepository outboxRepository;
@@ -63,18 +68,22 @@ public class ProductService {
     }
 
     public Product saveProduct(Product product, byte[] imageBytes) {
+        return saveProduct(product, imageBytes, null, null);
+    }
+
+    public Product saveProduct(Product product, byte[] imageBytes, Long categoryId, Long subcategoryId) {
         if (imageBytes != null && imageBytes.length > 0) {
             String imageKey = storageService.uploadImage(imageBytes);
             product.setImageKey(imageKey);
             try {
-                persistProduct(product);
+                persistProduct(product, categoryId, subcategoryId);
             } catch (Exception e) {
                 storageService.deleteImage(imageKey);
                 throw e;
             }
             recordImageUploaded();
         } else {
-            persistProduct(product);
+            persistProduct(product, categoryId, subcategoryId);
         }
         recordProductMutation(MetricNames.OP_CREATE);
         LOG.infof("Product created productId=%s title=%s", product.getUuid(), product.getTitle());
@@ -82,12 +91,17 @@ public class ProductService {
     }
 
     @Transactional
-    void persistProduct(Product product) {
+    void persistProduct(Product product, Long categoryId, Long subcategoryId) {
+        resolveCategoryLink(product, categoryId, subcategoryId);
         productRepository.persist(product);
         appendProductUpdated(product);
     }
 
     public Product updateProduct(Product product, byte[] imageBytes) {
+        return updateProduct(product, imageBytes, null, null);
+    }
+
+    public Product updateProduct(Product product, byte[] imageBytes, Long categoryId, Long subcategoryId) {
         var existing = productRepository.findByUuid(product.getUuid());
         if (existing == null) {
             throw new ProductNotFoundException(product.getUuid());
@@ -99,7 +113,7 @@ public class ProductService {
             String newImageKey = storageService.uploadImage(imageBytes);
             product.setImageKey(newImageKey);
             try {
-                mergeProduct(product);
+                mergeProduct(product, categoryId, subcategoryId);
             } catch (Exception e) {
                 storageService.deleteImage(newImageKey);
                 throw e;
@@ -110,7 +124,7 @@ public class ProductService {
             recordImageUploaded();
         } else {
             product.setImageKey(oldImageKey);
-            mergeProduct(product);
+            mergeProduct(product, categoryId, subcategoryId);
         }
         recordProductMutation(MetricNames.OP_UPDATE);
         LOG.infof("Product updated productId=%s title=%s", product.getUuid(), product.getTitle());
@@ -118,9 +132,28 @@ public class ProductService {
     }
 
     @Transactional
-    void mergeProduct(Product product) {
+    void mergeProduct(Product product, Long categoryId, Long subcategoryId) {
+        resolveCategoryLink(product, categoryId, subcategoryId);
         productRepository.merge(product);
         appendProductUpdated(product);
+    }
+
+    /**
+     * Files the product under the requested category: the subcategory when given, else the top-level
+     * category. Runs inside the write transaction so the resolved category is managed and its join
+     * row is written with the product. No id means the caller is not changing the filing.
+     */
+    private void resolveCategoryLink(Product product, Long categoryId, Long subcategoryId) {
+        Long targetId = subcategoryId != null ? subcategoryId : categoryId;
+        if (targetId == null) {
+            return;
+        }
+        Category category = categoryRepository.findById(targetId);
+        if (category == null) {
+            throw new BadRequestException("Unknown category id: " + targetId);
+        }
+        product.getCategories().clear();
+        product.getCategories().add(category);
     }
 
     /**

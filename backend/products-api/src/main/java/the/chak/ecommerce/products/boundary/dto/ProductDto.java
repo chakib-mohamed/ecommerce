@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -31,6 +32,13 @@ public class ProductDto {
 
     @NotBlank
     private String title;
+
+    @PositiveOrZero
+    private Integer stock;
+
+    private Long categoryId;
+
+    private Long subcategoryId;
 
     @Valid
     private List<PromotionDto> promotions;
