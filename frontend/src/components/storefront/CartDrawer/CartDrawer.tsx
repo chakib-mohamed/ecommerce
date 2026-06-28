@@ -90,19 +90,16 @@ export default function CartDrawer() {
                       <span className="text-[15px] font-medium">{it.product.name}</span>
                       <IconButton
                         size={26}
-                        onClick={() => dispatch(removeLine({ id: it.id, color: it.color }))}
+                        onClick={() => dispatch(removeLine({ id: it.id }))}
                         aria-label="Remove item"
                       >
                         <Icon name="close" size={15} />
                       </IconButton>
                     </div>
-                    <div className="text-muted text-[13px] capitalize mb-2">{it.color}</div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mt-2">
                       <Qty
                         value={it.qty}
-                        onChange={(q) =>
-                          dispatch(setLineQty({ id: it.id, color: it.color, qty: q }))
-                        }
+                        onChange={(q) => dispatch(setLineQty({ id: it.id, qty: q }))}
                       />
                       <span className="price font-semibold">{money(it.lineTotal)}</span>
                     </div>

@@ -1,35 +1,14 @@
 /**
  * Cloud Shop catalog types + design constants.
  *
- * The redesign was built against a rich product model (colours, rating, stock,
- * subcategories, …). The real `/api` backend serves a leaner model, so the
- * runtime data now flows through the `catalog` Redux slice, populated from the
- * API by `lib/catalog-adapter.ts`. This module keeps the shared *types* and the
- * design palette/brand constants that both paths rely on.
- *
- * Backend model gap (filled with deterministic fallbacks by the adapter):
- * `sub`, `colors`, `rating`, `reviews`, `stock`, `tone`, `badge`. A future
- * backend extension (own spec/OpenAPI cycle) can serve these for real — see
- * `docs/specs/product-model-extension.md`.
+ * Runtime data flows through the `catalog` Redux slice, populated from the real
+ * `/api` by `lib/catalog-adapter.ts`. The backend serves
+ * `category_id`/`subcategory_id`/`stock` and the nested category tree for real;
+ * only `tone`/`badge` are presentation-derived and `rating`/`reviews` keep a
+ * deterministic fallback until the reviews subsystem ships (see
+ * `docs/specs/product-reviews.md`). This module keeps the shared *types* and the
+ * brand constants both paths rely on.
  */
-
-export type Swatch =
-  | 'sand' | 'cream' | 'clay' | 'rust' | 'olive'
-  | 'sage' | 'slate' | 'ink' | 'charcoal' | 'blush';
-
-/** Hex values for the product-swatch palette (color dots). */
-export const SWATCHES: Record<Swatch, string> = {
-  sand: '#d8c9af',
-  cream: '#efe7d6',
-  clay: '#b07a5b',
-  rust: '#a65a3a',
-  olive: '#7d7f5a',
-  sage: '#8a9479',
-  slate: '#6f7b85',
-  ink: '#2a2823',
-  charcoal: '#43403a',
-  blush: '#d6b3a3',
-};
 
 export interface Subcategory {
   id: string;
@@ -57,7 +36,6 @@ export interface Product {
   stock: number;
   /** placeholder-tile tone (1..6) */
   tone: number;
-  colors: Swatch[];
   blurb: string;
   /** real product image URL when available; falls back to a `tone` placeholder tile */
   image?: string;

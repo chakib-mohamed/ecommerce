@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ProductCard from "../../components/storefront/ProductCard/ProductCard";
 import { Select } from "../../components/UI/Field/Field";
-import { SWATCHES, type Swatch } from "../../data/catalog";
 import { useCatalogCategories, useCatalogProducts, useCatName, useSubName } from "../../lib/use-catalog";
 
 const WRAP = "max-w-[1180px] mx-auto px-6";
@@ -41,14 +40,10 @@ const Browse: React.FC = () => {
   const categories = useCatalogCategories();
   const catName = useCatName();
   const subName = useSubName();
-  const [color, setColor] = useState<Swatch | null>(null);
   const [sort, setSort] = useState<Sort>("featured");
 
   let items = products.filter(
-    (p) =>
-      (!cat || p.cat === cat) &&
-      (!sub || p.sub === sub) &&
-      (!color || p.colors.includes(color))
+    (p) => (!cat || p.cat === cat) && (!sub || p.sub === sub)
   );
   if (sort === "low") items = [...items].sort((a, b) => a.price - b.price);
   if (sort === "high") items = [...items].sort((a, b) => b.price - a.price);
@@ -56,7 +51,6 @@ const Browse: React.FC = () => {
     items = [...items].sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
 
   const title = sub ? subName(cat!, sub) : cat ? catName(cat) : "All products";
-  const swatchKeys = Object.keys(SWATCHES).slice(0, 8) as Swatch[];
 
   return (
     <div>
@@ -112,41 +106,6 @@ const Browse: React.FC = () => {
               </div>
             ))}
           </div>
-
-          <hr className="border-0 border-t border-line my-5" />
-          <div className="eyebrow mb-3">Colour</div>
-          <div className="flex flex-wrap gap-2">
-            {swatchKeys.map((c) => {
-              const hex = SWATCHES[c];
-              const pale = c === "cream" || c === "sand";
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  title={c}
-                  aria-pressed={color === c}
-                  onClick={() => setColor(color === c ? null : c)}
-                  className="rounded-full p-0 cursor-pointer transition-transform duration-100 hover:scale-110"
-                  style={{
-                    width: 26,
-                    height: 26,
-                    background: hex,
-                    border: `1.5px solid ${pale ? "var(--line-2)" : "transparent"}`,
-                    boxShadow:
-                      color === c ? "0 0 0 2px var(--paper), 0 0 0 4px var(--ink)" : undefined,
-                  }}
-                />
-              );
-            })}
-          </div>
-          {color && (
-            <button
-              className="mt-3 text-[13px] text-ink hover:text-accent-deep bg-transparent border-0 cursor-pointer p-0"
-              onClick={() => setColor(null)}
-            >
-              Clear colour
-            </button>
-          )}
         </aside>
 
         <div>
@@ -170,10 +129,7 @@ const Browse: React.FC = () => {
                 Nothing here yet.{" "}
                 <button
                   className="text-ink hover:text-accent-deep bg-transparent border-0 cursor-pointer p-0 underline"
-                  onClick={() => {
-                    setColor(null);
-                    navigate("/browse");
-                  }}
+                  onClick={() => navigate("/browse")}
                 >
                   See everything
                 </button>

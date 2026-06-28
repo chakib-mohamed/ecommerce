@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ProductCard from "../../components/storefront/ProductCard/ProductCard";
 import Button from "../../components/UI/Button/Button";
-import ColorDots from "../../components/UI/ColorDots/ColorDots";
 import Icon from "../../components/UI/Icon/Icon";
 import PhotoTile from "../../components/UI/PhotoTile/PhotoTile";
 import Qty from "../../components/UI/Qty/Qty";
 import Stars from "../../components/UI/Stars/Stars";
-import { type Swatch } from "../../data/catalog";
 import { money } from "../../lib/money";
 import { useAddToCart } from "../../lib/use-add-to-cart";
 import { useCatalogProducts, useCatName, useSubName } from "../../lib/use-catalog";
@@ -33,14 +31,12 @@ const ProductDetails: React.FC = () => {
   const subName = useSubName();
 
   const product = products.find((x) => x.id === id) ?? products[0];
-  const [color, setColor] = useState<Swatch>(product?.colors[0] ?? "sand");
   const [qty, setQty] = useState(1);
   const [shot, setShot] = useState(0);
   const [tab, setTab] = useState<Tab>("desc");
 
   useEffect(() => {
     if (!product) return;
-    setColor(product.colors[0]);
     setQty(1);
     setShot(0);
     // Reset selections whenever the viewed product changes.
@@ -97,20 +93,13 @@ const ProductDetails: React.FC = () => {
           </div>
           <p className="text-base text-ink-2 leading-relaxed mb-6">{product.blurb}</p>
 
-          <div className="mb-[18px]">
-            <label className="block text-[13px] font-semibold text-ink-2 mb-[7px]">
-              Colour — <span className="capitalize text-muted">{color}</span>
-            </label>
-            <ColorDots colors={product.colors} value={color} onChange={setColor} size={30} />
-          </div>
-
           <div className="flex gap-3 mb-3.5">
             <Qty value={qty} onChange={setQty} />
             <Button
               variant="primary"
               size="lg"
               className="flex-grow"
-              onClick={() => addToCart(product, color, qty)}
+              onClick={() => addToCart(product, qty)}
             >
               Add to cart — {money(product.price * qty)}
             </Button>

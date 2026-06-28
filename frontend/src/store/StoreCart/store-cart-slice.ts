@@ -1,14 +1,12 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 /**
- * Cloud Shop storefront cart — RTK slice modelling the design's cart
- * (`{ id, color, qty }` lines keyed by id+colour) plus the chrome open-state
- * (cart drawer + search overlay). Reads against the mock `data/catalog.ts`;
- * a follow-up reconciles this with the real `/api` order flow.
+ * Cloud Shop storefront cart — RTK slice modelling the cart (`{ id, qty }`
+ * lines keyed by product id) plus the chrome open-state (cart drawer + search
+ * overlay). A follow-up reconciles this with the real `/api` order flow.
  */
 export interface CartLine {
   id: string;
-  color: string;
   qty: number;
 }
 
@@ -35,8 +33,8 @@ const initialState: StoreCartState = {
   searchOpen: false,
 };
 
-const find = (items: CartLine[], id: string, color: string) =>
-  items.find((i) => i.id === id && i.color === color);
+const find = (items: CartLine[], id: string) =>
+  items.find((i) => i.id === id);
 
 const storeCartSlice = createSlice({
   name: "storeCart",
@@ -44,27 +42,22 @@ const storeCartSlice = createSlice({
   reducers: {
     addToCart: (
       state,
-      action: PayloadAction<{ id: string; color: string; qty?: number }>
+      action: PayloadAction<{ id: string; qty?: number }>
     ) => {
-      const { id, color, qty = 1 } = action.payload;
-      const line = find(state.items, id, color);
+      const { id, qty = 1 } = action.payload;
+      const line = find(state.items, id);
       if (line) line.qty += qty;
-      else state.items.push({ id, color, qty });
+      else state.items.push({ id, qty });
     },
     setLineQty: (
       state,
-      action: PayloadAction<{ id: string; color: string; qty: number }>
+      action: PayloadAction<{ id: string; qty: number }>
     ) => {
-      const line = find(state.items, action.payload.id, action.payload.color);
+      const line = find(state.items, action.payload.id);
       if (line) line.qty = Math.max(1, action.payload.qty);
     },
-    removeLine: (
-      state,
-      action: PayloadAction<{ id: string; color: string }>
-    ) => {
-      state.items = state.items.filter(
-        (i) => !(i.id === action.payload.id && i.color === action.payload.color)
-      );
+    removeLine: (state, action: PayloadAction<{ id: string }>) => {
+      state.items = state.items.filter((i) => i.id !== action.payload.id);
     },
     clearCart: (state) => {
       state.items = [];

@@ -1,26 +1,25 @@
 /**
  * Adapts the real `/api` product/category payloads to the design's catalog
- * model. Fields the backend doesn't serve (sub, colors, rating, reviews, stock,
- * tone, badge) are filled with *deterministic* fallbacks derived from the
- * product id, so a given product always looks the same across renders/sessions.
- *
- * When the backend grows these fields for real (see
- * `docs/specs/product-model-extension.md`), prefer the real value and let the
- * fallback cover only what's still missing.
+ * model. The backend now serves `category_id`/`subcategory_id`/`stock` on
+ * products and the nested category tree (`parent_id` + `sub_categories`), so
+ * those flow through as real data. The remaining presentation-only fields
+ * (`tone`, `badge`) are derived, and `rating`/`reviews` keep *deterministic*
+ * id-seeded fallbacks until the reviews subsystem ships (see
+ * `docs/specs/product-reviews.md`).
  */
-import { Category, Product, Swatch, SWATCHES } from '../data/catalog';
-
-const SWATCH_KEYS = Object.keys(SWATCHES) as Swatch[];
+import { Category, Product } from '../data/catalog';
 
 /**
- * Raw category entry. GET /categories returns a flat array of `{ id, label }`
- * (top-level categories and subcategories share the list, with no parent link),
- * so the adapter keeps them flat — see `adaptCategory`.
+ * Raw category entry. GET /categories returns the top-level categories, each
+ * with its children nested under `sub_categories` and a `parent_id` link — see
+ * `adaptCategory`.
  */
 export interface RawCategory {
   id?: number | string;
   label?: string;
   name?: string;
+  parent_id?: number | string;
+  sub_categories?: RawCategory[];
 }
 
 type RawCategoryRef = string | { id?: number | string; label?: string; value?: string };
@@ -37,6 +36,8 @@ export interface RawProduct {
   image?: string;
   price?: number | string;
   stock?: number;
+  category_id?: number | string;
+  subcategory_id?: number | string;
   category?: RawCategoryRef | null;
   categories?: RawCategoryRef[] | null;
 }
@@ -75,43 +76,45 @@ const seeded = (seed: number): (() => number) => {
   };
 };
 
-const pickColors = (r: () => number): Swatch[] => {
-  const pool = [...SWATCH_KEYS];
-  const count = 2 + Math.floor(r() * 3); // 2..4 colours
-  const out: Swatch[] = [];
-  for (let i = 0; i < count && pool.length; i += 1) {
-    out.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
-  }
-  return out;
-};
-
 const refId = (ref: RawCategoryRef | null | undefined): string | null => {
   if (ref == null) return null;
   if (typeof ref === 'string') return ref;
   return String(ref.id ?? ref.value ?? ref.label ?? '') || null;
 };
 
-/** A product's category id — `categories[0]` (array form) or `category`. */
+/**
+ * A product's top-level category id. Prefers the explicit `category_id`; falls
+ * back to the embedded `categories[0]`/`category` reference for older shapes.
+ */
 const categoryId = (raw: RawProduct): string => {
+  if (raw.category_id != null) return String(raw.category_id);
   const first = Array.isArray(raw.categories) ? raw.categories[0] : undefined;
   return refId(first) ?? refId(raw.category) ?? 'general';
 };
+
+/** A product's subcategory id, or `''` when it's filed under a top-level category. */
+const subcategoryId = (raw: RawProduct): string =>
+  raw.subcategory_id != null ? String(raw.subcategory_id) : '';
 
 export const adaptCategory = (raw: RawCategory, index: number): Category => ({
   id: String(raw.id ?? ''),
   name: raw.label ?? raw.name ?? 'Uncategorized',
   tone: (index % 6) + 1,
-  subs: [], // backend serves a flat list with no parent link yet
+  subs: Array.isArray(raw.sub_categories)
+    ? raw.sub_categories.map((s) => ({
+        id: String(s.id ?? ''),
+        name: s.label ?? s.name ?? 'Uncategorized',
+      }))
+    : [],
 });
 
 export const adaptProduct = (raw: RawProduct, featuredIds: Set<string>): Product => {
   const id = productId(raw);
   const r = seeded(hashId(id || 'x'));
-  const colors = pickColors(r);
   const rating = Math.round((3.8 + r() * 1.2) * 10) / 10;
   const reviews = 5 + Math.floor(r() * 120);
   const tone = Math.floor(r() * 6) + 1;
-  const stock = typeof raw.stock === 'number' ? raw.stock : 3 + Math.floor(r() * 40);
+  const stock = Number(raw.stock ?? 0);
   const featured = featuredIds.has(id);
 
   return {
@@ -119,12 +122,11 @@ export const adaptProduct = (raw: RawProduct, featuredIds: Set<string>): Product
     name: raw.title ?? raw.name ?? 'Untitled',
     price: Number(raw.price ?? 0),
     cat: categoryId(raw),
-    sub: '',
+    sub: subcategoryId(raw),
     rating,
     reviews,
     stock,
     tone,
-    colors: colors.length ? colors : ['sand'],
     blurb: raw.description ?? '',
     image: raw.image || undefined,
     featured,

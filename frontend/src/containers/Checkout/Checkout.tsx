@@ -174,9 +174,7 @@ const Checkout: React.FC = () => {
                 </div>
                 <div className="flex-grow">
                   <div className="text-sm">{it.product.name}</div>
-                  <div className="text-muted text-xs capitalize">
-                    {it.color} · ×{it.qty}
-                  </div>
+                  <div className="text-muted text-xs">×{it.qty}</div>
                 </div>
                 <span className="price text-sm">{money(it.lineTotal)}</span>
               </div>

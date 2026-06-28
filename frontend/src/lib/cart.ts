@@ -16,7 +16,7 @@ export const hydrateCart = (lines: CartLine[], products: Product[]): CartItem[] 
     return [
       {
         ...line,
-        key: line.id + ":" + line.color,
+        key: line.id,
         product,
         lineTotal: product.price * line.qty,
       },

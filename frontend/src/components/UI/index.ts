@@ -3,7 +3,6 @@ export { default as Icon, type IconName } from './Icon/Icon';
 export { default as IconButton } from './IconButton/IconButton';
 export { default as PhotoTile } from './PhotoTile/PhotoTile';
 export { default as Stars } from './Stars/Stars';
-export { default as ColorDots } from './ColorDots/ColorDots';
 export { default as Qty } from './Qty/Qty';
 export { default as Logo } from './Logo/Logo';
 export { default as Button, type ButtonVariant, type ButtonSize } from './Button/Button';

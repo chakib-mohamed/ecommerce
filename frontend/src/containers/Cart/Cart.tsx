@@ -69,11 +69,10 @@ const Cart: React.FC = () => {
                     <div className="text-muted text-[13px]">
                       {subName(it.product.cat, it.product.sub)}
                     </div>
-                    <div className="text-muted text-[13px] capitalize mt-0.5">{it.color}</div>
                   </div>
                   <IconButton
                     size={30}
-                    onClick={() => dispatch(removeLine({ id: it.id, color: it.color }))}
+                    onClick={() => dispatch(removeLine({ id: it.id }))}
                     aria-label="Remove item"
                   >
                     <Icon name="close" size={16} />
@@ -82,7 +81,7 @@ const Cart: React.FC = () => {
                 <div className="flex items-center justify-between mt-3">
                   <Qty
                     value={it.qty}
-                    onChange={(q) => dispatch(setLineQty({ id: it.id, color: it.color, qty: q }))}
+                    onChange={(q) => dispatch(setLineQty({ id: it.id, qty: q }))}
                   />
                   <span className="price font-semibold">{money(it.lineTotal)}</span>
                 </div>
