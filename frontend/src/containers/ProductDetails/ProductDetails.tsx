@@ -1,186 +1,163 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { restApi } from "../../axios-instance";
-import Spinner from "../../components/UI/Spinner/Spinner";
-import { service } from "../../services";
-import { Product } from "../../types/types";
+import ProductCard from "../../components/storefront/ProductCard/ProductCard";
+import Button from "../../components/UI/Button/Button";
+import Icon from "../../components/UI/Icon/Icon";
+import PhotoTile from "../../components/UI/PhotoTile/PhotoTile";
+import Qty from "../../components/UI/Qty/Qty";
+import Stars from "../../components/UI/Stars/Stars";
+import { money } from "../../lib/money";
+import { useAddToCart } from "../../lib/use-add-to-cart";
+import { useCatalogProducts, useCatName, useSubName } from "../../lib/use-catalog";
+
+const WRAP = "max-w-[1180px] mx-auto px-6";
+const GLYPHS = ["", "◐", "◑", "✦"];
+
+type Tab = "desc" | "ship" | "care";
+const TAB_COPY: Record<Tab, (blurb: string) => string> = {
+  desc: (b) => b + " Each piece is checked by hand before it leaves the studio.",
+  ship: () =>
+    "Dispatched within 2 working days. Free carbon-neutral delivery on orders over $75. Returns accepted within 30 days.",
+  care: () =>
+    "Wipe clean with a soft, damp cloth. Avoid harsh detergents. Re-oil timber surfaces every few months to keep them happy.",
+};
 
 const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1);
-  const [isAdding, setIsAdding] = useState(false);
+  const addToCart = useAddToCart();
+  const products = useCatalogProducts();
+  const catName = useCatName();
+  const subName = useSubName();
+
+  const product = products.find((x) => x.id === id) ?? products[0];
+  const [qty, setQty] = useState(1);
+  const [shot, setShot] = useState(0);
+  const [tab, setTab] = useState<Tab>("desc");
 
   useEffect(() => {
-    if (id) {
-      setLoading(true);
-      service.getProduct(id)
-        .then((data) => {
-          setProduct(data);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-    }
-  }, [id]);
-
-  const handleAddToCart = (e: React.FormEvent) => {
-    e.preventDefault();
     if (!product) return;
+    setQty(1);
+    setShot(0);
+    // Reset selections whenever the viewed product changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
 
-    setIsAdding(true);
-    // Mimicking the original direct localStorage manipulation
-    const cartStr = localStorage.getItem("CART");
-    const cart = cartStr ? JSON.parse(cartStr) : {};
-    
-    if (cart[product.id]) {
-      cart[product.id] = parseInt(cart[product.id]) + quantity;
-    } else {
-      cart[product.id] = quantity;
-    }
+  if (!product) {
+    return <div className={`${WRAP} py-24 text-center text-muted`}>Loading product…</div>;
+  }
 
-    localStorage.setItem("CART", JSON.stringify(cart));
-    
-    // Smooth transition to cart
-    setTimeout(() => {
-      navigate("/cart");
-    }, 600);
-  };
-
-  const incrementQty = () => setQuantity(prev => prev + 1);
-  const decrementQty = () => setQuantity(prev => (prev > 1 ? prev - 1 : 1));
-
-  if (loading) return <Spinner loading={true} />;
-  if (!product) return (
-    <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-      <h2 className="text-2xl font-bold text-slate-900">Product not found</h2>
-    </div>
-  );
-
-  const hasPromotion = product.promotions && product.promotions.length > 0;
-  const currentPrice = hasPromotion 
-    ? product.price * (1 - product.promotions[0].percentageOff / 100) 
-    : product.price;
+  const related = products.filter((x) => x.cat === product.cat && x.id !== product.id).slice(0, 4);
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 animate-in fade-in slide-in-from-bottom duration-700">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 items-start">
-        
-        {/* Left: Product Image */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="relative aspect-square sm:aspect-video lg:aspect-square bg-slate-50 rounded-[3rem] overflow-hidden border border-slate-100 shadow-2xl group">
-            <img
-              src={restApi.defaults.baseURL + "products/images/" + product.image}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              alt={product.title}
+    <div>
+      <div className={`${WRAP} pt-[22px]`}>
+        <Button variant="quiet" size="sm" className="reveal" onClick={() => navigate(`/browse/${product.cat}`)}>
+          <Icon name="back" size={16} /> {catName(product.cat)}
+        </Button>
+      </div>
+
+      <div className={`${WRAP} grid grid-cols-1 lg:grid-cols-2 gap-14 mt-3 items-start`}>
+        {/* gallery */}
+        <div className="reveal lg:sticky lg:top-[88px]">
+          <div className="rounded-lg overflow-hidden">
+            <PhotoTile
+              src={product.image}
+              tone={product.tone}
+              name={product.name}
+              glyph={GLYPHS[shot]}
+              className="aspect-square !text-[100px]"
             />
-            {hasPromotion && (
-              <div className="absolute top-8 left-8 bg-red-500 text-white font-black px-6 py-2 rounded-full shadow-lg shadow-red-500/30 -rotate-12 italic tracking-widest text-sm uppercase">
-                Save {product.promotions[0].percentageOff}%
-              </div>
-            )}
+          </div>
+          <div className="flex gap-2.5 mt-3">
+            {GLYPHS.map((g, i) => (
+              <button
+                key={i}
+                onClick={() => setShot(i)}
+                className="w-[72px] h-[72px] rounded-sm overflow-hidden p-0 cursor-pointer bg-transparent"
+                style={{ border: shot === i ? "2px solid var(--ink)" : "1.5px solid var(--line-2)" }}
+              >
+                <PhotoTile src={product.image} tone={product.tone} label="" glyph={g} className="w-full h-full !text-[26px]" />
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Right: Product Info */}
-        <div className="lg:col-span-5 space-y-8 sticky top-24">
-          <div className="space-y-4">
-            <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 text-xs font-black uppercase tracking-widest">
-              Available Now
-            </div>
-            
-            <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight tracking-tight">
-              {product.title}
-            </h1>
+        {/* info */}
+        <div className="reveal" style={{ animationDelay: "80ms" }}>
+          <div className="text-muted text-[13px]">{subName(product.cat, product.sub)}</div>
+          <h1 className="display text-[46px] mt-1.5 mb-3">{product.name}</h1>
+          <div className="flex items-center justify-between mb-[18px]">
+            <span className="price font-serif text-3xl">{money(product.price)}</span>
+            <Stars value={product.rating} reviews={product.reviews} />
+          </div>
+          <p className="text-base text-ink-2 leading-relaxed mb-6">{product.blurb}</p>
 
-            <div className="flex items-center space-x-4">
-              <span className="text-4xl font-black text-blue-600 italic tracking-tighter">
-                {currentPrice.toFixed(2)} $
-              </span>
-              {hasPromotion && (
-                <span className="text-xl font-medium text-slate-400 line-through">
-                  {product.price.toFixed(2)} $
-                </span>
-              )}
-            </div>
+          <div className="flex gap-3 mb-3.5">
+            <Qty value={qty} onChange={setQty} />
+            <Button
+              variant="primary"
+              size="lg"
+              className="flex-grow"
+              onClick={() => addToCart(product, qty)}
+            >
+              Add to cart — {money(product.price * qty)}
+            </Button>
           </div>
 
-          <div className="h-px bg-slate-100"></div>
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest italic">Description</h3>
-            <p className="text-slate-600 leading-relaxed font-medium text-lg">
-              {product.description || "No description available for this premium item. Experience the quality and craftsmanship that defines our curated collection."}
-            </p>
-          </div>
-
-          <div className="space-y-6 pt-4">
-            <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-              {/* Qty Selector */}
-              <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto">
-                <button 
-                  onClick={decrementQty}
-                  className="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-600 hover:text-blue-600 active:scale-95 transition-all border-0 cursor-pointer"
-                >
-                  <i className="fa fa-minus"></i>
-                </button>
-                <div className="w-16 text-center font-black text-slate-900 text-xl">
-                  {quantity}
-                </div>
-                <button 
-                  onClick={incrementQty}
-                  className="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-600 hover:text-blue-600 active:scale-95 transition-all border-0 cursor-pointer"
-                >
-                  <i className="fa fa-plus"></i>
-                </button>
-              </div>
-
-              {/* Add Button */}
-              <button
-                onClick={handleAddToCart}
-                disabled={isAdding}
-                className={`flex-grow w-full sm:w-auto py-5 px-8 rounded-2xl text-white font-black text-lg shadow-xl transform transition-all duration-500 flex items-center justify-center space-x-3 overflow-hidden relative
-                  ${isAdding 
-                    ? 'bg-green-500 shadow-green-500/30' 
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/40 active:scale-[0.98] cursor-pointer shadow-blue-500/30 border-0'}`}
+          <div className="flex items-center gap-2 mb-[26px]">
+            {product.stock <= 5 ? (
+              <span
+                className="inline-flex items-center text-[11px] font-bold tracking-[0.04em] uppercase px-[9px] py-[3px] rounded-full text-[oklch(0.50_0.10_60)]"
+                style={{ background: "oklch(0.94 0.05 75)" }}
               >
-                {isAdding ? (
-                  <>
-                    <i className="fa fa-check text-xl animate-bounce"></i>
-                    <span>Added to Cart</span>
-                  </>
-                ) : (
-                  <>
-                    <i className="fa fa-shopping-bag"></i>
-                    <span>Add to Bag</span>
-                  </>
-                )}
+                Only {product.stock} left
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center text-[11px] font-bold tracking-[0.04em] uppercase px-[9px] py-[3px] rounded-full text-ok"
+                style={{ background: "oklch(0.93 0.04 150)" }}
+              >
+                In stock
+              </span>
+            )}
+            <span className="text-muted text-[13px] inline-flex items-center gap-1">
+              <Icon name="truck" size={14} /> Free delivery over $75
+            </span>
+          </div>
+
+          <hr className="border-0 border-t border-line" />
+          <div className="flex gap-[22px] mt-4">
+            {(["desc", "ship", "care"] as Tab[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => setTab(k)}
+                className={
+                  "bg-transparent border-0 cursor-pointer text-sm font-semibold py-1 " +
+                  (tab === k
+                    ? "text-ink border-b-2 border-ink"
+                    : "text-muted border-b-2 border-transparent")
+                }
+              >
+                {k === "desc" ? "Description" : k === "ship" ? "Shipping" : "Care"}
               </button>
-            </div>
-
-            <p className="text-xs text-slate-400 font-bold italic flex items-center justify-center sm:justify-start">
-              <i className="fa fa-truck mr-2"></i>
-              Complementary premium shipping on all orders
-            </p>
+            ))}
           </div>
-
-          <div className="h-px bg-slate-100"></div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-1">Product ID</span>
-              <span className="text-sm font-bold text-slate-900 tabular-nums">#{product.id}</span>
-            </div>
-            <div className="flex items-center space-x-4 grayscale opacity-40">
-              <i className="fa fa-cc-visa text-xl"></i>
-              <i className="fa fa-cc-mastercard text-xl"></i>
-              <i className="fa fa-lock text-sm"></i>
-            </div>
-          </div>
+          <p className="text-muted text-[15px] leading-relaxed mt-3.5">
+            {TAB_COPY[tab](product.blurb)}
+          </p>
         </div>
       </div>
-    </main>
+
+      <section className={`${WRAP} mt-[72px]`}>
+        <h2 className="display text-3xl mb-[22px]">You may also like</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-7">
+          {related.map((r, i) => (
+            <ProductCard key={r.id} product={r} delay={i * 60} />
+          ))}
+        </div>
+      </section>
+    </div>
   );
 };
 

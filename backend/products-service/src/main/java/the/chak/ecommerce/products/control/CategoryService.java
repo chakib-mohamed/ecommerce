@@ -52,6 +52,21 @@ public class CategoryService {
         meterRegistry.counter(MetricNames.CATALOG_CATEGORIES_MUTATIONS, MetricNames.TAG_OP, op).increment();
     }
 
+    /**
+     * Returns the top-level categories with their child categories initialized, so the boundary can
+     * serialize the nested tree without touching lazy associations outside this transaction. The
+     * two-level catalog terminates the priming at grandchildren (empty for leaf subcategories).
+     */
+    public List<Category> getRootCategories(int pageIndex, int pageSize) {
+        List<Category> roots = categoryRepository.findRoots(pageIndex, pageSize);
+        roots.forEach(root -> {
+            List<Category> children = root.getSubCategories();
+            children.size();
+            children.forEach(child -> child.getSubCategories().size());
+        });
+        return roots;
+    }
+
     public List<Category> findByCriteria(Map<String, Criteria> params, int pageIndex, int pageSize) {
         validateFields(params);
         return categoryRepository.findByCriteria(

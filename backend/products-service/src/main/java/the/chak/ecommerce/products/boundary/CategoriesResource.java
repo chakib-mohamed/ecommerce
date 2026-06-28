@@ -36,7 +36,7 @@ public class CategoriesResource {
     public List<CategoryDto> getCategories(@QueryParam("page") @DefaultValue("0") int pageIndex,
             @QueryParam("size") @DefaultValue("20") int pageSize) {
 
-        return categoryService.findByCriteria(Map.of(), pageIndex, pageSize).stream()
+        return categoryService.getRootCategories(pageIndex, pageSize).stream()
                 .map(categoryMapper::toDto).collect(Collectors.toList());
     }
 

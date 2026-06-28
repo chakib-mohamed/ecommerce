@@ -8,7 +8,7 @@ import the.chak.ecommerce.products.entity.EmbeddedCategory;
 import the.chak.ecommerce.products.entity.EmbeddedPromotion;
 import the.chak.ecommerce.products.entity.ProductMongoEntity;
 
-@Mapper(componentModel = "cdi")
+@Mapper(componentModel = "jakarta")
 public interface ProductMapper {
 
     @org.mapstruct.Mapping(source = "productID", target = "productId")

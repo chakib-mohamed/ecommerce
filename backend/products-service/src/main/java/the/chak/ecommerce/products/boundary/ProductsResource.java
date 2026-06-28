@@ -54,16 +54,18 @@ public class ProductsResource implements ProductsApi {
     public Response createProduct(ProductDto saveProductDto) {
         var product = productMapper.toEntity(saveProductDto);
         byte[] imageBytes = saveProductDto.getImage();
-        ProductDto createdDto = productMapper.toDto(productService.saveProduct(product, imageBytes));
-        return Response.status(Response.Status.CREATED).entity(createdDto).build();
+        var saved = productService.saveProduct(product, imageBytes,
+                saveProductDto.getCategoryId(), saveProductDto.getSubcategoryId());
+        return Response.status(Response.Status.CREATED).entity(productMapper.toDto(saved)).build();
     }
 
     @Override
     public Response updateProduct(ProductDto saveProductDto) {
         var product = productMapper.toEntity(saveProductDto);
         byte[] imageBytes = saveProductDto.getImage();
-        ProductDto updatedDto = productMapper.toDto(productService.updateProduct(product, imageBytes));
-        return Response.ok(updatedDto).build();
+        var updated = productService.updateProduct(product, imageBytes,
+                saveProductDto.getCategoryId(), saveProductDto.getSubcategoryId());
+        return Response.ok(productMapper.toDto(updated)).build();
     }
 
     @Override

@@ -1,31 +1,50 @@
 import React from "react";
-import NavBar from "../../components/NavBar/NavBar";
+import { useLocation, useNavigate } from "react-router-dom";
+import CartDrawer from "../../components/storefront/CartDrawer/CartDrawer";
+import Footer from "../../components/storefront/Footer/Footer";
+import Header from "../../components/storefront/Header/Header";
+import SearchOverlay from "../../components/storefront/SearchOverlay/SearchOverlay";
+import Icon from "../../components/UI/Icon/Icon";
+import Logo from "../../components/UI/Logo/Logo";
 
 const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
-  return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col selection:bg-blue-100 selection:text-blue-900">
-      <NavBar />
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
 
-      <main className="flex-grow pt-20 pb-20 animate-in fade-in duration-700">
-        <div className="relative">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-blue-50/50 to-transparent -z-10 rounded-full blur-3xl opacity-50"></div>
-          
-          {children}
-        </div>
-      </main>
+  // Auth screen owns the full viewport (its own centered brand) — no chrome.
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
 
-      <footer className="py-12 border-t border-slate-100 bg-white">
-        <div className="max-w-7xl mx-auto px-4 text-center space-y-4">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] italic">
-            &copy; 2026 Commerce
-          </p>
-          <div className="flex justify-center space-x-6 text-slate-300">
-            <i className="fa-brands fa-instagram hover:text-blue-600 transition-colors cursor-pointer"></i>
-            <i className="fa-brands fa-twitter hover:text-blue-400 transition-colors cursor-pointer"></i>
-            <i className="fa-brands fa-github hover:text-slate-900 transition-colors cursor-pointer"></i>
+  // Back-office owns the full viewport via its own sidebar shell — no storefront chrome.
+  if (pathname.startsWith("/admin")) {
+    return <>{children}</>;
+  }
+
+  // Checkout / confirmation use a minimal secure header, no nav/footer/drawer.
+  if (pathname.startsWith("/checkout") || pathname.startsWith("/confirm")) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <div className="border-b border-line">
+          <div className="max-w-[980px] mx-auto px-6 py-[18px] flex items-center justify-between">
+            <Logo onClick={() => navigate("/")} />
+            <span className="flex items-center gap-[7px] text-[13px] text-muted">
+              <Icon name="lock" size={15} /> Secure checkout
+            </span>
           </div>
         </div>
-      </footer>
+        <main className="flex-grow">{children}</main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-grow">{children}</main>
+      <Footer />
+      <CartDrawer />
+      <SearchOverlay />
     </div>
   );
 };

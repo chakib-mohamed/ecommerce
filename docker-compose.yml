@@ -270,6 +270,8 @@ services:
         else
           echo "mongo-init: already seeded ($$seeded prices), skipping"
         fi
+        echo "mongo-init: seeding test users (idempotent upsert)..."
+        mongosh --host mongodb:27017 /seed/03-users.js
         echo "mongo-init: done"
 
   postgres:
