@@ -12,49 +12,66 @@ out to have no backend source. The frontend currently fills them with
 `frontend/src/lib/catalog-adapter.ts`), so the UI is stable and consistent — but
 the values are synthetic, not real merchandising data.
 
-This spec proposes serving those fields for real so the adapter can prefer the
-backend value and the fallback covers only what is genuinely absent.
+This spec serves the fields **we've chosen to make real**, drops one, and splits
+ratings/reviews out into their own feature.
 
-## Gap
+## Scope decisions
 
-Fields the design model needs that the products API does **not** serve today:
+| Field | Decision |
+|-------|----------|
+| `stock` | **Real** — new inventory count on a product, admin-editable. |
+| subcategories (`sub`) | **Real** — expose the existing category tree and let each product carry an explicit category + subcategory. |
+| `colors` | **Dropped** — no real merchandising source; the faked-color UI is removed from the frontend. |
+| `rating` / `reviews` | **Split out** — moved to their own feature, see `product-reviews.md`. Frontend keeps the current id-hash fallback until that ships. |
+| `tone`, `badge` | Stay frontend-derived (presentation only). `badge` now keys off the real `stock`. |
 
-| Field | Type | Today (fallback) | Proposed source |
-|-------|------|------------------|-----------------|
-| `sub` (subcategory) | string id | `''` → flat catalog | Subcategory under a category |
-| `colors` | enum[] (swatches) | hashed from id (2–4) | Product variant colours |
-| `stock` | int | hashed from id | Inventory count |
-| `rating` | number (0–5) | hashed from id | Aggregated review score |
-| `reviews` | int | hashed from id | Review count |
-| `badge` | `New` \| `Low stock` | derived from stock/featured | Optional, or keep derived |
+## In scope: `stock`
 
-`featured` already has a real source (`GET /products/featured`); `blurb` maps to
-`description`; product imagery maps to `image`. These need no change.
+Inventory count per product.
 
-## Scope (when prioritized)
+- `stock` (integer, ≥ 0) added to the product model, settable via the admin
+  product form and returned on reads.
+- Drives the storefront/back-office "Low stock" badge and low-stock alerts
+  (currently computed from a fallback).
 
-Follows the standard workflow gate per `CLAUDE.md`: **spec → OpenAPI (approved) →
-failing tests (approved) → implementation**, across:
+## In scope: subcategories
 
-- `products-api` DTOs — add the new optional fields.
-- `products-service` — persistence (PostgreSQL) + read/write mapping; introduce a
-  subcategory concept under categories; surface inventory/stock.
-- Reviews/ratings: decide whether to aggregate in `products-service` or expose a
-  dedicated source; `rating`/`reviews` may warrant their own feature.
-- Gateway — no routing change expected (same `/products`, `/categories` paths).
+The category model **already** supports a tree (a category may have a parent and
+child categories), and the seed catalog already files every product under a leaf
+subcategory. Today the API only exposes a flat `id`/`label` per category and never
+tells the client which subcategory a product belongs to, so the frontend sets
+`sub = ''` and the sub-tree UI collapses.
 
-## Frontend follow-through (after the backend ships)
+**Decision: expose the tree + state the product's subcategory explicitly.**
 
-- `catalog-adapter.ts` — prefer the real field; keep the fallback only for any
-  field still missing.
-- `RawProduct` / `RawCategory` — extend with the new fields.
-- Re-enable subcategory UI paths (Browse sub-tree, AdminProducts sub-grouping,
-  AdminProductForm subcategory requirement) which currently degrade gracefully
-  for a flat catalog.
+- **Category** gains, on read: `parent_id` (the parent category, omitted for
+  top-level categories) and `sub_categories` (the nested children). `GET /categories`
+  returns the top-level categories with their children nested.
+- **Product** gains `category_id` (top-level category) and `subcategory_id`
+  (omitted when filed directly under a top-level category), on both read and write.
+- **Read derivation:** a product is filed under its leaf category. When that leaf
+  has a parent, `category_id = parent`, `subcategory_id = leaf`. When the leaf is
+  itself top-level, `category_id = leaf`, `subcategory_id` is omitted.
 
-## Non-goals
+`featured` already has a real source (featured listing); `blurb` maps to the
+product description; product imagery maps to the product image. These need no change.
 
+## Out of scope
+
+- **Ratings & reviews** → own feature, `docs/specs/product-reviews.md`.
 - No change to the JSON serialization conventions (snake_case, null-omission,
   ISO-8601) — new fields follow them.
 - This does not block the redesign: the adapter already renders real products,
   categories, prices, descriptions and images today.
+
+## Frontend follow-through (after the backend ships)
+
+- `catalog-adapter.ts` — read `stock` from the API (drop its fallback); set `cat`
+  from `category_id` and `sub` from `subcategory_id`; build category `subs` from
+  `sub_categories`; **remove the faked `colors`**. `tone` stays derived;
+  `rating`/`reviews` fallbacks stay until the reviews feature lands.
+- Remove the colors UI (swatch row, product-detail picker) and drop `color` from
+  the storefront cart line.
+- Re-enable the subcategory UI paths (Browse sub-tree, AdminProducts sub-grouping,
+  AdminProductForm subcategory requirement) — they already degrade gracefully for a
+  flat catalog and light up once real `sub` values arrive.
