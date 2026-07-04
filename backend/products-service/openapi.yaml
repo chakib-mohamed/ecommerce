@@ -217,6 +217,9 @@ paths:
 
     post:
       summary: Create a category
+      description: >-
+        Creates a category. Provide `parent_id` to create it as a subcategory of
+        an existing category; omit it to create a top-level category.
       operationId: createCategory
       requestBody:
         required: true
@@ -232,7 +235,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/CategoryDto'
         '400':
-          description: Validation error
+          description: >-
+            Validation error, the label is already in use, or the referenced
+            `parent_id` does not exist.
           content:
             application/json:
               schema:
@@ -240,6 +245,10 @@ paths:
 
     put:
       summary: Update a category
+      description: >-
+        Updates a category's label and/or its parent. Set `parent_id` to move the
+        category under another category, or omit it to make the category top-level.
+        A category cannot be its own parent.
       operationId: updateCategory
       requestBody:
         required: true
@@ -255,7 +264,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/CategoryDto'
         '400':
-          description: Validation error
+          description: >-
+            Validation error, the category is set as its own parent, or the
+            referenced `parent_id` does not exist.
           content:
             application/json:
               schema:
@@ -303,6 +314,9 @@ paths:
   /categories/{categoryID}:
     delete:
       summary: Delete a category
+      description: >-
+        Deletes a category. A category that still has subcategories cannot be
+        deleted; its children must be moved or removed first.
       operationId: deleteCategory
       parameters:
         - name: categoryID
@@ -315,6 +329,12 @@ paths:
           description: Category deleted
         '404':
           description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The category still has subcategories and cannot be deleted.
           content:
             application/json:
               schema:
@@ -484,6 +504,13 @@ components:
       properties:
         label:
           type: string
+          maxLength: 100
+        parent_id:
+          type: integer
+          format: int64
+          description: >-
+            Identifier of the parent category. Provide it to create a
+            subcategory; omit it to create a top-level category.
 
     SavePromotionDto:
       type: object

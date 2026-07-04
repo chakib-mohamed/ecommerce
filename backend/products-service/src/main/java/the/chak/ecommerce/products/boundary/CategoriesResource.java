@@ -44,14 +44,14 @@ public class CategoriesResource {
     public Response createCategory(@Valid SaveCategoryDto createCategoryCommand) {
 
         var category = categoryMapper.toEntity(createCategoryCommand);
-        categoryService.saveCategory(category);
+        categoryService.saveCategory(category, createCategoryCommand.getParentId());
         return Response.status(Response.Status.CREATED).entity(categoryMapper.toDto(category)).build();
     }
 
     @PUT
     public Response updateCategory(@Valid CategoryDto categoryDto) {
         var category = categoryMapper.toEntity(categoryDto);
-        categoryService.updateCategory(category);
+        categoryService.updateCategory(category, categoryDto.getParentId());
         return Response.ok(categoryMapper.toDto(category)).status(200).build();
     }
 
