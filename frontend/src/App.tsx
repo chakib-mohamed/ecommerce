@@ -33,13 +33,11 @@ function App() {
     dispatch(loadCatalog());
   }, [dispatch]);
 
-  const handleOnIdle = (event?: Event) => {
-    console.log("user is idle", event);
-    console.log("last active", getLastActiveTime());
+  const handleOnIdle = () => {
     authService.handleTimeout();
   };
 
-  const { getLastActiveTime } = useIdleTimer({
+  useIdleTimer({
     timeout: 1000 * 60 * 15,
     onIdle: handleOnIdle,
     debounce: 500,

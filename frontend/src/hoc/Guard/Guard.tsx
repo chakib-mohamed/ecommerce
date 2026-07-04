@@ -9,7 +9,6 @@ type GuardedProps = Record<string, unknown> & {
 
 const Guard = (WrappedComponent: React.ComponentType<Record<string, unknown>>) => {
   const fun = (props: GuardedProps) => {
-    console.log("current USer", props.currentUser);
     if (props.currentUser === null) {
       return null;
     }

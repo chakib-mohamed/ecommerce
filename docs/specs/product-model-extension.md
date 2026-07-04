@@ -1,7 +1,9 @@
-# Product Model Extension — proposed
+# Product Model Extension
 
-**Status:** Proposed (not yet implemented). Tracked follow-up to the Cloud Shop
-redesign's real-data wiring.
+**Status:** Implemented — `stock` and the subcategory tree shipped end-to-end
+(backend `69fded8`, frontend `94e3d9c`); faked `colors` removed. Ratings/reviews
+remain split out into their own feature (`product-reviews.md`) and still use the
+id-hash fallback in the frontend.
 
 ## Why
 

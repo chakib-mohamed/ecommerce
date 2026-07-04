@@ -13,7 +13,7 @@ export default function Footer() {
         <div>
           <Logo onClick={() => navigate("/")} />
           <p className="text-muted text-sm max-w-[240px] mt-3">
-            {shop.tagline} A placeholder demo shop.
+            {shop.tagline}
           </p>
         </div>
         <div>
@@ -32,7 +32,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="border-t border-line py-[18px] px-6 text-center text-muted">
-        <span className="text-[13px]">© 2026 Cloud Shop · Wireframe-to-prototype demo</span>
+        <span className="text-[13px]">© 2026 Cloud Shop</span>
       </div>
     </footer>
   );
