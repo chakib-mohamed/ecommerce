@@ -1,184 +1,233 @@
-import { format } from "date-fns";
-import React, { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import Paginator from "../../components/UI/Paginator/Paginator";
-import Spinner from "../../components/UI/Spinner/Spinner";
+import React, { useCallback, useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import Badge from "../../components/UI/Badge/Badge";
+import Button from "../../components/UI/Button/Button";
+import ConfirmDialog from "../../components/UI/ConfirmDialog/ConfirmDialog";
+import Icon from "../../components/UI/Icon/Icon";
 import Guard from "../../hoc/Guard/Guard";
-import Modal from "../../hoc/Modal/Modal";
-import { AppDispatch, RootState } from "../../store";
-import * as actions from "../../store/Orders/actions";
-import { User } from "../../services";
+import { service, User } from "../../services";
+import type { OrderSummary } from "../../services/rest-api-service";
+import type { RootState } from "../../store";
 
-type OrderProduct = { productID: string; qty: number; title: string };
-type Order = {
-  id: string;
-  products: OrderProduct[];
-  creationDate: string;
-  price: number;
-  status: string;
-};
+const WRAP = "max-w-[860px] mx-auto px-6 pt-10 pb-20";
+const PAGE_SIZE = 5;
 
+const fmtMoney = (v: number) => "$" + v.toFixed(2);
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+
+interface OrderCardProps {
+  order: OrderSummary;
+  delay: number;
+  onCancel: () => void;
+}
+function OrderCard({ order, delay, onCancel }: OrderCardProps) {
+  const count = order.products.reduce((n, p) => n + p.qty, 0);
+  const confirmed = order.status === "CONFIRMED";
+  return (
+    <div
+      className="rounded-md bg-surface border border-line p-5 reveal"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <span className="font-serif text-[18px]">Order #{order.id.slice(-6)}</span>
+            <Badge tone={confirmed ? "ok" : "warn"}>{confirmed ? "Confirmed" : "Pending"}</Badge>
+          </div>
+          <div className="text-muted text-[13px] mt-1">
+            {fmtDate(order.creation_date)} · {count} item{count === 1 ? "" : "s"}
+          </div>
+        </div>
+        <span className="price font-serif text-[20px]">{fmtMoney(order.price)}</span>
+      </div>
+
+      <div className="flex flex-col gap-1.5 border-t border-line pt-3">
+        {order.products.map((p) => (
+          <div key={p.product_id} className="flex items-center justify-between text-sm">
+            <span className="text-ink-2">
+              <span className="text-muted">×{p.qty}</span> {p.title}
+            </span>
+            <span className="price text-ink-2">{fmtMoney(p.price * p.qty)}</span>
+          </div>
+        ))}
+      </div>
+
+      {!confirmed && (
+        <div className="flex justify-end mt-3.5">
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            <Icon name="close" size={15} /> Cancel order
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface PagerProps {
+  page: number;
+  pageCount: number;
+  disabled?: boolean;
+  onGo: (page: number) => void;
+}
+function Pager({ page, pageCount, disabled, onGo }: PagerProps) {
+  return (
+    <div className="flex items-center justify-center gap-2 mt-8">
+      <Button variant="ghost" size="sm" disabled={disabled || page <= 1} onClick={() => onGo(page - 1)}>
+        <Icon name="back" size={16} /> Prev
+      </Button>
+      <span className="text-muted text-sm px-2">
+        Page {page} of {pageCount}
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={disabled || page >= pageCount}
+        onClick={() => onGo(page + 1)}
+      >
+        Next <Icon name="arrow" size={16} />
+      </Button>
+    </div>
+  );
+}
+
+/** Order history — the buyer's past orders, with cancel for those still pending. */
 const Orders: React.FC = () => {
-  const pageSize = 5;
+  const navigate = useNavigate();
+  const user = useSelector((state: RootState) => state.login.user);
+  const uid = user && user !== "anonymous" ? (user as User).uid : undefined;
 
-  const { orders, pagesCount, orderID, loading, displayDeleteModalConfirmation } = useSelector((state: RootState) => state.orders);
-  const { user } = useSelector((state: RootState) => state.login);
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [cancelId, setCancelId] = useState<string | null>(null);
 
-  const dispatch = useDispatch<AppDispatch>();
+  const load = useCallback(
+    (targetPage: number) => {
+      if (!uid) return;
+      setLoading(true);
+      service
+        .fetchOrders(uid, targetPage, PAGE_SIZE)
+        .then(({ x, y }) => {
+          setTotal(x);
+          setOrders(y ?? []);
+          setPage(targetPage);
+        })
+        .catch(() => {
+          // The API client surfaces failures via a toast.
+        })
+        .finally(() => setLoading(false));
+    },
+    [uid]
+  );
 
   useEffect(() => {
-    if (user && user !== "anonymous" && (user as User).uid) {
-      dispatch(actions.fetchOrders((user as User).uid, 1, pageSize));
-    }
-    return () => {
-      dispatch(actions.resetState());
-    };
-  }, [user, pageSize, dispatch]);
+    load(1);
+  }, [load]);
 
-  const reloadOrders = (currentPage: number) => {
-    dispatch(actions.fetchOrders((user as User).uid, currentPage, pageSize));
+  const confirmCancel = () => {
+    if (!cancelId) return;
+    service
+      .deleteOrder(cancelId)
+      .then(() => {
+        // Step back a page if we just cancelled the only order on this one.
+        const emptied = orders.length === 1 && page > 1;
+        setCancelId(null);
+        load(emptied ? page - 1 : page);
+      })
+      .catch(() => setCancelId(null));
   };
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "INITIATED":
-        return "bg-blue-50 text-blue-600 border-blue-100";
-      case "COMPLETED":
-        return "bg-green-50 text-green-600 border-green-100";
-      case "CANCELLED":
-        return "bg-red-50 text-red-600 border-red-100";
-      default:
-        return "bg-slate-50 text-slate-600 border-slate-100";
-    }
-  };
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  if (!uid) {
+    return (
+      <div className={`${WRAP} text-center`}>
+        <h1 className="display text-[40px] mb-3">Your orders</h1>
+        <p className="text-muted mb-6">Log in to see your order history.</p>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={() => navigate("/login", { state: { from: "/orders" } })}
+        >
+          Log in
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-10 space-y-4 sm:space-y-0 text-center sm:text-left">
-        <div className="space-y-2">
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Order History</h1>
-          <p className="text-slate-500 font-medium italic">Manage and track your recent purchases</p>
+    <div className={WRAP}>
+      <Button variant="quiet" size="sm" onClick={() => navigate("/account")}>
+        <Icon name="back" size={16} /> Account
+      </Button>
+      <div className="flex items-end justify-between gap-4 mt-3 mb-7">
+        <div>
+          <span className="eyebrow reveal">History</span>
+          <h1 className="display text-[46px] mt-2.5 reveal" style={{ animationDelay: "60ms" }}>
+            Your orders
+          </h1>
         </div>
-        <div className="inline-flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-2xl border border-blue-100 shadow-sm">
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-          <span className="text-sm font-bold text-blue-700">{orders?.length || 0} Orders total</span>
-        </div>
+        {total > 0 && (
+          <span className="text-muted text-sm reveal">
+            {total} order{total === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
 
-      <div className="relative">
-        <Spinner loading={loading} />
-
-        {orders && orders.length > 0 ? (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom duration-700">
-            <div className="overflow-hidden bg-white/50 backdrop-blur-xl rounded-[2.5rem] border border-white/40 shadow-2xl">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/50 border-b border-slate-100">
-                      <th className="px-8 py-6 text-sm font-black text-slate-900 uppercase tracking-widest italic">Items</th>
-                      <th className="px-8 py-6 text-sm font-black text-slate-900 uppercase tracking-widest italic">Date</th>
-                      <th className="px-8 py-6 text-sm font-black text-slate-900 uppercase tracking-widest italic">Total</th>
-                      <th className="px-8 py-6 text-sm font-black text-slate-900 uppercase tracking-widest italic">Status</th>
-                      <th className="px-8 py-6 text-sm font-black text-slate-900 uppercase tracking-widest italic text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {(orders as unknown as Order[]).map((order) => (
-                      <tr key={order.id} className="group hover:bg-blue-50/30 transition-colors duration-300">
-                        <td className="px-8 py-8">
-                          <div className="space-y-2">
-                            {order.products.map((p: OrderProduct) => (
-                              <div key={p.productID} className="flex items-center space-x-3">
-                                <span className="bg-white border border-slate-100 text-[10px] font-black px-2 py-0.5 rounded-lg text-blue-600 shadow-sm">
-                                  x{p.qty}
-                                </span>
-                                <span className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
-                                  {p.title}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-8 py-8">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-black text-slate-900 tracking-tight">
-                              {format(new Date(order.creationDate), "MMM dd, yyyy")}
-                            </span>
-                            <span className="text-xs font-medium text-slate-400 italic">
-                              {format(new Date(order.creationDate), "HH:mm")}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-8">
-                          <span className="text-lg font-black text-slate-900 italic tracking-tighter">
-                            {order.price.toFixed(2)} $
-                          </span>
-                        </td>
-                        <td className="px-8 py-8">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black border tracking-wide uppercase shadow-sm ${getStatusStyle(order.status)}`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="px-8 py-8 text-right">
-                          {order.status === "INITIATED" && (
-                            <button
-                              onClick={() => dispatch(actions.openDeleteOrderModal(order.id))}
-                              className="p-3 bg-white text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl border border-slate-100 hover:border-red-100 shadow-sm transition-all active:scale-95 cursor-pointer"
-                              title="Cancel Order"
-                            >
-                              <i className="fa fa-trash text-sm"></i>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="flex justify-center pt-8">
-              <Paginator
-                pagesCount={pagesCount ?? 0}
-                onPaginate={reloadOrders}
+      {loading && orders.length === 0 ? (
+        <p className="text-muted text-center py-16">Loading your orders…</p>
+      ) : orders.length === 0 ? (
+        <div className="rounded-md bg-surface border border-line p-12 text-center reveal">
+          <div
+            className="w-14 h-14 rounded-full grid place-items-center mx-auto mb-4"
+            style={{ background: "var(--paper-2)", color: "var(--muted)" }}
+          >
+            <Icon name="cart" size={26} />
+          </div>
+          <h2 className="font-serif text-[24px] mb-2">No orders yet</h2>
+          <p className="text-muted mb-5">
+            You haven't placed any orders. Start exploring the shop.
+          </p>
+          <Button variant="primary" onClick={() => navigate("/browse")}>
+            Start shopping
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col gap-3.5">
+            {orders.map((order, i) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                delay={i * 40}
+                onCancel={() => setCancelId(order.id)}
               />
-            </div>
+            ))}
           </div>
-        ) : !loading ? (
-          <div className="bg-white p-20 rounded-[3rem] border border-slate-100 shadow-xl text-center space-y-6">
-            <div className="inline-flex items-center justify-center p-8 bg-slate-50 rounded-full mb-4">
-              <i className="fa fa-receipt text-6xl text-slate-300"></i>
-            </div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">No orders found</h2>
-            <p className="text-slate-500 max-w-sm mx-auto font-medium">
-              You haven't placed any orders yet. Start shopping to fill your history!
-            </p>
-          </div>
-        ) : null}
-      </div>
-
-      {displayDeleteModalConfirmation && (
-        <Modal
-          displayModal={displayDeleteModalConfirmation}
-          closeModalHandler={() => dispatch(actions.closeDeleteOrderModal())}
-          submitHandler={() => dispatch(actions.deleteOrder(orderID as string, (user as User).uid))}
-          className="w-full max-w-md"
-          title="Cancel Order"
-        >
-          <div className="p-8 text-center space-y-6">
-            <div className="inline-flex items-center justify-center p-5 bg-red-50 rounded-full text-red-500 mb-2">
-              <i className="fa fa-exclamation-triangle text-3xl"></i>
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-black text-slate-900 tracking-tight">Confirm Cancellation</h3>
-              <p className="text-slate-500 font-medium">
-                Are you sure you want to cancel this order? This action cannot be undone.
-              </p>
-            </div>
-          </div>
-        </Modal>
+          {pageCount > 1 && (
+            <Pager page={page} pageCount={pageCount} disabled={loading} onGo={load} />
+          )}
+        </>
       )}
-    </main>
+
+      {cancelId && (
+        <ConfirmDialog
+          title="Cancel this order?"
+          message="This will cancel your order. This action can't be undone."
+          confirmLabel="Cancel order"
+          cancelLabel="Keep order"
+          onConfirm={confirmCancel}
+          onCancel={() => setCancelId(null)}
+        />
+      )}
+    </div>
   );
 };
 

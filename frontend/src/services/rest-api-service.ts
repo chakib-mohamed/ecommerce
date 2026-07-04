@@ -144,9 +144,38 @@ export const deleteOrder = (orderID: string) => {
   return restApi.delete(`/orders/${orderID}`);
 };
 
-export const fetchOrders = async (userID: string, pageNumber: number, pageSize: number): Promise<unknown> => {
-  const orders = await restApi
-    .post(`/orders/search`, { userID, offset: pageNumber - 1, limit: pageSize })
+/** One line item within a placed order (order-history wire shape). */
+export interface OrderLineView {
+  product_id: string;
+  title: string;
+  qty: number;
+  price: number;
+  percentage_off?: number;
+}
+
+/** A placed order as returned by order history. */
+export interface OrderSummary {
+  id: string;
+  user_id: string;
+  creation_date: string;
+  price: number;
+  status: "INITIATED" | "CONFIRMED";
+  products: OrderLineView[];
+}
+
+/** A page of order-history results: `x` is the total match count, `y` the current slice. */
+export interface OrdersSearchResult {
+  x: number;
+  y: OrderSummary[];
+}
+
+export const fetchOrders = (
+  userID: string,
+  pageNumber: number,
+  pageSize: number
+): Promise<OrdersSearchResult> => {
+  // `offset` is a zero-based page index; the buyer filter goes on the wire as `user_id`.
+  return restApi
+    .post(`/orders/search`, { user_id: userID, offset: pageNumber - 1, limit: pageSize })
     .then((resp) => resp.data);
-  return orders;
 };

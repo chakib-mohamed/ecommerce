@@ -43,11 +43,13 @@ const Account: React.FC = () => {
         className="rounded-md bg-surface border border-line p-6 mt-6 reveal"
         style={{ animationDelay: "140ms" }}
       >
-        <h3 className="font-serif text-[22px] mt-0">Recent orders</h3>
-        <div className="text-center py-7 text-muted">
-          <p className="mb-3.5">No orders yet — start exploring the shop.</p>
-          <Button variant="ghost" onClick={() => navigate("/browse")}>
-            Start shopping
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="font-serif text-[22px] mt-0 mb-1">Order history</h3>
+            <p className="text-muted text-sm m-0">Review and track your past orders.</p>
+          </div>
+          <Button variant="primary" onClick={() => navigate("/orders")}>
+            View orders <Icon name="arrow" size={16} />
           </Button>
         </div>
       </div>
