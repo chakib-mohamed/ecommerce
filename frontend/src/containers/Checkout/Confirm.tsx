@@ -1,14 +1,14 @@
-import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../../components/UI/Button/Button";
 import Icon from "../../components/UI/Icon/Icon";
 
-/** Order confirmation — shown after the checkout hand-off completes. */
+/** Order confirmation — shown after an order is placed. */
 const Confirm: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const total = (location.state as { total?: string } | null)?.total;
-  const orderNo = useMemo(() => "CS-" + Math.floor(1000 + Math.random() * 9000), []);
+  const state = location.state as { total?: string; orderId?: string } | null;
+  const total = state?.total;
+  const orderNo = state?.orderId;
 
   return (
     <div className="max-w-[560px] mx-auto px-6 py-20 text-center">
@@ -22,8 +22,8 @@ const Confirm: React.FC = () => {
         Thank you!
       </h1>
       <p className="text-[17px] text-ink-2 reveal" style={{ animationDelay: "120ms" }}>
-        Your order <b>{orderNo}</b> is confirmed. We've sent a receipt to your email and you'll get
-        tracking when it ships.
+        Your order {orderNo && <b>{orderNo}</b>} is confirmed. We've sent a receipt to your email
+        and you'll get tracking when it ships.
       </p>
       {total && (
         <div

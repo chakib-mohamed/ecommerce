@@ -130,7 +130,13 @@ export const removeProductFromLocalStorage = (productID: string) => {
   }
 };
 
-export const createOrder = (checkoutCommand: OrderCommand): Promise<unknown> => {
+/** The placed order, as echoed back on create (carries the assigned id). */
+export interface CreatedOrder {
+  id: string;
+  price?: number;
+}
+
+export const createOrder = (checkoutCommand: OrderCommand): Promise<CreatedOrder> => {
   return restApi.post("/orders", checkoutCommand).then((response) => response.data);
 };
 

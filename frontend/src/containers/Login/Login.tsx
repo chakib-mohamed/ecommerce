@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import ApiErrorMessage from "../../components/UI/ApiErrorMessage/ApiErrorMessage";
 import Button from "../../components/UI/Button/Button";
 import { Input } from "../../components/UI/Field/Field";
@@ -20,9 +20,12 @@ const Login: React.FC = () => {
   const [mode, setMode] = useState<Mode>("login");
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { user, error, loading } = useSelector((state: RootState) => state.login);
   const isUserAuthenticated = user && user !== "anonymous";
+  // Where to return after a successful login (e.g. back to checkout), default home.
+  const returnTo = (location.state as { from?: string } | null)?.from ?? "/";
 
   const {
     register,
@@ -31,7 +34,7 @@ const Login: React.FC = () => {
   } = useForm<LoginFormInputs>({ mode: "onChange" });
 
   if (isUserAuthenticated) {
-    return <Navigate to="/" />;
+    return <Navigate to={returnTo} replace />;
   }
 
   const onSubmit = (data: LoginFormInputs) => {

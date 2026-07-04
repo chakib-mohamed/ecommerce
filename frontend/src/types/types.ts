@@ -35,10 +35,17 @@ export type Product = {
   promotions: PromotionType[];
 };
 
+/** One line of a placed order. Field names are the wire shape. */
+export type OrderLine = {
+  product_id: string;
+  title: string;
+  qty: number;
+  price: number;
+  percentage_off?: number;
+};
+
+/** Create payload for an order. The buyer is derived from the session, so no
+ *  user or card fields are sent. */
 export type OrderCommand = {
-  cardNumber: string;
-  expirationDate: string;
-  validationNumber: string;
-  products: { productID: string; qty: number }[];
-  userID: string;
+  products: OrderLine[];
 };

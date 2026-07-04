@@ -8,6 +8,7 @@ import PhotoTile from "../../components/UI/PhotoTile/PhotoTile";
 import { cartSubtotal, hydrateCart, shippingFor } from "../../lib/cart";
 import { money } from "../../lib/money";
 import { useCatalogProducts } from "../../lib/use-catalog";
+import { service } from "../../services";
 import type { AppDispatch, RootState } from "../../store";
 import { clearCart } from "../../store/StoreCart/store-cart-slice";
 
@@ -61,6 +62,7 @@ const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const lines = useSelector((state: RootState) => state.storeCart.items);
+  const user = useSelector((state: RootState) => state.login.user);
   const products = useCatalogProducts();
 
   const items = hydrateCart(lines, products);
@@ -69,14 +71,38 @@ const Checkout: React.FC = () => {
   const total = subtotal + shipping;
 
   const [f, setF] = useState({ email: "", name: "", addr: "", city: "", zip: "" });
+  const [placing, setPlacing] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setF({ ...f, [k]: e.target.value });
   const ready = f.email.includes("@") && f.name.trim() !== "" && f.addr.trim() !== "" && f.city.trim() !== "";
 
-  const placeOrder = () => {
-    // Production: create a gateway checkout session and redirect to its hosted page.
-    dispatch(clearCart());
-    navigate("/confirm", { state: { total: money(total) } });
+  const isAuthenticated = Boolean(user) && user !== "anonymous";
+
+  const placeOrder = async () => {
+    // Placing an order requires a signed-in buyer — the order is tied to the
+    // session. Send guests to log in, then bring them back to checkout (the cart
+    // is preserved in the store).
+    if (!isAuthenticated) {
+      navigate("/login", { state: { from: "/checkout" } });
+      return;
+    }
+    setPlacing(true);
+    try {
+      const order = await service.createOrder({
+        products: items.map((it) => ({
+          product_id: it.product.id,
+          title: it.product.name,
+          qty: it.qty,
+          price: it.product.price,
+        })),
+      });
+      dispatch(clearCart());
+      navigate("/confirm", { state: { total: money(total), orderId: order.id } });
+    } catch {
+      // The API client surfaces failures via a toast (and bounces to login on 401).
+    } finally {
+      setPlacing(false);
+    }
   };
 
   if (items.length === 0) {
@@ -152,8 +178,13 @@ const Checkout: React.FC = () => {
             </div>
           </Step>
 
-          <Button variant="accent" size="lg" disabled={!ready} onClick={placeOrder}>
-            <Icon name="lock" size={16} /> Continue to payment · {money(total)}
+          <Button variant="accent" size="lg" disabled={!ready || placing} onClick={placeOrder}>
+            <Icon name="lock" size={16} />{" "}
+            {placing
+              ? "Placing order…"
+              : isAuthenticated
+                ? `Place order · ${money(total)}`
+                : "Log in to place order"}
           </Button>
         </div>
 

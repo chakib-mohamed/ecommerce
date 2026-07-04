@@ -1,8 +1,14 @@
 import { useForm } from "react-hook-form";
-import { OrderCommand } from "../../types/types";
+
+/** Card capture fields for the legacy payment form. */
+type CardForm = {
+  cardNumber: string;
+  expirationDate: string;
+  validationNumber: string;
+};
 
 type Props = {
-  onCheckout: (orderCommand: OrderCommand) => void;
+  onCheckout: (orderCommand: CardForm) => void;
 };
 
 const Checkout = ({ onCheckout }: Props) => {
@@ -10,11 +16,11 @@ const Checkout = ({ onCheckout }: Props) => {
     register,
     handleSubmit,
     formState: { errors, isValid, isSubmitting },
-  } = useForm<OrderCommand>({
+  } = useForm<CardForm>({
     mode: "onBlur",
   });
 
-  const onSubmitForm = (orderCommand: OrderCommand) => {
+  const onSubmitForm = (orderCommand: CardForm) => {
     onCheckout(orderCommand);
   };
 
