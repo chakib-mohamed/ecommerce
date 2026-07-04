@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Button from '../../../components/UI/Button/Button';
 import Field, { Input, Select } from '../../../components/UI/Field/Field';
 import { useCatalogCategories, useCatalogProducts } from '../../../lib/use-catalog';
+import { service } from '../../../services';
+import { AppDispatch } from '../../../store';
+import { loadCatalog } from '../../../store/Catalog/catalog-slice';
 
 interface FormState {
   name: string;
@@ -15,10 +19,11 @@ interface FormState {
 
 const blank: FormState = { name: '', price: 0, stock: 0, cat: '', sub: '' };
 
-/** Create / edit a product. Validates client-side; persistence is wired in the
- *  real-data follow-up, so a save here confirms and returns to the list. */
+/** Create / edit a product. Validates client-side, persists through the catalog
+ *  API, then reloads the catalog and returns to the list. */
 export default function AdminProductForm() {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const { id } = useParams<{ id: string }>();
   const products = useCatalogProducts();
   const categories = useCatalogCategories();
@@ -53,14 +58,38 @@ export default function AdminProductForm() {
       setForm((f) => (k === 'cat' ? { ...f, cat: v as string, sub: '' } : { ...f, [k]: v }));
     };
 
+  const [saving, setSaving] = useState(false);
   const cat = categories.find((c) => c.id === form.cat);
   const subRequired = (cat?.subs.length ?? 0) > 0;
   const ready =
     form.name.trim() !== '' && form.price > 0 && form.cat !== '' && (!subRequired || form.sub !== '');
 
-  const save = () => {
-    toast.success(`${isEdit ? 'Updated' : 'Created'} “${form.name}”`);
-    navigate('/admin/products');
+  const save = async () => {
+    // Carry the existing blurb through on an edit so a price/stock change doesn't
+    // blank the product's description (the form doesn't surface it).
+    const payload: service.ProductPayload = {
+      title: form.name.trim(),
+      price: form.price,
+      stock: form.stock,
+      category_id: form.cat ? Number(form.cat) : undefined,
+      subcategory_id: form.sub ? Number(form.sub) : undefined,
+      description: existing?.blurb || undefined,
+    };
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await service.updateProduct({ ...payload, uuid: existing?.id });
+      } else {
+        await service.createProduct(payload);
+      }
+      await dispatch(loadCatalog());
+      toast.success(`${isEdit ? 'Updated' : 'Created'} “${form.name}”`);
+      navigate('/admin/products');
+    } catch {
+      // The API client already surfaces the failure via a toast.
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -74,8 +103,8 @@ export default function AdminProductForm() {
           <Button variant="ghost" onClick={() => navigate('/admin/products')}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={!ready} onClick={save}>
-            Save product
+          <Button variant="primary" disabled={!ready || saving} onClick={save}>
+            {saving ? 'Saving…' : 'Save product'}
           </Button>
         </div>
       </div>

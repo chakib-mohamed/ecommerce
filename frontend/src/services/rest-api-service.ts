@@ -1,6 +1,30 @@
 import { restApi } from "../axios-instance";
 import { Category, OrderCommand, Product, Promotion, PromotionType } from "../types/types";
 
+/** Create/update payload for a product. Field names are the wire shape. */
+export interface ProductPayload {
+  uuid?: string;
+  title: string;
+  description?: string;
+  price: number;
+  stock?: number;
+  category_id?: number;
+  subcategory_id?: number;
+}
+
+/** Create payload for a category. Omit `parent_id` for a top-level category. */
+export interface CategoryPayload {
+  label: string;
+  parent_id?: number;
+}
+
+/** Update payload for a category (rename / re-parent). */
+export interface CategoryUpdatePayload {
+  id: number;
+  label: string;
+  parent_id?: number;
+}
+
 export const fetchCategories = (): Promise<Category[]> => {
   return restApi.get("/categories").then((response) => {
     const categories: Category[] = [];
@@ -18,8 +42,12 @@ export const fetchPromotions = (): Promise<Promotion[]> => {
   return restApi.get("/promotions").then((resp) => resp.data);
 };
 
-export const createCategory = (createCategoryCommand: { label: string }) => {
+export const createCategory = (createCategoryCommand: CategoryPayload) => {
   return restApi.post("/categories", createCategoryCommand);
+};
+
+export const updateCategory = (updateCategoryCommand: CategoryUpdatePayload) => {
+  return restApi.put("/categories", updateCategoryCommand);
 };
 
 export const createPromotion = (createPromotionCommand: PromotionType) => {
@@ -35,7 +63,7 @@ export const deletePromotion = (promotionID: string) => {
   return restApi.delete(`/promotions/${promotionID}`);
 };
 
-export const createProduct = (product: Record<string, unknown>) => {
+export const createProduct = (product: ProductPayload) => {
   return restApi.post("/products", product);
 };
 
@@ -67,7 +95,7 @@ export const getProduct = (productID: string): Promise<Product> => {
     });
 };
 
-export const updateProduct = (product: Record<string, unknown>) => {
+export const updateProduct = (product: ProductPayload) => {
   return restApi.put("/products", product);
 };
 

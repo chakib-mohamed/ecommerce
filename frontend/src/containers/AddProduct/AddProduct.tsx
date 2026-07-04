@@ -35,7 +35,7 @@ const AddProduct: React.FC = () => {
 
   const onSubmit = async (data: ProductForm) => {
     try {
-      const response = await service.createProduct(data as unknown as Record<string, unknown>);
+      const response = await service.createProduct(data as unknown as service.ProductPayload);
       if (response.status === 201 || response.status === 200) {
         setSuccess(true);
         reset();

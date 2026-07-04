@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { toast } from 'react-toastify';
 import ConfirmDialog from '../../../components/UI/ConfirmDialog/ConfirmDialog';
 import Button from '../../../components/UI/Button/Button';
-import { type Category } from '../../../data/catalog';
+import { type Category, type Subcategory } from '../../../data/catalog';
 import { useCatalogCategories } from '../../../lib/use-catalog';
+import { service } from '../../../services';
+import { AppDispatch } from '../../../store';
+import { loadCatalog } from '../../../store/Catalog/catalog-slice';
 
 interface Editing {
   type: 'cat' | 'sub';
@@ -20,9 +25,11 @@ const EDIT_INPUT =
   'border-[1.5px] border-accent rounded-md px-2 py-1 text-sm outline-none bg-paper w-[180px]';
 
 /** Category accordion — rename, delete (with confirmation) and add sub­categories.
- *  Edits live in local state; persistence arrives with the real-data follow-up. */
+ *  Every edit persists through the catalog API, then reloads the catalog so the
+ *  accordion reflects server truth. */
 export default function AdminCategories() {
   const seedCategories = useCatalogCategories();
+  const dispatch = useDispatch<AppDispatch>();
   const [cats, setCats] = useState<Category[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -36,51 +43,63 @@ export default function AdminCategories() {
     setOpen((cur) => cur ?? seedCategories[0]?.id ?? null);
   }, [seedCategories]);
 
+  // Run a catalog write, then reload so the accordion re-seeds from server truth.
+  // On failure the API client already surfaces a toast; we leave the editor open.
+  const applyWrite = async (write: () => Promise<unknown>, onDone?: () => void) => {
+    try {
+      await write();
+      await dispatch(loadCatalog());
+      onDone?.();
+    } catch {
+      /* surfaced by the API client */
+    }
+  };
+
   const startEdit = (type: 'cat' | 'sub', catId: string, subId: string | null, value: string) =>
     setEditing({ type, catId, subId, value });
 
   const commitEdit = () => {
     if (!editing || editing.value.trim() === '') return;
-    setCats((prev) =>
-      prev.map((c) => {
-        if (c.id !== editing.catId) return c;
-        if (editing.type === 'cat') return { ...c, name: editing.value };
-        return { ...c, subs: c.subs.map((s) => (s.id === editing.subId ? { ...s, name: editing.value } : s)) };
-      }),
+    const label = editing.value.trim();
+    // A subcategory keeps its parent on rename; a top-level category has none.
+    const id = Number(editing.type === 'cat' ? editing.catId : editing.subId);
+    const parentId = editing.type === 'sub' ? Number(editing.catId) : undefined;
+    applyWrite(
+      () => service.updateCategory({ id, label, parent_id: parentId }),
+      () => setEditing(null),
     );
-    setEditing(null);
   };
 
-  const deleteCat = (catId: string) =>
+  const deleteCat = (cat: Category) => {
+    if (cat.subs.length > 0) {
+      toast.error('Remove its subcategories first.');
+      return;
+    }
     setConfirm({
-      message: `Delete "${cats.find((c) => c.id === catId)?.name}" and all its subcategories? This cannot be undone.`,
-      onConfirm: () => {
-        setCats((prev) => prev.filter((c) => c.id !== catId));
-        setConfirm(null);
-      },
+      message: `Delete "${cat.name}"? This cannot be undone.`,
+      onConfirm: () => applyWrite(() => service.deleteCategory(cat.id), () => setConfirm(null)),
     });
+  };
 
-  const deleteSub = (catId: string, subId: string) =>
+  const deleteSub = (sub: Subcategory) =>
     setConfirm({
-      message: `Delete "${cats.find((c) => c.id === catId)?.subs.find((s) => s.id === subId)?.name}"? This cannot be undone.`,
-      onConfirm: () => {
-        setCats((prev) =>
-          prev.map((c) => (c.id !== catId ? c : { ...c, subs: c.subs.filter((s) => s.id !== subId) })),
-        );
-        setConfirm(null);
-      },
+      message: `Delete "${sub.name}"? This cannot be undone.`,
+      onConfirm: () => applyWrite(() => service.deleteCategory(sub.id), () => setConfirm(null)),
     });
 
   const commitNewSub = (catId: string) => {
-    const name = newSub.trim();
-    if (name === '') {
+    const label = newSub.trim();
+    if (label === '') {
       setAddingTo(null);
       return;
     }
-    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `sub-${Date.now()}`;
-    setCats((prev) => prev.map((c) => (c.id !== catId ? c : { ...c, subs: [...c.subs, { id, name }] })));
-    setNewSub('');
-    setAddingTo(null);
+    applyWrite(
+      () => service.createCategory({ label, parent_id: Number(catId) }),
+      () => {
+        setNewSub('');
+        setAddingTo(null);
+      },
+    );
   };
 
   const onEditKey = (e: React.KeyboardEvent) => {
@@ -130,7 +149,7 @@ export default function AdminCategories() {
                       <Button variant="quiet" size="sm" onClick={() => startEdit('cat', cat.id, null, cat.name)}>
                         Edit
                       </Button>
-                      <Button variant="quiet" size="sm" className="!text-accent" onClick={() => deleteCat(cat.id)}>
+                      <Button variant="quiet" size="sm" className="!text-accent" onClick={() => deleteCat(cat)}>
                         Delete
                       </Button>
                     </div>
@@ -185,7 +204,7 @@ export default function AdminCategories() {
                                 variant="quiet"
                                 size="sm"
                                 className="!text-accent"
-                                onClick={() => deleteSub(cat.id, s.id)}
+                                onClick={() => deleteSub(s)}
                               >
                                 Delete
                               </Button>

@@ -1,15 +1,29 @@
 import { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import Button from '../../../components/UI/Button/Button';
+import ConfirmDialog from '../../../components/UI/ConfirmDialog/ConfirmDialog';
 import Icon from '../../../components/UI/Icon/Icon';
 import type { Product } from '../../../data/catalog';
 import { money } from '../../../lib/money';
 import { useCatalogCategories, useCatalogProducts } from '../../../lib/use-catalog';
+import { service } from '../../../services';
+import { AppDispatch } from '../../../store';
+import { loadCatalog } from '../../../store/Catalog/catalog-slice';
 
 const TH = 'py-2.5 px-5 font-semibold text-xs tracking-[0.05em] uppercase text-muted whitespace-nowrap';
 
 /** Price/stock table for a group of products (a subcategory or a flat category). */
-function ProductTable({ products, onEdit }: { products: Product[]; onEdit: (id: string) => void }) {
+function ProductTable({
+  products,
+  onEdit,
+  onDelete,
+}: {
+  products: Product[];
+  onEdit: (id: string) => void;
+  onDelete: (p: Product) => void;
+}) {
   return (
     <table className="w-full border-collapse text-sm">
       <thead>
@@ -17,7 +31,7 @@ function ProductTable({ products, onEdit }: { products: Product[]; onEdit: (id: 
           <th className={`${TH} text-left pl-7`} />
           <th className={`${TH} text-right`}>Price</th>
           <th className={`${TH} text-right`}>Stock</th>
-          <th className={`${TH} w-[60px]`} />
+          <th className={`${TH} w-[120px]`} />
         </tr>
       </thead>
       <tbody>
@@ -33,9 +47,14 @@ function ProductTable({ products, onEdit }: { products: Product[]; onEdit: (id: 
               <span className={p.stock <= 5 ? 'text-accent font-semibold' : 'text-ink'}>{p.stock}</span>
             </td>
             <td className="py-3 px-5 text-right">
-              <Button variant="quiet" size="sm" onClick={() => onEdit(p.id)}>
-                Edit
-              </Button>
+              <div className="flex justify-end gap-1.5">
+                <Button variant="quiet" size="sm" onClick={() => onEdit(p.id)}>
+                  Edit
+                </Button>
+                <Button variant="quiet" size="sm" className="!text-accent" onClick={() => onDelete(p)}>
+                  Delete
+                </Button>
+              </div>
             </td>
           </tr>
         ))}
@@ -48,15 +67,33 @@ function ProductTable({ products, onEdit }: { products: Product[]; onEdit: (id: 
  *  collapsible category panels, each grouping its subcategories' products. */
 export default function AdminProducts() {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const products = useCatalogProducts();
   const categories = useCatalogCategories();
   const [filter, setFilter] = useState('');
   const [catFilter, setCatFilter] = useState('');
   const [subFilter, setSubFilter] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [pendingDelete, setPendingDelete] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const toggleCat = (key: string) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
   const activeCat = categories.find((c) => c.id === catFilter);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      await service.deleteProduct(pendingDelete.id);
+      await dispatch(loadCatalog());
+      toast.success(`Deleted “${pendingDelete.name}”`);
+      setPendingDelete(null);
+    } catch {
+      // The API client already surfaces the failure via a toast.
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = products.filter(
     (p) =>
@@ -186,6 +223,7 @@ export default function AdminProducts() {
                     <ProductTable
                       products={sub.products}
                       onEdit={(pid) => navigate(`/admin/products/${pid}/edit`)}
+                      onDelete={setPendingDelete}
                     />
                   </div>
                 ))}
@@ -195,6 +233,7 @@ export default function AdminProducts() {
                   <ProductTable
                     products={cat.loose}
                     onEdit={(pid) => navigate(`/admin/products/${pid}/edit`)}
+                    onDelete={setPendingDelete}
                   />
                 </div>
               )}
@@ -203,6 +242,16 @@ export default function AdminProducts() {
         })}
         {grouped.length === 0 && <div className="text-center py-10 text-muted">No products found</div>}
       </div>
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete product"
+          message={`Delete “${pendingDelete.name}”? This cannot be undone.`}
+          confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }

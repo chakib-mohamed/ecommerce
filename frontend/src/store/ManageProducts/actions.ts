@@ -52,7 +52,7 @@ const updateProductSuccess = () => ({ type: UPDATE_PRODUCT_SUCCESS });
 
 export const updateProduct = (product: Product) => {
   return (dispatch: LocalDispatch) => {
-    service.updateProduct(product as unknown as Record<string, unknown>).then(() => {
+    service.updateProduct(product as unknown as service.ProductPayload).then(() => {
       dispatch(updateProductSuccess());
       dispatch(fetchProducts());
     });
