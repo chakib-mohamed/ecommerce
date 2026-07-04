@@ -2,10 +2,6 @@ import axios, { AxiosError } from "axios";
 import { toast } from "react-toastify";
 import { authService } from "./services";
 
-const instance = axios.create({
-  baseURL: "https://ecommerce-41f9c.firebaseio.com/",
-});
-
 export const restApi = axios.create({
   baseURL: "/api/",
   withCredentials: true,
@@ -43,5 +39,3 @@ restApi.interceptors.response.use(
     throw err;
   }
 );
-
-export default instance;

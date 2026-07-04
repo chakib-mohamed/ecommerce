@@ -156,8 +156,7 @@ button { font-family: inherit; }
 ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 99px; border: 3px solid var(--paper); }
 ::-webkit-scrollbar-thumb:hover { background: var(--faint); }
 
-/* ---------- legacy form states (retained until old screens are migrated) ---------- */
-.fa { font-family: "FontAwesome" !important; }
+/* ---------- shared form/disabled states ---------- */
 textarea.error,
 input.error { border-color: #dc3545; }
 .error { color: #dc3545; }

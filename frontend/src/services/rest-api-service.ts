@@ -1,5 +1,5 @@
 import { restApi } from "../axios-instance";
-import { Category, OrderCommand, Product, Promotion, PromotionType } from "../types/types";
+import { Category, OrderCommand, Product } from "../types/types";
 
 /** Create/update payload for a product. Field names are the wire shape. */
 export interface ProductPayload {
@@ -38,10 +38,6 @@ export const fetchCategories = (): Promise<Category[]> => {
   });
 };
 
-export const fetchPromotions = (): Promise<Promotion[]> => {
-  return restApi.get("/promotions").then((resp) => resp.data);
-};
-
 export const createCategory = (createCategoryCommand: CategoryPayload) => {
   return restApi.post("/categories", createCategoryCommand);
 };
@@ -50,17 +46,8 @@ export const updateCategory = (updateCategoryCommand: CategoryUpdatePayload) => 
   return restApi.put("/categories", updateCategoryCommand);
 };
 
-export const createPromotion = (createPromotionCommand: PromotionType) => {
-  const command = { ...createPromotionCommand, productID: createPromotionCommand.product };
-  return restApi.post("/promotions", command);
-};
-
 export const deleteCategory = (categoryID: string) => {
   return restApi.delete(`/categories/${categoryID}`);
-};
-
-export const deletePromotion = (promotionID: string) => {
-  return restApi.delete(`/promotions/${promotionID}`);
 };
 
 export const createProduct = (product: ProductPayload) => {

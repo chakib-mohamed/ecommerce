@@ -16,7 +16,6 @@ import Confirm from "./containers/Checkout/Confirm";
 import Home from "./containers/Home/Home";
 import Login from "./containers/Login/Login";
 import SessionTimeout from "./containers/Login/SessionTimeout";
-import ManagePromotions from "./containers/ManagePromotions/ManagePromotions";
 import Orders from "./containers/Orders/Orders";
 import ProductDetails from "./containers/ProductDetails/ProductDetails";
 import AdminLayout from "./hoc/AdminLayout/AdminLayout";
@@ -74,7 +73,6 @@ function App() {
           <Route path="/manage-categories" element={<Navigate to="/admin/categories" replace />} />
           <Route path="/add-Product" element={<Navigate to="/admin/products/new" replace />} />
 
-          <Route path="/manage-promotions" element={<ManagePromotions />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/" element={<Home />} />
         </Routes>
