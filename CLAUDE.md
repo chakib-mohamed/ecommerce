@@ -126,6 +126,10 @@ Never place documentation files at the repo root or in any other directory.
 
 Each task in `docs/tasks/` must be implemented in its own dedicated Claude Code session, and each **phase within a task** must also be its own session. Do not carry over context from a previous task or phase — start fresh each time to keep context lean and avoid cross-task interference.
 
+## Search & Exploration
+
+Delegate fan-out searches to the `explorer` agent rather than running Grep/Glob/Read inline, unless you already know the exact file/line or the result feeds an edit in the same step.
+
 ## Branch Naming
 
 Use `feature/`, `fix/`, or `chore/` prefixes — e.g., `feature/add-cart`, `fix/auth-token-refresh`, `chore/update-deps`.
