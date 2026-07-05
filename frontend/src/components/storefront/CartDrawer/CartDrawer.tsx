@@ -1,8 +1,8 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { cartSubtotal, hydrateCart, shippingFor } from "../../../lib/cart";
+import { shippingFor, subtotalOf } from "../../../lib/cart";
 import { money } from "../../../lib/money";
-import { useCatalogProducts } from "../../../lib/use-catalog";
+import { useHydratedCart } from "../../../lib/use-cart";
 import type { AppDispatch, RootState } from "../../../store";
 import {
   closeDrawer,
@@ -20,10 +20,9 @@ export default function CartDrawer() {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { items: lines, drawerOpen } = useSelector((state: RootState) => state.storeCart);
-  const products = useCatalogProducts();
 
-  const items = hydrateCart(lines, products);
-  const subtotal = cartSubtotal(lines, products);
+  const { items } = useHydratedCart(lines);
+  const subtotal = subtotalOf(items);
   const shipping = shippingFor(subtotal);
   const count = items.reduce((n, i) => n + i.qty, 0);
 

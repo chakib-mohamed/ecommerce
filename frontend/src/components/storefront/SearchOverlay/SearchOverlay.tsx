@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { useCatalogProducts, useCatName } from "../../../lib/use-catalog";
+import type { Product } from "../../../data/catalog";
+import { searchProductsByTitle } from "../../../lib/catalog-api";
+import { useCatName } from "../../../lib/use-catalog";
 import { money } from "../../../lib/money";
 import type { AppDispatch, RootState } from "../../../store";
 import { closeSearch } from "../../../store/StoreCart/store-cart-slice";
@@ -14,9 +16,9 @@ export default function SearchOverlay() {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const open = useSelector((state: RootState) => state.storeCart.searchOpen);
-  const products = useCatalogProducts();
   const catName = useCatName();
   const [q, setQ] = useState("");
+  const [results, setResults] = useState<Product[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -27,14 +29,24 @@ export default function SearchOverlay() {
     setQ("");
   }, [open]);
 
+  // Search the whole catalog server-side, debounced as the query changes.
+  useEffect(() => {
+    const query = q.trim();
+    if (!open || !query) {
+      setResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      searchProductsByTitle(query, 6)
+        .then(setResults)
+        .catch(() => setResults([]));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [q, open]);
+
   if (!open) return null;
 
-  const query = q.trim().toLowerCase();
-  const results = query
-    ? products
-        .filter((p) => (p.name + p.cat + p.sub).toLowerCase().includes(query))
-        .slice(0, 6)
-    : [];
+  const query = q.trim();
 
   const close = () => dispatch(closeSearch());
   const goto = (id: string) => {

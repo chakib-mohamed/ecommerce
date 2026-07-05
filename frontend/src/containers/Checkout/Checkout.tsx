@@ -5,9 +5,9 @@ import Button from "../../components/UI/Button/Button";
 import { Input } from "../../components/UI/Field/Field";
 import Icon from "../../components/UI/Icon/Icon";
 import PhotoTile from "../../components/UI/PhotoTile/PhotoTile";
-import { cartSubtotal, hydrateCart, shippingFor } from "../../lib/cart";
+import { shippingFor, subtotalOf } from "../../lib/cart";
 import { money } from "../../lib/money";
-import { useCatalogProducts } from "../../lib/use-catalog";
+import { useHydratedCart } from "../../lib/use-cart";
 import { service } from "../../services";
 import type { AppDispatch, RootState } from "../../store";
 import { clearCart } from "../../store/StoreCart/store-cart-slice";
@@ -63,10 +63,9 @@ const Checkout: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const lines = useSelector((state: RootState) => state.storeCart.items);
   const user = useSelector((state: RootState) => state.login.user);
-  const products = useCatalogProducts();
 
-  const items = hydrateCart(lines, products);
-  const subtotal = cartSubtotal(lines, products);
+  const { items, loading: cartLoading } = useHydratedCart(lines);
+  const subtotal = subtotalOf(items);
   const shipping = shippingFor(subtotal);
   const total = subtotal + shipping;
 
@@ -104,6 +103,10 @@ const Checkout: React.FC = () => {
       setPlacing(false);
     }
   };
+
+  if (items.length === 0 && cartLoading) {
+    return <div className={`${WRAP} py-24 text-center text-muted`}>Loading your cart…</div>;
+  }
 
   if (items.length === 0) {
     return (

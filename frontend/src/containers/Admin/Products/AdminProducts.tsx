@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Button from '../../../components/UI/Button/Button';
@@ -7,10 +6,9 @@ import ConfirmDialog from '../../../components/UI/ConfirmDialog/ConfirmDialog';
 import Icon from '../../../components/UI/Icon/Icon';
 import type { Product } from '../../../data/catalog';
 import { money } from '../../../lib/money';
-import { useCatalogCategories, useCatalogProducts } from '../../../lib/use-catalog';
+import { useProductPage } from '../../../lib/use-product-page';
+import { useCatalogCategories } from '../../../lib/use-catalog';
 import { service } from '../../../services';
-import { AppDispatch } from '../../../store';
-import { loadCatalog } from '../../../store/Catalog/catalog-slice';
 
 const TH = 'py-2.5 px-5 font-semibold text-xs tracking-[0.05em] uppercase text-muted whitespace-nowrap';
 
@@ -67,8 +65,6 @@ function ProductTable({
  *  collapsible category panels, each grouping its subcategories' products. */
 export default function AdminProducts() {
   const navigate = useNavigate();
-  const dispatch = useDispatch<AppDispatch>();
-  const products = useCatalogProducts();
   const categories = useCatalogCategories();
   const [filter, setFilter] = useState('');
   const [catFilter, setCatFilter] = useState('');
@@ -76,6 +72,13 @@ export default function AdminProducts() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [pendingDelete, setPendingDelete] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Category/subcategory filters are applied server-side and paginated; the name
+  // box filters what's been loaded so far.
+  const { items, initialLoading, loading, hasMore, loadMore, reload } = useProductPage(
+    catFilter || undefined,
+    subFilter || undefined,
+  );
 
   const toggleCat = (key: string) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
   const activeCat = categories.find((c) => c.id === catFilter);
@@ -85,7 +88,7 @@ export default function AdminProducts() {
     setDeleting(true);
     try {
       await service.deleteProduct(pendingDelete.id);
-      await dispatch(loadCatalog());
+      reload();
       toast.success(`Deleted “${pendingDelete.name}”`);
       setPendingDelete(null);
     } catch {
@@ -95,12 +98,7 @@ export default function AdminProducts() {
     }
   };
 
-  const filtered = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(filter.toLowerCase()) &&
-      (!catFilter || p.cat === catFilter) &&
-      (!subFilter || p.sub === subFilter),
-  );
+  const filtered = items.filter((p) => p.name.toLowerCase().includes(filter.toLowerCase()));
 
   // Group by subcategory where the backend provides them, and collect anything
   // without a (matching) subcategory into a flat list under the category.
@@ -144,7 +142,10 @@ export default function AdminProducts() {
             onChange={(e) => setFilter(e.target.value)}
             className="border-0 outline-none text-sm flex-1 bg-transparent placeholder:text-faint"
           />
-          <span className="text-muted text-[13px]">{filtered.length} items</span>
+          <span className="text-muted text-[13px]">
+            {filtered.length}
+            {hasMore ? '+' : ''} items
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 px-5 py-2.5">
           <select
@@ -240,8 +241,20 @@ export default function AdminProducts() {
             </div>
           );
         })}
-        {grouped.length === 0 && <div className="text-center py-10 text-muted">No products found</div>}
+        {grouped.length === 0 && (
+          <div className="text-center py-10 text-muted">
+            {initialLoading ? 'Loading products…' : 'No products found'}
+          </div>
+        )}
       </div>
+
+      {hasMore && (
+        <div className="flex justify-center mt-6">
+          <Button variant="ghost" disabled={loading} onClick={loadMore}>
+            {loading ? 'Loading…' : 'Load more'}
+          </Button>
+        </div>
+      )}
 
       {pendingDelete && (
         <ConfirmDialog

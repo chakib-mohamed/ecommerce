@@ -206,7 +206,20 @@ public class ProductService {
 
     @Transactional
     public List<Product> getProducts(int pageIndex, int pageSize) {
-        List<Product> products = productRepository.listWithPromotions(pageIndex, pageSize);
+        return getProducts(pageIndex, pageSize, null, null);
+    }
+
+    /**
+     * Returns a page of products, optionally narrowed to a category (including everything filed
+     * under its subcategories) or to a single subcategory. A subcategory filter takes precedence
+     * over a category filter; with neither, all products are listed.
+     */
+    @Transactional
+    public List<Product> getProducts(int pageIndex, int pageSize, Long categoryId, Long subcategoryId) {
+        List<Product> products = (categoryId == null && subcategoryId == null)
+                ? productRepository.listWithPromotions(pageIndex, pageSize)
+                : productRepository.listByCategoryWithPromotions(
+                        categoryId, subcategoryId, pageIndex, pageSize);
         if (products.isEmpty()) {
             return List.of();
         }

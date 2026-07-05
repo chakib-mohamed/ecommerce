@@ -28,6 +28,26 @@ public class ProductRepository implements PanacheRepository<Product> {
     }
 
     /**
+     * Lists products filed under a category or subcategory, with their promotions primed. A
+     * {@code subcategoryId} matches products filed directly under that subcategory; otherwise a
+     * {@code categoryId} matches products filed directly under it <em>and</em> those under any of
+     * its subcategories (the leaf's parent). The category is joined only to filter, so
+     * {@code distinct} collapses the per-category-link row duplication.
+     */
+    public List<Product> listByCategoryWithPromotions(Long categoryId, Long subcategoryId,
+            int pageIndex, int pageSize) {
+        if (subcategoryId != null) {
+            return find("select distinct p from Product p left join fetch p.promotions "
+                    + "join p.categories c where c.id = ?1", subcategoryId)
+                    .page(pageIndex, pageSize).list();
+        }
+        return find("select distinct p from Product p left join fetch p.promotions "
+                + "join p.categories c left join c.parent parent "
+                + "where c.id = ?1 or parent.id = ?1", categoryId)
+                .page(pageIndex, pageSize).list();
+    }
+
+    /**
      * Primes the persistence context with the product's categories via a second fetch-join query.
      * Loading promotions and categories in one query would raise {@code MultipleBagFetchException},
      * so callers run this against the same session to initialize categories from the session cache.
@@ -56,8 +76,16 @@ public class ProductRepository implements PanacheRepository<Product> {
 
     private String buildCriteriaQuery(Map<String, QueryCriteria> params) {
         var query = new StringBuilder("1=1");
-        params.forEach((key, criteria) -> query.append(" and ").append(key)
-                .append(criteria.operator().sql()).append(" :").append(key));
+        params.forEach((key, criteria) -> {
+            if (criteria.operator() == QueryCriteria.Operator.LIKE) {
+                // Text search is case-insensitive: compare both sides lower-cased.
+                query.append(" and lower(").append(key).append(")")
+                        .append(criteria.operator().sql()).append("lower(:").append(key).append(")");
+            } else {
+                query.append(" and ").append(key)
+                        .append(criteria.operator().sql()).append(":").append(key);
+            }
+        });
         return query.toString();
     }
 

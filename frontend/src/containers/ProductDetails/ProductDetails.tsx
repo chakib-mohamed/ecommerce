@@ -6,9 +6,11 @@ import Icon from "../../components/UI/Icon/Icon";
 import PhotoTile from "../../components/UI/PhotoTile/PhotoTile";
 import Qty from "../../components/UI/Qty/Qty";
 import Stars from "../../components/UI/Stars/Stars";
+import type { Product } from "../../data/catalog";
+import { fetchProductById, fetchProductPage } from "../../lib/catalog-api";
 import { money } from "../../lib/money";
 import { useAddToCart } from "../../lib/use-add-to-cart";
-import { useCatalogProducts, useCatName, useSubName } from "../../lib/use-catalog";
+import { useCatName, useSubName } from "../../lib/use-catalog";
 
 const WRAP = "max-w-[1180px] mx-auto px-6";
 const GLYPHS = ["", "◐", "◑", "✦"];
@@ -26,28 +28,57 @@ const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const addToCart = useAddToCart();
-  const products = useCatalogProducts();
   const catName = useCatName();
   const subName = useSubName();
 
-  const product = products.find((x) => x.id === id) ?? products[0];
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [related, setRelated] = useState<Product[]>([]);
   const [qty, setQty] = useState(1);
   const [shot, setShot] = useState(0);
   const [tab, setTab] = useState<Tab>("desc");
 
+  // Fetch the viewed product by id, resetting selections on change.
   useEffect(() => {
-    if (!product) return;
+    if (!id) return;
+    let cancelled = false;
+    setLoading(true);
     setQty(1);
     setShot(0);
-    // Reset selections whenever the viewed product changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id]);
+    fetchProductById(id)
+      .then((p) => {
+        if (!cancelled) setProduct(p);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
-  if (!product) {
+  // "You may also like" — a page of the same category, minus this product.
+  useEffect(() => {
+    if (!product) {
+      setRelated([]);
+      return;
+    }
+    let cancelled = false;
+    fetchProductPage({ categoryId: product.cat, page: 0, size: 8 }).then((list) => {
+      if (!cancelled) setRelated(list.filter((x) => x.id !== product.id).slice(0, 4));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [product]);
+
+  if (loading) {
     return <div className={`${WRAP} py-24 text-center text-muted`}>Loading product…</div>;
   }
 
-  const related = products.filter((x) => x.cat === product.cat && x.id !== product.id).slice(0, 4);
+  if (!product) {
+    return <div className={`${WRAP} py-24 text-center text-muted`}>Product not found.</div>;
+  }
 
   return (
     <div>

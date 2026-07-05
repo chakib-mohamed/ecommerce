@@ -77,6 +77,7 @@ public class SecurityConfig {
 						.pathMatchers(HttpMethod.OPTIONS).permitAll()
 						.pathMatchers(HttpMethod.GET, "/api/products/featured").permitAll()
 						.pathMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**", "/api/promotions/**").permitAll()
+						.pathMatchers(HttpMethod.POST, "/api/products/search", "/api/categories/search").permitAll()
 						.anyExchange().authenticated())
 				.build();
 	}

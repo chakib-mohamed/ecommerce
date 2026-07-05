@@ -31,6 +31,10 @@ export const cartCount = (lines: CartLine[]): number =>
 export const cartSubtotal = (lines: CartLine[], products: Product[]): number =>
   hydrateCart(lines, products).reduce((s, i) => s + i.lineTotal, 0);
 
+/** Subtotal over already-hydrated cart items. */
+export const subtotalOf = (items: CartItem[]): number =>
+  items.reduce((s, i) => s + i.lineTotal, 0);
+
 /** Free shipping over $75 (or an empty cart); otherwise a flat $6. */
 export const shippingFor = (subtotal: number): number =>
   subtotal > 75 || subtotal === 0 ? 0 : 6;

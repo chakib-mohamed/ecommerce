@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ProductCard from "../../components/storefront/ProductCard/ProductCard";
+import Button from "../../components/UI/Button/Button";
 import { Select } from "../../components/UI/Field/Field";
-import { useCatalogCategories, useCatalogProducts, useCatName, useSubName } from "../../lib/use-catalog";
+import { useCatalogCategories, useCatName, useSubName } from "../../lib/use-catalog";
+import { useProductPage } from "../../lib/use-product-page";
 
 const WRAP = "max-w-[1180px] mx-auto px-6";
 
@@ -36,19 +38,23 @@ function TreeLink({ label, active, bold, small, onClick }: TreeLinkProps) {
 const Browse: React.FC = () => {
   const navigate = useNavigate();
   const { cat, sub } = useParams<{ cat?: string; sub?: string }>();
-  const products = useCatalogProducts();
   const categories = useCatalogCategories();
   const catName = useCatName();
   const subName = useSubName();
   const [sort, setSort] = useState<Sort>("featured");
 
-  let items = products.filter(
-    (p) => (!cat || p.cat === cat) && (!sub || p.sub === sub)
-  );
-  if (sort === "low") items = [...items].sort((a, b) => a.price - b.price);
-  if (sort === "high") items = [...items].sort((a, b) => b.price - a.price);
-  if (sort === "featured")
-    items = [...items].sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
+  // The grid is server-paginated for the current category/subcategory; more
+  // pages append on demand. Sorting applies to what's been loaded so far.
+  const { items: loaded, initialLoading, loading, hasMore, loadMore } = useProductPage(cat, sub);
+
+  const items = useMemo(() => {
+    const sorted = [...loaded];
+    if (sort === "low") sorted.sort((a, b) => a.price - b.price);
+    if (sort === "high") sorted.sort((a, b) => b.price - a.price);
+    if (sort === "featured")
+      sorted.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
+    return sorted;
+  }, [loaded, sort]);
 
   const title = sub ? subName(cat!, sub) : cat ? catName(cat) : "All products";
 
@@ -111,7 +117,8 @@ const Browse: React.FC = () => {
         <div>
           <div className="flex items-center justify-between mb-5">
             <span className="text-muted text-sm">
-              {items.length} {items.length === 1 ? "item" : "items"}
+              {items.length}
+              {hasMore ? "+" : ""} {items.length === 1 ? "item" : "items"}
             </span>
             <Select
               style={{ width: "auto" }}
@@ -123,7 +130,9 @@ const Browse: React.FC = () => {
               <option value="high">Price: high to low</option>
             </Select>
           </div>
-          {items.length === 0 ? (
+          {initialLoading ? (
+            <p className="text-muted text-center py-16">Loading products…</p>
+          ) : items.length === 0 ? (
             <div className="rounded-md bg-surface border border-line p-12 text-center">
               <p className="text-muted m-0">
                 Nothing here yet.{" "}
@@ -136,11 +145,20 @@ const Browse: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-7">
-              {items.map((p, i) => (
-                <ProductCard key={p.id} product={p} delay={i * 50} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-7">
+                {items.map((p, i) => (
+                  <ProductCard key={p.id} product={p} delay={i * 50} />
+                ))}
+              </div>
+              {hasMore && (
+                <div className="flex justify-center mt-10">
+                  <Button variant="ghost" size="lg" disabled={loading} onClick={loadMore}>
+                    {loading ? "Loading…" : "Load more"}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -12,15 +12,39 @@ paths:
   /products:
     get:
       summary: List products
+      description: >-
+        Returns a page of products. Optionally narrow the list to a single category or
+        subcategory. Results are paged with `page` and `size`; a page shorter than `size`
+        (including an empty one) means there are no further products to load.
       operationId: getProducts
       parameters:
+        - name: category_id
+          in: query
+          required: false
+          description: >-
+            Limit the results to a category, including everything filed under its
+            subcategories. Omit to list across all categories.
+          schema:
+            type: integer
+            format: int64
+        - name: subcategory_id
+          in: query
+          required: false
+          description: >-
+            Limit the results to a single subcategory. When provided, it takes precedence
+            over `category_id`.
+          schema:
+            type: integer
+            format: int64
         - name: page
           in: query
+          description: Zero-based index of the page to return.
           schema:
             type: integer
             default: 0
         - name: size
           in: query
+          description: Maximum number of products per page.
           schema:
             type: integer
             default: 10

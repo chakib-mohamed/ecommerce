@@ -10,9 +10,12 @@ import {
 } from '../../lib/catalog-adapter';
 
 /**
- * Runtime catalog — products + categories loaded from the real `/api` and
- * adapted to the design model (see `lib/catalog-adapter.ts`). Storefront and
- * back-office screens read from here instead of a hardcoded mock.
+ * Runtime catalog held in the store: the full category tree (used everywhere for
+ * navigation, filters and name lookups) plus a small **overview sample** of
+ * products for the homepage feed and the admin dashboard. Screens that need the
+ * real catalog — browse, the admin product list, product detail, cart and
+ * search — read the server directly (paginated / by-id / server-search) rather
+ * than this sample; see `lib/catalog-api.ts`.
  */
 interface CatalogState {
   products: Product[];
@@ -26,10 +29,15 @@ const initialState: CatalogState = {
   status: 'idle',
 };
 
+// Products loaded into the store are only the homepage feed / dashboard overview
+// sample — not a full catalog load. Browse and the admin list paginate the
+// server per page instead.
+const OVERVIEW_SAMPLE_SIZE = 24;
+
 export const loadCatalog = createAsyncThunk('catalog/load', async () => {
   const [catsRes, prodsRes, featRes] = await Promise.all([
     restApi.get('/categories'),
-    restApi.get('/products'),
+    restApi.get('/products', { params: { size: OVERVIEW_SAMPLE_SIZE } }),
     // Featured is best-effort — an empty list just means nothing is flagged.
     restApi.get('/products/featured').catch(() => ({ data: [] as RawProduct[] })),
   ]);

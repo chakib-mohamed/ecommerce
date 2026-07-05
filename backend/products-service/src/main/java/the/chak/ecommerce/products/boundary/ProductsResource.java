@@ -29,9 +29,11 @@ public class ProductsResource implements ProductsApi {
 
     @Override
     public List<ProductDto> getProducts(
+            @QueryParam("category_id") Long categoryId,
+            @QueryParam("subcategory_id") Long subcategoryId,
             @QueryParam("page") @DefaultValue("0") int pageIndex,
             @QueryParam("size") @DefaultValue("10") int pageSize) {
-        return productService.getProducts(pageIndex, pageSize)
+        return productService.getProducts(pageIndex, pageSize, categoryId, subcategoryId)
                 .stream().map(productMapper::toDto).toList();
     }
 

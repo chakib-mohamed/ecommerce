@@ -5,9 +5,10 @@ import Icon from "../../components/UI/Icon/Icon";
 import IconButton from "../../components/UI/IconButton/IconButton";
 import PhotoTile from "../../components/UI/PhotoTile/PhotoTile";
 import Qty from "../../components/UI/Qty/Qty";
-import { cartSubtotal, hydrateCart, shippingFor } from "../../lib/cart";
+import { shippingFor, subtotalOf } from "../../lib/cart";
 import { money } from "../../lib/money";
-import { useCatalogProducts, useSubName } from "../../lib/use-catalog";
+import { useHydratedCart } from "../../lib/use-cart";
+import { useSubName } from "../../lib/use-catalog";
 import type { AppDispatch, RootState } from "../../store";
 import { removeLine, setLineQty } from "../../store/StoreCart/store-cart-slice";
 
@@ -17,13 +18,16 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const lines = useSelector((state: RootState) => state.storeCart.items);
-  const products = useCatalogProducts();
   const subName = useSubName();
 
-  const items = hydrateCart(lines, products);
-  const subtotal = cartSubtotal(lines, products);
+  const { items, loading } = useHydratedCart(lines);
+  const subtotal = subtotalOf(items);
   const shipping = shippingFor(subtotal);
   const count = items.reduce((n, i) => n + i.qty, 0);
+
+  if (items.length === 0 && loading) {
+    return <div className={`${WRAP} py-24 text-center text-muted`}>Loading your cart…</div>;
+  }
 
   if (items.length === 0) {
     return (
