@@ -5,10 +5,18 @@ export interface User {
   uid: string;
 }
 
+const ACCESS_TOKEN_KEY = "access_token";
+
 export const authenticate = (email: string, password: string): Promise<User> => {
   return restApi
     .post("/users/authenticate", { email, password })
-    .then((_) => getAuthenticatedUser());
+    .then((resp) => {
+      const token = resp.data?.access_token as string | undefined;
+      if (token) {
+        localStorage.setItem(ACCESS_TOKEN_KEY, token);
+      }
+      return getAuthenticatedUser();
+    });
 };
 
 export const signUp = (email: string, password: string) => {
@@ -16,7 +24,9 @@ export const signUp = (email: string, password: string) => {
 };
 
 export const logout = (): Promise<unknown> => {
-  return restApi.post("/gateway/revoke-token", { token: "dummy" });
+  return restApi
+    .post("/gateway/revoke-token", { token: "dummy" })
+    .finally(() => removeAccessToken());
 };
 
 export const handleTimeout = () => {
@@ -32,11 +42,11 @@ const getAuthenticatedUser = (): Promise<User> => {
 };
 
 export const removeAccessToken = () => {
-  // Not implemented
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
 };
 
 export const getAccessToken = (): string | null => {
-  return null;
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
 };
 
 export const onAuthStateChanged = (

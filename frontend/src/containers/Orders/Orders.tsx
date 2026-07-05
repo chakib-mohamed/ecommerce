@@ -100,7 +100,9 @@ function Pager({ page, pageCount, disabled, onGo }: PagerProps) {
 const Orders: React.FC = () => {
   const navigate = useNavigate();
   const user = useSelector((state: RootState) => state.login.user);
-  const uid = user && user !== "anonymous" ? (user as User).uid : undefined;
+  // Orders are owned by the signed-in buyer's account identity (their email), which is what
+  // the order search filters on — not the opaque account id.
+  const buyerId = user && user !== "anonymous" ? (user as User).email : undefined;
 
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -110,10 +112,10 @@ const Orders: React.FC = () => {
 
   const load = useCallback(
     (targetPage: number) => {
-      if (!uid) return;
+      if (!buyerId) return;
       setLoading(true);
       service
-        .fetchOrders(uid, targetPage, PAGE_SIZE)
+        .fetchOrders(buyerId, targetPage, PAGE_SIZE)
         .then(({ x, y }) => {
           setTotal(x);
           setOrders(y ?? []);
@@ -124,7 +126,7 @@ const Orders: React.FC = () => {
         })
         .finally(() => setLoading(false));
     },
-    [uid]
+    [buyerId]
   );
 
   useEffect(() => {
@@ -146,7 +148,7 @@ const Orders: React.FC = () => {
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  if (!uid) {
+  if (!buyerId) {
     return (
       <div className={`${WRAP} text-center`}>
         <h1 className="display text-[40px] mb-3">Your orders</h1>

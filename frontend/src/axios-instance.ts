@@ -7,6 +7,14 @@ export const restApi = axios.create({
   withCredentials: true,
 });
 
+restApi.interceptors.request.use((config) => {
+  const token = authService.getAccessToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 const isGetCurrentUserRequest = (error: AxiosError) => {
   return error?.request?.responseURL?.includes("/api/users/current");
 };
