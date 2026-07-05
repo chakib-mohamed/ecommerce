@@ -1,8 +1,9 @@
 package the.chak.ecommerce.pricing.control;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import jakarta.annotation.PostConstruct;
+import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import org.kie.api.KieServices;
@@ -16,6 +17,7 @@ import the.chak.ecommerce.pricing.boundary.dto.PriceCalculationRequest;
 import the.chak.ecommerce.pricing.boundary.dto.PriceCalculationResponse;
 import the.chak.ecommerce.pricing.control.exceptions.InvalidOrderException;
 
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -34,8 +36,12 @@ public class PricingService {
 
     private KieContainer kieContainer;
 
-    @PostConstruct
-    void init() {
+    /**
+     * Build the rule base eagerly at boot rather than on first request. Compiling the KieBase and
+     * warming a session takes a few seconds; deferring it to the first pricing call would blow the
+     * caller's request timeout on a cold start. Runs at startup so the first real order is warm.
+     */
+    void init(@Observes StartupEvent ev) {
         KieServices ks = KieServices.Factory.get();
         KieFileSystem kfs = ks.newKieFileSystem();
         kfs.write(ks.getResources().newClassPathResource(RULES_RESOURCE));
@@ -43,7 +49,15 @@ public class PricingService {
         kb.buildAll();
         KieRepository kr = ks.getRepository();
         kieContainer = ks.newKieContainer(kr.getDefaultReleaseId());
+        warmUp();
         LOG.infof("Drools rules loaded resource=%s", RULES_RESOURCE);
+    }
+
+    /** Execute the rules once against an empty order to trigger session JIT compilation at boot. */
+    private void warmUp() {
+        OrderDTO warmUpOrder = new OrderDTO();
+        warmUpOrder.setProducts(new ArrayList<>());
+        applyDroolsRules(warmUpOrder);
     }
 
     public PriceCalculationResponse calculate(PriceCalculationRequest request) {

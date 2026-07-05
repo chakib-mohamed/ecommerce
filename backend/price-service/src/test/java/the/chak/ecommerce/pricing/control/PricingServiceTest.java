@@ -32,7 +32,8 @@ class PricingServiceTest {
         pricingService.applyPromotionsService = new ApplyPromotionsService();
         pricingService.applyPromotionsService.meterRegistry = meterRegistry;
         pricingService.meterRegistry = meterRegistry;
-        pricingService.init();
+        // The startup-event argument is unused by init(); the build/warm-up runs the same way.
+        pricingService.init(null);
     }
 
     @Test
