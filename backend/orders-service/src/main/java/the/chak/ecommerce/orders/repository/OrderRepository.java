@@ -20,6 +20,10 @@ public class OrderRepository implements PanacheMongoRepository<Order> {
             query += "userID = :userID ";
             params.put("userID", search.userID());
         }
+        if (search.productID() != null && !search.productID().isEmpty()) {
+            query += (query.isEmpty() ? "" : "and ") + "products.productID = :productID ";
+            params.put("productID", search.productID());
+        }
 
         var panacheQuery = find(query, params);
 

@@ -16,6 +16,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import the.chak.ecommerce.products.boundary.dto.ReviewDto;
 import the.chak.ecommerce.products.boundary.dto.ReviewRequest;
@@ -55,8 +56,9 @@ public class ReviewsResource {
     @DELETE
     @Path("/{reviewID}")
     @Authenticated
-    public void deleteReview(@PathParam("reviewID") String reviewID) {
+    public Response deleteReview(@PathParam("reviewID") String reviewID) {
         String reviewer = securityContext.getUserPrincipal().getName();
         reviewService.deleteReview(reviewer, reviewID);
+        return Response.ok().build();
     }
 }

@@ -112,7 +112,7 @@ class ReviewsResourceTest {
         // then
         response.then().statusCode(403)
                 .body("type", is("FUNCTIONAL"))
-                .body("error_code", is("NOT_VERIFIED_PURCHASER"));
+                .body("errorCode", is("NOT_VERIFIED_PURCHASER"));
     }
 
     @Test
@@ -208,7 +208,7 @@ class ReviewsResourceTest {
         // then
         response.then().statusCode(403)
                 .body("type", is("FUNCTIONAL"))
-                .body("error_code", is("NOT_REVIEW_AUTHOR"));
+                .body("errorCode", is("NOT_REVIEW_AUTHOR"));
     }
 
     // -- aggregate --------------------------------------------------------------

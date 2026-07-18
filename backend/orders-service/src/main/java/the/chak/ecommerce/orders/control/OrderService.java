@@ -124,6 +124,7 @@ public class OrderService {
     public Tuple<Long, List<Order>> searchOrders(SearchOrdersCommand searchOrdersCommand) {
         OrderSearch search = new OrderSearch(
                 searchOrdersCommand.getUserID(),
+                searchOrdersCommand.getProductID(),
                 searchOrdersCommand.getOffset(),
                 searchOrdersCommand.getLimit());
         PagedResult<Order> result = orderRepository.search(search);

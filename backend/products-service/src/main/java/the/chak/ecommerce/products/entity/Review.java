@@ -29,7 +29,7 @@ public class Review {
     @Column(nullable = false)
     private UUID productId;
 
-    /** Identity of the review's author (their account email) — one review per reviewer per product. */
+    /** Identity of the review's author (their account email) - one review per reviewer per product. */
     @Column(nullable = false)
     private String reviewer;
 

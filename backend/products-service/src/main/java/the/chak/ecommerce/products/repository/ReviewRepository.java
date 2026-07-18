@@ -13,6 +13,10 @@ public class ReviewRepository implements PanacheRepository<Review> {
         return find("productId = ?1 and reviewer = ?2", productId, reviewer).firstResultOptional();
     }
 
+    public Optional<Review> findByUuidOptional(UUID uuid) {
+        return find("uuid", uuid).firstResultOptional();
+    }
+
     public java.util.List<Review> findByProduct(UUID productId, int pageIndex, int pageSize) {
         return find("productId", productId).page(pageIndex, pageSize).list();
     }

@@ -9,7 +9,7 @@ import org.jboss.logging.Logger;
 import the.chak.ecommerce.orders.boundary.OrdersApi;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 
-/** Purchase verification for reviews — has this reviewer bought this product? */
+/** Purchase verification for reviews - has this reviewer bought this product? */
 @ApplicationScoped
 public class OrdersApiClient {
 

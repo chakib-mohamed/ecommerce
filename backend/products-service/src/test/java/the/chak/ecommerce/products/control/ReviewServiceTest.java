@@ -1,11 +1,12 @@
 package the.chak.ecommerce.products.control;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,20 +16,24 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import the.chak.ecommerce.products.boundary.dto.ReviewRequest;
 import the.chak.ecommerce.products.control.exceptions.NotReviewAuthorException;
 import the.chak.ecommerce.products.control.exceptions.NotVerifiedPurchaserException;
+import the.chak.ecommerce.products.entity.Product;
 import the.chak.ecommerce.products.entity.Review;
+import the.chak.ecommerce.products.repository.ProductRepository;
 import the.chak.ecommerce.products.repository.ReviewRepository;
 
 /**
  * Pins ReviewService's intended business rules ahead of implementation (see
  * docs/specs/product-reviews.md): the verified-purchaser gate and author-only delete.
- * ReviewService currently stubs every method with UnsupportedOperationException, so these
- * fail until implemented.
+ * Reviews are addressed by their public uuid, matching how Product is addressed elsewhere.
  */
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceTest {
 
     @Mock
     ReviewRepository reviewRepository;
+
+    @Mock
+    ProductRepository productRepository;
 
     @Mock
     OrdersApiClient ordersApiClient;
@@ -55,26 +60,31 @@ class ReviewServiceTest {
     @DisplayName("Throws NotReviewAuthorException when a non-author tries to delete a review")
     void deleteReview_callerIsNotAuthor_throwsNotReviewAuthorException() {
         // given
+        UUID reviewUuid = UUID.randomUUID();
         Review review = new Review();
         review.setReviewer("original_author");
-        when(reviewRepository.findByIdOptional(1L)).thenReturn(Optional.of(review));
+        when(reviewRepository.findByUuidOptional(reviewUuid)).thenReturn(Optional.of(review));
 
         // when & then
         assertThrows(NotReviewAuthorException.class,
-                () -> reviewService.deleteReview("someone_else", "1"));
+                () -> reviewService.deleteReview("someone_else", reviewUuid.toString()));
     }
 
     @Test
     @DisplayName("Deletes the review and recomputes the product aggregate when the caller is its author")
     void deleteReview_callerIsAuthor_removesReview() {
         // given
+        UUID reviewUuid = UUID.randomUUID();
+        UUID productId = UUID.randomUUID();
         Review review = new Review();
-        review.setId(1L);
         review.setReviewer("owner");
-        when(reviewRepository.findByIdOptional(1L)).thenReturn(Optional.of(review));
+        review.setProductId(productId);
+        when(reviewRepository.findByUuidOptional(reviewUuid)).thenReturn(Optional.of(review));
+        when(productRepository.findByUuid(productId)).thenReturn(new Product());
+        when(reviewRepository.aggregateForProduct(any())).thenReturn(new Object[] { null, 0L });
 
         // when
-        reviewService.deleteReview("owner", "1");
+        reviewService.deleteReview("owner", reviewUuid.toString());
 
         // then
         verify(reviewRepository).delete(review);
