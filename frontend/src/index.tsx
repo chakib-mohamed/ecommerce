@@ -1,5 +1,3 @@
-import "bootstrap/dist/css/bootstrap.min.css";
-import "font-awesome/css/font-awesome.min.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";

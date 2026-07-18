@@ -12,4 +12,6 @@ public class SaveCategoryDto {
     @NotBlank
     @Size(max = 100)
     private String label;
+
+    private Long parentId;
 }

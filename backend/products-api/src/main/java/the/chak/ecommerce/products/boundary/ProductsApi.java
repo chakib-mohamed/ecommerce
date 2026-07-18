@@ -24,7 +24,9 @@ public interface ProductsApi {
 
         @GET
         @Produces(MediaType.APPLICATION_JSON)
-        List<ProductDto> getProducts(@QueryParam("page") @DefaultValue("0") int pageIndex,
+        List<ProductDto> getProducts(@QueryParam("category_id") Long categoryId,
+                        @QueryParam("subcategory_id") Long subcategoryId,
+                        @QueryParam("page") @DefaultValue("0") int pageIndex,
                         @QueryParam("size") @DefaultValue("10") int pageSize);
 
         @POST

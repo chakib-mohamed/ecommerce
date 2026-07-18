@@ -8,7 +8,8 @@
         infra observability backend front up down logs \
         build build-api build-front \
         dev-front dev-gateway \
-        dev-authenticate dev-products dev-featured dev-orders dev-price
+        dev-authenticate dev-products dev-featured dev-orders dev-price \
+        e2e e2e-env e2e-up e2e-run e2e-down
 
 ## help: list available targets
 help:
@@ -34,6 +35,13 @@ help:
 	@echo "  make dev-featured     quarkus:dev on :8083"
 	@echo "  make dev-orders       quarkus:dev on :8084"
 	@echo "  make dev-price        quarkus:dev on :8085"
+	@echo ""
+	@echo "E2E targets:"
+	@echo "  make e2e              full cycle: build, bring up the stack, run the e2e suite, tear down"
+	@echo "  make e2e-env          generate a throwaway .env with JWT keys (skips if .env exists)"
+	@echo "  make e2e-up           bring up infra+backend+frontend and wait for health"
+	@echo "  make e2e-run          install deps and run the Playwright suite (stack must be up)"
+	@echo "  make e2e-down         tear down everything the e2e run brought up"
 
 # ----------------------------------------------------------------------------
 # Run (detached) — profile-driven tiers
@@ -121,3 +129,29 @@ dev-orders:
 ## dev-price: price-service hot reload (:8085)
 dev-price:
 	cd backend && ./mvnw quarkus:dev -pl price-service -Dquarkus.http.port=8085
+
+# ----------------------------------------------------------------------------
+# E2E — browser tests against the real stack (see e2e/README.md)
+# ----------------------------------------------------------------------------
+
+## e2e-env: generate a throwaway RSA keypair into .env if one doesn't exist yet
+e2e-env:
+	test -f .env || ./scripts/gen-jwt-keys.sh > .env
+
+## e2e-up: bring up infra + backend + frontend and block until every service is healthy
+e2e-up: e2e-env
+	docker compose --profile infra --profile backend --profile frontend up -d --wait
+
+## e2e-run: install deps and run the Playwright suite (the stack must already be up)
+e2e-run:
+	npm --prefix e2e ci
+	npx --prefix e2e playwright install --with-deps chromium
+	npm --prefix e2e test
+
+## e2e-down: tear down every container across all profiles
+e2e-down:
+	docker compose --profile "*" down
+
+## e2e: full cycle — build, bring up, run, tear down (always tears down, even on failure)
+e2e: build e2e-up
+	$(MAKE) e2e-run; status=$$?; $(MAKE) e2e-down; exit $$status

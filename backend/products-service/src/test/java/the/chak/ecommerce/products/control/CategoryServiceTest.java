@@ -48,7 +48,7 @@ class CategoryServiceTest {
         when(categoryRepository.findByCriteria(anyMap())).thenReturn(List.of());
 
         // when
-        Category result = categoryService.saveCategory(category);
+        Category result = categoryService.saveCategory(category, null);
 
         // then
         assertEquals("Electronics", result.getLabel());
@@ -65,7 +65,7 @@ class CategoryServiceTest {
         when(categoryRepository.findByCriteria(anyMap())).thenReturn(List.of(new Category()));
 
         // when & then
-        assertThrows(CategoryAlreadyExistsException.class, () -> categoryService.saveCategory(category));
+        assertThrows(CategoryAlreadyExistsException.class, () -> categoryService.saveCategory(category, null));
     }
 
     @Test
@@ -80,7 +80,7 @@ class CategoryServiceTest {
         when(categoryRepository.findById(id)).thenReturn(new Category());
 
         // when
-        categoryService.updateCategory(update);
+        categoryService.updateCategory(update, null);
 
         // then
         verify(categoryRepository).merge(update);
@@ -97,7 +97,7 @@ class CategoryServiceTest {
         when(categoryRepository.findById(id)).thenReturn(null);
 
         // when
-        categoryService.updateCategory(ghost);
+        categoryService.updateCategory(ghost, null);
 
         // then
         verify(categoryRepository, never()).merge(ghost);
@@ -179,7 +179,7 @@ class CategoryServiceTest {
         when(categoryRepository.findByCriteria(anyMap())).thenReturn(List.of());
 
         // when
-        categoryService.saveCategory(category);
+        categoryService.saveCategory(category, null);
 
         // then
         assertEquals(1.0,
@@ -196,7 +196,7 @@ class CategoryServiceTest {
         when(categoryRepository.findByCriteria(anyMap())).thenReturn(List.of(new Category()));
 
         // when & then
-        assertThrows(CategoryAlreadyExistsException.class, () -> categoryService.saveCategory(category));
+        assertThrows(CategoryAlreadyExistsException.class, () -> categoryService.saveCategory(category, null));
         assertNull(meterRegistry.find("catalog.categories.mutations").counter());
     }
 
@@ -211,7 +211,7 @@ class CategoryServiceTest {
         when(categoryRepository.findById(id)).thenReturn(new Category());
 
         // when
-        categoryService.updateCategory(update);
+        categoryService.updateCategory(update, null);
 
         // then
         assertEquals(1.0,
@@ -229,7 +229,7 @@ class CategoryServiceTest {
         when(categoryRepository.findById(id)).thenReturn(null);
 
         // when
-        categoryService.updateCategory(ghost);
+        categoryService.updateCategory(ghost, null);
 
         // then
         assertNull(meterRegistry.find("catalog.categories.mutations").counter());

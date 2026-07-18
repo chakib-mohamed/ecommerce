@@ -23,15 +23,16 @@ public class Product {
     private String imageKey;
     private Double price;
     private String title;
+    private Integer stock;
 
     @Getter(AccessLevel.NONE)
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "product_promotion", joinColumns = @JoinColumn(name = "product_id"),
             inverseJoinColumns = @JoinColumn(name = "promotion_id"))
     List<Promotion> promotions;
 
     @Getter(AccessLevel.NONE)
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "product_category", joinColumns = @JoinColumn(name = "product_id"),
             inverseJoinColumns = @JoinColumn(name = "category_id"))
     List<Category> categories;

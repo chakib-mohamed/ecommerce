@@ -190,6 +190,9 @@ paths:
   /categories:
     get:
       summary: List categories
+      description: >-
+        Returns the top-level categories, each with its child categories nested
+        under `sub_categories`.
       operationId: getCategories
       parameters:
         - name: page
@@ -403,6 +406,20 @@ components:
           exclusiveMinimum: true
         title:
           type: string
+        stock:
+          type: integer
+          minimum: 0
+          description: Number of units currently available for purchase.
+        category_id:
+          type: integer
+          format: int64
+          description: Identifier of the product's top-level category.
+        subcategory_id:
+          type: integer
+          format: int64
+          description: >-
+            Identifier of the product's subcategory. Omitted when the product is
+            filed directly under a top-level category.
         promotions:
           type: array
           items:
@@ -448,6 +465,17 @@ components:
           format: int64
         label:
           type: string
+        parent_id:
+          type: integer
+          format: int64
+          description: Identifier of the parent category. Omitted for top-level categories.
+        sub_categories:
+          type: array
+          description: >-
+            Child categories nested under this category. Omitted when the
+            category has no children.
+          items:
+            $ref: '#/components/schemas/CategoryDto'
 
     SaveCategoryDto:
       type: object

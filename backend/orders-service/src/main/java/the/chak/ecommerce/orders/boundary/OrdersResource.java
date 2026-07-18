@@ -37,6 +37,7 @@ public class OrdersResource implements OrdersApi {
 
     public Response createOrder(OrderRequest orderRequest) {
         Order order = orderMapper.toOrder(orderRequest);
+        order.setUserID(sec.getUserPrincipal().getName());
         orderService.saveOrder(order);
         return Response.ok(order).status(201).build();
     }

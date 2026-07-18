@@ -4,6 +4,8 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Tag;
@@ -28,12 +30,28 @@ class CategoriesResourceTest {
 
     private Integer createdCategoryId;
 
+    /** LIFO so children (added last) are deleted before their parents. */
+    private final Deque<Integer> toDelete = new ArrayDeque<>();
+
     @AfterEach
     void cleanup() {
         if (createdCategoryId != null) {
             given().when().delete("/categories/{id}", createdCategoryId);
             createdCategoryId = null;
         }
+        while (!toDelete.isEmpty()) {
+            given().when().delete("/categories/{id}", toDelete.pop());
+        }
+    }
+
+    private Integer createCategory(String label, Integer parentId) {
+        var body = parentId == null
+                ? Map.<String, Object>of("label", label)
+                : Map.<String, Object>of("label", label, "parent_id", parentId);
+        Integer id = given().contentType(ContentType.JSON).body(body)
+                .when().post("/categories").then().statusCode(201).extract().path("id");
+        toDelete.push(id);
+        return id;
     }
 
     static {
@@ -200,5 +218,90 @@ class CategoriesResourceTest {
         response.then().statusCode(400)
                 .body("type", is("FUNCTIONAL"))
                 .body("errorCode", is("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("Returns 201 with parent_id set when creating a subcategory under an existing parent")
+    void createCategory_withValidParent_returns201WithParentId() {
+        // given
+        Integer parentId = createCategory("Parent-" + UUID.randomUUID(), null);
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("label", "Child-" + UUID.randomUUID(), "parent_id", parentId))
+                .when().post("/categories");
+
+        // then
+        Integer childId = response.then().statusCode(201)
+                .body("id", notNullValue())
+                .body("parent_id", is(parentId))
+                .extract().path("id");
+        toDelete.push(childId);
+    }
+
+    @Test
+    @DisplayName("Returns 400 with PARENT_CATEGORY_NOT_FOUND when creating under a parent that does not exist")
+    void createCategory_unknownParent_returns400() {
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("label", "Orphan-" + UUID.randomUUID(), "parent_id", 999_999_999))
+                .when().post("/categories");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("errorCode", is("PARENT_CATEGORY_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("Returns 200 with the new parent_id when re-parenting a category on update")
+    void updateCategory_reParent_returns200WithNewParent() {
+        // given
+        Integer parentA = createCategory("ParentA-" + UUID.randomUUID(), null);
+        Integer parentB = createCategory("ParentB-" + UUID.randomUUID(), null);
+        Integer childId = createCategory("Child-" + UUID.randomUUID(), parentA);
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("id", childId, "label", "Child-Renamed", "parent_id", parentB))
+                .when().put("/categories");
+
+        // then
+        response.then().statusCode(200)
+                .body("label", is("Child-Renamed"))
+                .body("parent_id", is(parentB));
+    }
+
+    @Test
+    @DisplayName("Returns 400 with INVALID_CATEGORY_PARENT when a category is set as its own parent")
+    void updateCategory_selfParent_returns400() {
+        // given
+        Integer categoryId = createCategory("SelfParent-" + UUID.randomUUID(), null);
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body(Map.of("id", categoryId, "label", "Self", "parent_id", categoryId))
+                .when().put("/categories");
+
+        // then
+        response.then().statusCode(400)
+                .body("type", is("FUNCTIONAL"))
+                .body("errorCode", is("INVALID_CATEGORY_PARENT"));
+    }
+
+    @Test
+    @DisplayName("Returns 409 with CATEGORY_HAS_CHILDREN when deleting a category that still has subcategories")
+    void deleteCategory_withChildren_returns409() {
+        // given
+        Integer parentId = createCategory("ParentWithChild-" + UUID.randomUUID(), null);
+        createCategory("Child-" + UUID.randomUUID(), parentId);
+
+        // when
+        var response = given().when().delete("/categories/{id}", parentId);
+
+        // then
+        response.then().statusCode(409)
+                .body("type", is("FUNCTIONAL"))
+                .body("errorCode", is("CATEGORY_HAS_CHILDREN"));
     }
 }

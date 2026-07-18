@@ -20,6 +20,10 @@ public class CategoryRepository implements PanacheRepository<Category> {
         return find(buildCriteriaQuery(params), toQueryParams(params)).list();
     }
 
+    public List<Category> findRoots(int pageIndex, int pageSize) {
+        return find("parent is null").page(pageIndex, pageSize).list();
+    }
+
     public void merge(Category category) {
         getEntityManager().merge(category);
     }

@@ -105,7 +105,7 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
-    @DisplayName("Returns 201 with the calculated price and persists the order for valid products")
+    @DisplayName("Returns 201 with the calculated price and persists the order owned by the authenticated user for valid products")
     void createOrder_validProducts_returns201WithCalculatedPrice() {
         // given
         ProductDto mockProduct = new ProductDto();
@@ -129,9 +129,12 @@ class OrdersResourceTest {
 
         // then
         String orderId = response.then().statusCode(201).body("price", is(100.0f))
+                .body("user_id", is("test_user"))
                 .extract().path("id");
         assertNotNull(orderId);
-        assertNotNull(orderRepository.findById(new ObjectId(orderId)));
+        Order persisted = orderRepository.findById(new ObjectId(orderId));
+        assertNotNull(persisted);
+        assertEquals("test_user", persisted.getUserID());
     }
 
     @Test

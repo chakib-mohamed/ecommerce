@@ -24,3 +24,5 @@ consequences accepted.
 | [0005](0005-trivy-dependency-scan-quality-gate.md) | Trivy dependency scanning as a CI quality gate | Accepted |
 | [0006](0006-make-and-compose-profiles-build-interface.md) | Make + Docker Compose profiles as the build/run interface | Accepted |
 | [0007](0007-log-aggregation-loki.md) | Log aggregation: Grafana Loki, fed OTLP through the Collector | Accepted |
+| [0008](0008-e2e-target-localhost-81.md) | E2E suite drives the built frontend container, not the Vite dev server | Accepted |
+| [0009](0009-playwright-e2e-suite-and-ci-gating.md) | Playwright for end-to-end browser testing, gated in CI | Accepted |

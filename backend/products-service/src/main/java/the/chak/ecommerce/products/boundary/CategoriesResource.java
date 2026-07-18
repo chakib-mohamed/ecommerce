@@ -36,7 +36,7 @@ public class CategoriesResource {
     public List<CategoryDto> getCategories(@QueryParam("page") @DefaultValue("0") int pageIndex,
             @QueryParam("size") @DefaultValue("20") int pageSize) {
 
-        return categoryService.findByCriteria(Map.of(), pageIndex, pageSize).stream()
+        return categoryService.getRootCategories(pageIndex, pageSize).stream()
                 .map(categoryMapper::toDto).collect(Collectors.toList());
     }
 
@@ -44,14 +44,14 @@ public class CategoriesResource {
     public Response createCategory(@Valid SaveCategoryDto createCategoryCommand) {
 
         var category = categoryMapper.toEntity(createCategoryCommand);
-        categoryService.saveCategory(category);
+        categoryService.saveCategory(category, createCategoryCommand.getParentId());
         return Response.status(Response.Status.CREATED).entity(categoryMapper.toDto(category)).build();
     }
 
     @PUT
     public Response updateCategory(@Valid CategoryDto categoryDto) {
         var category = categoryMapper.toEntity(categoryDto);
-        categoryService.updateCategory(category);
+        categoryService.updateCategory(category, categoryDto.getParentId());
         return Response.ok(categoryMapper.toDto(category)).status(200).build();
     }
 

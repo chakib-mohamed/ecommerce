@@ -78,8 +78,3 @@ INSERT INTO product_promotion (product_id, promotion_id) VALUES (10, 10);
 INSERT INTO product_promotion (product_id, promotion_id) VALUES (11, 10);
 INSERT INTO product_promotion (product_id, promotion_id) VALUES (14, 11);
 INSERT INTO product_promotion (product_id, promotion_id) VALUES (17, 11);
-
--- restart sequences above all inserted IDs to avoid collision on next API-created records
-ALTER SEQUENCE Category_SEQ RESTART WITH 100;
-ALTER SEQUENCE Product_SEQ RESTART WITH 100;
-ALTER SEQUENCE Promotion_SEQ RESTART WITH 100;

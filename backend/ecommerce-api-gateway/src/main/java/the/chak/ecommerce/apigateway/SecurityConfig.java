@@ -73,10 +73,11 @@ public class SecurityConfig {
 				.authorizeExchange(exchanges -> exchanges
 						.pathMatchers(jwtConfig.getUri()).permitAll()
 						.pathMatchers("/actuator/**").permitAll()
-						.pathMatchers(HttpMethod.POST, "/api/users").permitAll()
+						.pathMatchers(HttpMethod.POST, "/api/users", "/api/users/authenticate").permitAll()
 						.pathMatchers(HttpMethod.OPTIONS).permitAll()
 						.pathMatchers(HttpMethod.GET, "/api/products/featured").permitAll()
 						.pathMatchers(HttpMethod.GET, "/api/products/**", "/api/categories/**", "/api/promotions/**").permitAll()
+						.pathMatchers(HttpMethod.POST, "/api/products/search", "/api/categories/search").permitAll()
 						.anyExchange().authenticated())
 				.build();
 	}

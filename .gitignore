@@ -47,3 +47,7 @@ QODER.md
 
 # Misc
 *.bu
+
+# Design handoff / export artifacts (local reference only)
+ecommerce.zip
+design_handoff_cloud_shop/

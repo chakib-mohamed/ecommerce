@@ -22,7 +22,3 @@ insert into product_category (product_id, category_id) values (5, 3) ON CONFLICT
 insert into product_category (product_id, category_id) values (6, 2) ON CONFLICT DO NOTHING;
 
 insert into promotion (id, active_from, active_to, label, percentage_off) values (1, '2020-09-11', '2020-09-25', 'new promo', 10) ON CONFLICT DO NOTHING;
-
-ALTER SEQUENCE Category_SEQ RESTART WITH 10;
-ALTER SEQUENCE Product_SEQ RESTART WITH 10;
-ALTER SEQUENCE Promotion_SEQ RESTART WITH 10;

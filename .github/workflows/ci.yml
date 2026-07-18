@@ -63,6 +63,52 @@ jobs:
             echo "::endgroup::"
           done
 
+  # Full-stack browser suite (e2e/) — boots the real docker-compose stack (6 JVM
+  # services + Postgres/Mongo/Kafka/Redis/Zookeeper + the built frontend image),
+  # so it's meaningfully slower than the jobs above. Not run on every PR by
+  # default: fires on push to main (post-merge signal, same-commit
+  # bisectability) plus an opt-in "e2e" PR label for PRs that specifically
+  # touch cross-service flows (auth, checkout, gateway config). See
+  # docs/specs/e2e-test-suite.md.
+  e2e:
+    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    runs-on: ubuntu-latest                         # Docker preinstalled
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: e2e/.nvmrc
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # Freshly generated, self-signed, throwaway keys — no CI secrets needed.
+      - run: make e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose --profile "*" logs --no-color > compose-logs.txt
+
+      - name: Upload service logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs
+          path: compose-logs.txt
+
   # Dependency vulnerability gate: one Trivy fs scan over the whole repo covers
   # both the Maven backend (backend/**/pom.xml) and the npm frontend
   # (frontend/package-lock.json). A fresh checkout has no node_modules, so only

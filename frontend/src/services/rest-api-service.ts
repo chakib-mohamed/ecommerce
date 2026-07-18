@@ -1,5 +1,29 @@
 import { restApi } from "../axios-instance";
-import { Category, OrderCommand, Product, Promotion, PromotionType } from "../types/types";
+import { Category, OrderCommand, Product } from "../types/types";
+
+/** Create/update payload for a product. Field names are the wire shape. */
+export interface ProductPayload {
+  uuid?: string;
+  title: string;
+  description?: string;
+  price: number;
+  stock?: number;
+  category_id?: number;
+  subcategory_id?: number;
+}
+
+/** Create payload for a category. Omit `parent_id` for a top-level category. */
+export interface CategoryPayload {
+  label: string;
+  parent_id?: number;
+}
+
+/** Update payload for a category (rename / re-parent). */
+export interface CategoryUpdatePayload {
+  id: number;
+  label: string;
+  parent_id?: number;
+}
 
 export const fetchCategories = (): Promise<Category[]> => {
   return restApi.get("/categories").then((response) => {
@@ -14,28 +38,19 @@ export const fetchCategories = (): Promise<Category[]> => {
   });
 };
 
-export const fetchPromotions = (): Promise<Promotion[]> => {
-  return restApi.get("/promotions").then((resp) => resp.data);
-};
-
-export const createCategory = (createCategoryCommand: { label: string }) => {
+export const createCategory = (createCategoryCommand: CategoryPayload) => {
   return restApi.post("/categories", createCategoryCommand);
 };
 
-export const createPromotion = (createPromotionCommand: PromotionType) => {
-  const command = { ...createPromotionCommand, productID: createPromotionCommand.product };
-  return restApi.post("/promotions", command);
+export const updateCategory = (updateCategoryCommand: CategoryUpdatePayload) => {
+  return restApi.put("/categories", updateCategoryCommand);
 };
 
 export const deleteCategory = (categoryID: string) => {
   return restApi.delete(`/categories/${categoryID}`);
 };
 
-export const deletePromotion = (promotionID: string) => {
-  return restApi.delete(`/promotions/${promotionID}`);
-};
-
-export const createProduct = (product: Record<string, unknown>) => {
+export const createProduct = (product: ProductPayload) => {
   return restApi.post("/products", product);
 };
 
@@ -67,7 +82,7 @@ export const getProduct = (productID: string): Promise<Product> => {
     });
 };
 
-export const updateProduct = (product: Record<string, unknown>) => {
+export const updateProduct = (product: ProductPayload) => {
   return restApi.put("/products", product);
 };
 
@@ -102,7 +117,13 @@ export const removeProductFromLocalStorage = (productID: string) => {
   }
 };
 
-export const createOrder = (checkoutCommand: OrderCommand): Promise<unknown> => {
+/** The placed order, as echoed back on create (carries the assigned id). */
+export interface CreatedOrder {
+  id: string;
+  price?: number;
+}
+
+export const createOrder = (checkoutCommand: OrderCommand): Promise<CreatedOrder> => {
   return restApi.post("/orders", checkoutCommand).then((response) => response.data);
 };
 
@@ -110,9 +131,38 @@ export const deleteOrder = (orderID: string) => {
   return restApi.delete(`/orders/${orderID}`);
 };
 
-export const fetchOrders = async (userID: string, pageNumber: number, pageSize: number): Promise<unknown> => {
-  const orders = await restApi
-    .post(`/orders/search`, { userID, offset: pageNumber - 1, limit: pageSize })
+/** One line item within a placed order (order-history wire shape). */
+export interface OrderLineView {
+  product_id: string;
+  title: string;
+  qty: number;
+  price: number;
+  percentage_off?: number;
+}
+
+/** A placed order as returned by order history. */
+export interface OrderSummary {
+  id: string;
+  user_id: string;
+  creation_date: string;
+  price: number;
+  status: "INITIATED" | "CONFIRMED";
+  products: OrderLineView[];
+}
+
+/** A page of order-history results: `x` is the total match count, `y` the current slice. */
+export interface OrdersSearchResult {
+  x: number;
+  y: OrderSummary[];
+}
+
+export const fetchOrders = (
+  userID: string,
+  pageNumber: number,
+  pageSize: number
+): Promise<OrdersSearchResult> => {
+  // `offset` is a zero-based page index; the buyer filter goes on the wire as `user_id`.
+  return restApi
+    .post(`/orders/search`, { user_id: userID, offset: pageNumber - 1, limit: pageSize })
     .then((resp) => resp.data);
-  return orders;
 };

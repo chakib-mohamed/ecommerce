@@ -31,6 +31,7 @@ import the.chak.ecommerce.products.entity.OutboxEvent;
 import the.chak.ecommerce.products.entity.Product;
 import the.chak.ecommerce.products.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.products.boundary.dto.Criteria;
+import the.chak.ecommerce.products.repository.CategoryRepository;
 import the.chak.ecommerce.products.repository.OutboxRepository;
 import the.chak.ecommerce.products.repository.ProductRepository;
 import jakarta.ws.rs.BadRequestException;
@@ -44,6 +45,9 @@ class ProductServiceTest {
 
     @Mock
     ProductRepository productRepository;
+
+    @Mock
+    CategoryRepository categoryRepository;
 
     @Mock
     StorageService storageService;

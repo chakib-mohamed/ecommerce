@@ -12,5 +12,6 @@
     <include file="changes/005-add-outbox.sql" relativeToChangelogFile="true"/>
     <include file="changes/006-outbox-retry-give-up.sql" relativeToChangelogFile="true"/>
     <include file="changes/007-outbox-traceparent.sql" relativeToChangelogFile="true"/>
+    <include file="changes/008-add-product-stock.sql" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

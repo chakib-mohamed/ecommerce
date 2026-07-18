@@ -29,9 +29,11 @@ public class ProductsResource implements ProductsApi {
 
     @Override
     public List<ProductDto> getProducts(
+            @QueryParam("category_id") Long categoryId,
+            @QueryParam("subcategory_id") Long subcategoryId,
             @QueryParam("page") @DefaultValue("0") int pageIndex,
             @QueryParam("size") @DefaultValue("10") int pageSize) {
-        return productService.getProducts(pageIndex, pageSize)
+        return productService.getProducts(pageIndex, pageSize, categoryId, subcategoryId)
                 .stream().map(productMapper::toDto).toList();
     }
 
@@ -54,16 +56,18 @@ public class ProductsResource implements ProductsApi {
     public Response createProduct(ProductDto saveProductDto) {
         var product = productMapper.toEntity(saveProductDto);
         byte[] imageBytes = saveProductDto.getImage();
-        ProductDto createdDto = productMapper.toDto(productService.saveProduct(product, imageBytes));
-        return Response.status(Response.Status.CREATED).entity(createdDto).build();
+        var saved = productService.saveProduct(product, imageBytes,
+                saveProductDto.getCategoryId(), saveProductDto.getSubcategoryId());
+        return Response.status(Response.Status.CREATED).entity(productMapper.toDto(saved)).build();
     }
 
     @Override
     public Response updateProduct(ProductDto saveProductDto) {
         var product = productMapper.toEntity(saveProductDto);
         byte[] imageBytes = saveProductDto.getImage();
-        ProductDto updatedDto = productMapper.toDto(productService.updateProduct(product, imageBytes));
-        return Response.ok(updatedDto).build();
+        var updated = productService.updateProduct(product, imageBytes,
+                saveProductDto.getCategoryId(), saveProductDto.getSubcategoryId());
+        return Response.ok(productMapper.toDto(updated)).build();
     }
 
     @Override
