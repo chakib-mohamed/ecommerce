@@ -25,6 +25,12 @@ public class Product {
     private String title;
     private Integer stock;
 
+    /** Average star rating (1-5) across the product's reviews, maintained by ReviewService. */
+    private Double rating;
+
+    /** Number of reviews for this product, maintained by ReviewService. */
+    private Integer reviewCount;
+
     @Getter(AccessLevel.NONE)
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "product_promotion", joinColumns = @JoinColumn(name = "product_id"),

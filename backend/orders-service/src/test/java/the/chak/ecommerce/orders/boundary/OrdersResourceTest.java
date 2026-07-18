@@ -244,6 +244,42 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns only the orders containing the given product when searching with a product id, for purchase verification")
+    void searchOrders_byUserIdAndProductId_returnsOnlyOrdersContainingThatProduct() {
+        // given
+        the.chak.ecommerce.orders.entity.ProductVO matchingProduct =
+                new the.chak.ecommerce.orders.entity.ProductVO();
+        matchingProduct.setProductID("prod_reviewed");
+        Order orderWithProduct = new Order();
+        orderWithProduct.setUserID("user_purchase_check");
+        orderWithProduct.setStatus(OrderStatus.INITIATED);
+        orderWithProduct.setProducts(List.of(matchingProduct));
+        orderRepository.persist(orderWithProduct);
+
+        the.chak.ecommerce.orders.entity.ProductVO otherProduct =
+                new the.chak.ecommerce.orders.entity.ProductVO();
+        otherProduct.setProductID("prod_unrelated");
+        Order orderWithoutProduct = new Order();
+        orderWithoutProduct.setUserID("user_purchase_check");
+        orderWithoutProduct.setStatus(OrderStatus.INITIATED);
+        orderWithoutProduct.setProducts(List.of(otherProduct));
+        orderRepository.persist(orderWithoutProduct);
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_purchase_check\",\"product_id\":\"prod_reviewed\"}")
+                .when().post("/orders/search");
+
+        // then
+        response.then().statusCode(200)
+                .body("x", is(1))
+                .body("y.size()", is(1))
+                .body("y[0].products[0].product_id", is("prod_reviewed"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
     @DisplayName("Returns 400 with VALIDATION_ERROR when searching with a blank user id")
     void searchOrders_blankUserId_returns400() {
         // given

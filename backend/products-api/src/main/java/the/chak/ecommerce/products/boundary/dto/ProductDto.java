@@ -40,6 +40,12 @@ public class ProductDto {
 
     private Long subcategoryId;
 
+    /** Average star rating (1-5) across the product's reviews. Omitted when it has none. */
+    private Double rating;
+
+    /** Number of reviews for this product. */
+    private Integer reviewCount;
+
     @Valid
     private List<PromotionDto> promotions;
 
