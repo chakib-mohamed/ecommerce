@@ -3,11 +3,9 @@
  *
  * Runtime data flows through the `catalog` Redux slice, populated from the real
  * `/api` by `lib/catalog-adapter.ts`. The backend serves
- * `category_id`/`subcategory_id`/`stock` and the nested category tree for real;
- * only `tone`/`badge` are presentation-derived and `rating`/`reviews` keep a
- * deterministic fallback until the reviews subsystem ships (see
- * `docs/specs/product-reviews.md`). This module keeps the shared *types* and the
- * brand constants both paths rely on.
+ * `category_id`/`subcategory_id`/`stock`/`rating`/`reviews` and the nested
+ * category tree for real; only `tone`/`badge` are presentation-derived. This
+ * module keeps the shared *types* and the brand constants both paths rely on.
  */
 
 export interface Subcategory {

@@ -17,6 +17,13 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    // Pins a specific browser binary when the environment provides one that doesn't match this
+    // project's @playwright/test version (see global-setup.ts, which honors the same variable
+    // for its own manual browser launch). Unset in CI, where `playwright install` fetches the
+    // matching revision instead.
+    launchOptions: {
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
+    },
   },
   projects: [
     {

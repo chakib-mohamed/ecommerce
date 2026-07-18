@@ -1,11 +1,9 @@
 /**
  * Adapts the real `/api` product/category payloads to the design's catalog
- * model. The backend now serves `category_id`/`subcategory_id`/`stock` on
- * products and the nested category tree (`parent_id` + `sub_categories`), so
- * those flow through as real data. The remaining presentation-only fields
- * (`tone`, `badge`) are derived, and `rating`/`reviews` keep *deterministic*
- * id-seeded fallbacks until the reviews subsystem ships (see
- * `docs/specs/product-reviews.md`).
+ * model. The backend now serves `category_id`/`subcategory_id`/`stock`,
+ * `rating`/`review_count`, and the nested category tree (`parent_id` +
+ * `sub_categories`) on products, so those flow through as real data. The
+ * remaining fields (`tone`, `badge`) are presentation-only and derived.
  */
 import { Category, Product } from '../data/catalog';
 
@@ -40,6 +38,10 @@ export interface RawProduct {
   subcategory_id?: number | string;
   category?: RawCategoryRef | null;
   categories?: RawCategoryRef[] | null;
+  /** Average star rating (1-5) across the product's reviews; omitted when it has none. */
+  rating?: number;
+  /** Number of reviews for this product. */
+  review_count?: number;
 }
 
 /**
@@ -111,8 +113,8 @@ export const adaptCategory = (raw: RawCategory, index: number): Category => ({
 export const adaptProduct = (raw: RawProduct, featuredIds: Set<string>): Product => {
   const id = productId(raw);
   const r = seeded(hashId(id || 'x'));
-  const rating = Math.round((3.8 + r() * 1.2) * 10) / 10;
-  const reviews = 5 + Math.floor(r() * 120);
+  const rating = raw.rating ?? 0;
+  const reviews = raw.review_count ?? 0;
   const tone = Math.floor(r() * 6) + 1;
   const stock = Number(raw.stock ?? 0);
   const featured = featuredIds.has(id);
