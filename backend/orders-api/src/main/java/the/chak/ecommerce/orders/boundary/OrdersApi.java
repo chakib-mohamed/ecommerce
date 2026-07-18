@@ -10,11 +10,19 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
+import org.eclipse.microprofile.rest.client.annotation.RegisterClientHeaders;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 import the.chak.ecommerce.orders.boundary.dto.Tuple;
 
+// @RegisterClientHeaders activates the propagateHeaders config (Authorization) so a caller's
+// bearer token rides along when another service uses this interface as a REST client (e.g.
+// products-service verifying a reviewer's purchase history) - orders-service independently
+// verifies it (zero-trust), matching PricingApiClient's convention.
+@RegisterRestClient
+@RegisterClientHeaders
 @Path("/orders")
 public interface OrdersApi {
 
