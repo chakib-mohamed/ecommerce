@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: products-service API
-  description: Products, categories, promotions, and product image management.
+  description: Products, categories, promotions, reviews, and product image management.
   version: 1.0.0
 servers:
   - url: /
@@ -421,7 +421,113 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /reviews:
+    get:
+      summary: List reviews for a product
+      operationId: getReviews
+      parameters:
+        - name: product_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Reviews returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReviewDto'
+
+    post:
+      summary: Submit or update a review
+      description: >-
+        Creates the caller's review for a product, or updates it if they've
+        already reviewed that product (one review per reviewer per product).
+        The caller must have a qualifying order for the product — reviews are
+        restricted to verified purchasers.
+      operationId: submitReview
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '200':
+          description: Review submitted (created or updated)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDto'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: The caller has no qualifying order for this product.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reviews/{reviewID}:
+    delete:
+      summary: Delete own review
+      operationId: deleteReview
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reviewID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Review deleted
+        '403':
+          description: The caller is not the review's author.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Review not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
 
     ProductDto:
@@ -464,6 +570,17 @@ components:
           description: >-
             Identifier of the product's subcategory. Omitted when the product is
             filed directly under a top-level category.
+        rating:
+          type: number
+          format: double
+          readOnly: true
+          description: >-
+            Average star rating (1–5) across the product's reviews. Omitted when
+            the product has no reviews yet.
+        review_count:
+          type: integer
+          readOnly: true
+          description: Number of reviews for this product.
         promotions:
           type: array
           items:
@@ -566,6 +683,44 @@ components:
           type: string
           format: date
           description: ISO-8601 date (yyyy-MM-dd)
+
+    ReviewRequest:
+      type: object
+      required:
+        - product_id
+        - stars
+      properties:
+        product_id:
+          type: string
+          description: UUID of the product being reviewed
+        stars:
+          type: integer
+          minimum: 1
+          maximum: 5
+        text:
+          type: string
+          maxLength: 2000
+
+    ReviewDto:
+      type: object
+      properties:
+        id:
+          type: string
+        product_id:
+          type: string
+        reviewer:
+          type: string
+          description: Identity of the review's author (their account email).
+        stars:
+          type: integer
+          minimum: 1
+          maximum: 5
+        text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp
 
     Criteria:
       type: object

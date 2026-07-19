@@ -16,7 +16,12 @@ export default function Stars({ value = 4.5, reviews }: StarsProps) {
           </span>
         ))}
       </span>
-      {reviews != null && <span>{value.toFixed(1)} · {reviews} reviews</span>}
+      {reviews != null &&
+        (reviews > 0 ? (
+          <span>{value.toFixed(1)} · {reviews} review{reviews === 1 ? '' : 's'}</span>
+        ) : (
+          <span>No reviews yet</span>
+        ))}
     </span>
   );
 }

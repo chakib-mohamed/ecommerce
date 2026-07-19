@@ -88,6 +88,37 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Lets an unauthenticated GET /api/reviews through the security layer to the upstream")
+    void getReviews_noAuth_passesSecurityLayer() {
+        // when
+        var result = webTestClient.get().uri("/api/reviews?product_id=b0000000-0000-0000-0000-000000000901")
+                .exchange();
+
+        // then
+        result.expectStatus().is5xxServerError(); // upstream unavailable in test env, not a security rejection
+    }
+
+    @Test
+    @DisplayName("Returns 401 for POST /api/reviews without a token")
+    void postReviews_noToken_returns401() {
+        // when
+        var result = webTestClient.post().uri("/api/reviews").exchange();
+
+        // then
+        result.expectStatus().isUnauthorized();
+    }
+
+    @Test
+    @DisplayName("Returns 401 for DELETE /api/reviews/{reviewID} without a token")
+    void deleteReview_noToken_returns401() {
+        // when
+        var result = webTestClient.delete().uri("/api/reviews/some-review-id").exchange();
+
+        // then
+        result.expectStatus().isUnauthorized();
+    }
+
+    @Test
     @DisplayName("Returns 401 for POST /api/orders without a token")
     void postOrders_noToken_returns401() {
         // when

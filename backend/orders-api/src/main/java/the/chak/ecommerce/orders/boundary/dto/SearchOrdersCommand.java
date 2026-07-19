@@ -10,6 +10,7 @@ public class SearchOrdersCommand {
 
     @NotBlank
     String userID;
+    String productID;
     @Min(0)
     Integer offset;
     @Min(1)

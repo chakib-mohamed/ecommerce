@@ -92,6 +92,7 @@ services:
       - QUARKUS_DATASOURCE_USERNAME=postgres
       - QUARKUS_DATASOURCE_PASSWORD=postgres
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - JWT_PUBLIC_KEY
     depends_on:
       postgres:
         condition: service_healthy

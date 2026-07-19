@@ -32,6 +32,13 @@ spring:
           filters:
             - StripPrefix=1
 
+        - id: reviews-service
+          uri: http://products-service:8080
+          predicates:
+            - Path=/api/reviews/**
+          filters:
+            - StripPrefix=1
+
         - id: orders-service
           uri: http://orders-service:8080
           predicates:

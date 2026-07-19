@@ -35,6 +35,7 @@ from `localhost:3000`. There is **no Maven `dev` profile** — activate the Spri
 | `/api/users/**`                                         | authenticate-service:8080 |
 | `/api/products/featured`                                | featured-products-service:8080 |
 | `/api/products/**`, `/api/categories/**`, `/api/promotions/**` | products-service:8080 |
+| `/api/reviews/**`                                       | products-service:8080     |
 | `/api/orders/**`                                        | orders-service:8080       |
 | `/api/pricing/**`                                       | price-service:8080        |
 

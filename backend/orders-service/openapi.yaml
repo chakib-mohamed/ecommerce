@@ -393,6 +393,11 @@ components:
       properties:
         user_id:
           type: string
+        product_id:
+          type: string
+          description: >-
+            When provided, narrows results to orders containing this product —
+            used to check whether a buyer has purchased a given product.
         offset:
           type: integer
           minimum: 0
