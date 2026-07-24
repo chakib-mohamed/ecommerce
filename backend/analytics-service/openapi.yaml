@@ -1,0 +1,126 @@
+openapi: 3.0.3
+info:
+  title: analytics-service API
+  description: Aggregated sales figures for the back-office dashboard. All endpoints require authentication.
+  version: 1.0.0
+servers:
+  - url: /
+    description: Service-internal base path
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  /analytics:
+    get:
+      summary: Sales analytics overview
+      description: >-
+        Returns the figures shown on the back-office dashboard: revenue for each of
+        the last 12 months, units sold and revenue per product, revenue split by
+        category, and total revenue. Only completed orders are counted — orders that
+        were never completed are excluded from every figure. Amounts reflect the
+        prices and discounts that applied at the time of purchase.
+      operationId: getAnalytics
+      responses:
+        '200':
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    AnalyticsResponse:
+      type: object
+      properties:
+        sales:
+          type: array
+          description: >-
+            Revenue per month over the last 12 months, oldest first. Always contains
+            12 entries; a month with no sales reports zero.
+          minItems: 12
+          maxItems: 12
+          items:
+            $ref: '#/components/schemas/MonthSale'
+        product_sales:
+          type: array
+          description: Units sold and revenue per product, ranked by units sold descending.
+          items:
+            $ref: '#/components/schemas/ProductSale'
+        category_breakdown:
+          type: array
+          description: >-
+            Revenue per category, ranked by revenue descending. Sales of products
+            whose category is unknown are grouped under "Uncategorized".
+          items:
+            $ref: '#/components/schemas/CategoryRevenue'
+        total_revenue:
+          type: number
+          format: double
+          description: Total revenue across all completed orders counted in this response.
+
+    MonthSale:
+      type: object
+      properties:
+        month:
+          type: string
+          description: Short month label, e.g. "Jan"
+          example: Jan
+        value:
+          type: number
+          format: double
+          description: Revenue for that month
+
+    ProductSale:
+      type: object
+      properties:
+        product_id:
+          type: string
+        name:
+          type: string
+          description: Product name as it was at the time of purchase
+        units:
+          type: integer
+          format: int64
+          description: Total units sold
+        revenue:
+          type: number
+          format: double
+          description: Total revenue for this product
+
+    CategoryRevenue:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Category identifier; "uncategorized" when the category is unknown
+        name:
+          type: string
+        value:
+          type: number
+          format: double
+          description: Total revenue for this category
+        pct:
+          type: number
+          format: double
+          description: Share of total revenue, as a percentage between 0 and 100
+
+    ErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FUNCTIONAL, TECHNICAL]
+        error_code:
+          type: string
+        message:
+          type: string
