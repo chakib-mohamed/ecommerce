@@ -17,6 +17,7 @@
     <module>authenticate-service</module>
     <module>price-service</module>
     <module>featured-products-service</module>
+    <module>analytics-service</module>
   </modules>
 
   <properties>
