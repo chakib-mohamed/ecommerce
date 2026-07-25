@@ -51,10 +51,12 @@ class AnalyticsResourceTest {
         lighting.setId(7L);
         lighting.setLabel("Lighting");
 
+        // Mirrors a real product event: it carries the categories the product is filed under and
+        // leaves categoryId/subcategoryId empty. Setting categoryId here would let ingestion pass
+        // by reading a field the wire never actually carries.
         ProductDto product = new ProductDto();
         product.setUuid(PRODUCT_UUID);
         product.setTitle("Desk lamp");
-        product.setCategoryId(7L);
         product.setCategories(List.of(lighting));
         ingestionService.upsertProduct(product);
 

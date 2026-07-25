@@ -46,6 +46,11 @@ store fed by the platform's existing business events.
   events do; the warehouse maintains a product→category dimension from that stream and joins the
   sales fact to it. A product that can't be resolved (e.g. deleted before it was ever seen) folds
   into an **"Uncategorized"** bucket rather than failing the request.
+- **The breakdown groups by the category a product is filed under**, which is its subcategory when
+  it has one — so "Dining Tables" rather than "Dining". Product events carry only the filed category
+  and its label; the parent's label appears on no event, so rolling up to the top level would mean
+  widening the product event or querying the category tree over REST. Both are rejected in ADR-0010,
+  and the revenue split is accurate either way.
 - **12-month rolling window ending in the current month**, always 12 points (months with no sales
   return `0`), labelled with short month names to match the frontend `SalesChart`.
 - **Read-only, admin-facing, authenticated** (`@Authenticated`).
@@ -99,6 +104,19 @@ Follows the standard repo gate sequence per `CLAUDE.md`: spec (this document) �
 (new Maven module, Docker Compose service + `analytics` database, gateway route, Makefile) →
 frontend rewire. All payloads obey the JSON serialization conventions (snake_case, null-omission,
 ISO-8601).
+
+## Operating notes
+
+Two consequences of sourcing the warehouse from events, both confirmed by running the stack:
+
+- **A freshly seeded catalog yields no dimension rows.** Products inserted by migration never emit a
+  product event, so on a new environment every sale reports under "Uncategorized" until each product
+  is written through the API once. Revenue, units and the monthly series are unaffected.
+- **Changing ingestion logic does not repair rows already ingested** — committed offsets mean a
+  redeployed service does not reprocess what it has read. Rebuilding needs a deliberate consumer
+  group reset; replay is safe because ingestion is idempotent.
+
+Both procedures are in `backend/analytics-service/CLAUDE.md`.
 
 ## Until this ships
 

@@ -103,3 +103,16 @@ existing Kafka business events** — a CQRS-style read side layered on the ADR-0
   evented (REST-only today), so the dimension reflects labels as snapshotted onto `product-updated`
   events. Also `order-initiated`'s `creation_date` is a zoneless `LocalDateTime`, treated as
   wall-clock time for month bucketing.
+- **The revenue split is at the granularity the event carries, not the one the catalog models.**
+  A product event carries the single category the product is filed under -- its subcategory when it
+  has one -- with that category's label but not its parent's. It carries no `category_id`, because
+  `ProductEventMapper` does not derive it the way the REST `ProductMapper` does. So the breakdown
+  groups by "Dining Tables", not "Dining". Reporting at the top level would require either widening
+  the product event with denormalized parent labels or querying the category tree over REST at
+  ingest; the first pushes reporting concerns into a producer's contract, the second reintroduces
+  exactly the runtime coupling this ADR set out to avoid. Revisit if the dashboard needs top-level
+  rollups badly enough to pay one of those costs.
+- **Nothing populates the dimension for a catalog that was seeded by migration**, and re-reading the
+  streams cannot fix it -- there are no events to replay. Priming means writing each product through
+  the API once. This is the sharp edge of an event-sourced read model over a system whose seed data
+  bypasses its own write path.
