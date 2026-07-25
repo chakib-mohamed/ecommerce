@@ -90,12 +90,28 @@ public class IngestionService {
     }
 
     private void apply(ProductDto product, DimProduct row) {
+        CategoryDto filed = filedUnder(product);
         row.setTitle(product.getTitle());
-        row.setCategoryId(product.getCategoryId());
-        row.setCategoryLabel(labelOf(product.getCategories(), product.getCategoryId()));
+        row.setCategoryId(filed == null ? product.getCategoryId() : filed.getId());
+        row.setCategoryLabel(filed == null ? null : filed.getLabel());
         row.setSubcategoryId(product.getSubcategoryId());
         row.setSubcategoryLabel(labelOf(product.getCategories(), product.getSubcategoryId()));
         row.setDeleted(false);
+    }
+
+    /**
+     * The category a product is actually filed under.
+     *
+     * <p>Product events carry the filed categories, not the category/subcategory ids used when
+     * submitting a product -- those are submission-side and arrive empty, so reading them alone
+     * would leave every sale uncategorized.
+     */
+    private CategoryDto filedUnder(ProductDto product) {
+        List<CategoryDto> categories = product.getCategories();
+        if (categories == null || categories.isEmpty()) {
+            return null;
+        }
+        return categories.get(0);
     }
 
     /** Resolves a category's display label from the ones carried alongside the product. */

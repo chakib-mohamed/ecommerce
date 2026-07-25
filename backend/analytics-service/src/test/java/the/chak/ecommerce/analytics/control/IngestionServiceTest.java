@@ -247,14 +247,14 @@ class IngestionServiceTest {
     }
 
     @Test
-    @DisplayName("Leaves the category label empty when no matching category was sent")
-    void upsertProduct_categoryNotAmongThoseSent_leavesLabelEmpty() {
-        // given
+    @DisplayName("Files a sale under the category the product event actually carries")
+    void upsertProduct_eventCarriesOnlyFiledCategories_usesTheFiledCategory() {
+        // given - the shape a real product event has: filed categories, no submission-side ids
         UUID uuid = UUID.randomUUID();
         ProductDto product = new ProductDto();
         product.setUuid(uuid);
-        product.setCategoryId(7L);
-        product.setCategories(List.of(category(42L, "Something else")));
+        product.setTitle("Marble Dining Table");
+        product.setCategories(List.of(category(20L, "Dining Tables")));
         when(dimRepository.findByIdOptional(uuid.toString())).thenReturn(Optional.empty());
 
         // when
@@ -263,6 +263,28 @@ class IngestionServiceTest {
         // then
         ArgumentCaptor<DimProduct> captor = ArgumentCaptor.forClass(DimProduct.class);
         verify(dimRepository).persist(captor.capture());
+        assertEquals(20L, captor.getValue().getCategoryId());
+        assertEquals("Dining Tables", captor.getValue().getCategoryLabel());
+    }
+
+    @Test
+    @DisplayName("Records a product filed under nothing without a category")
+    void upsertProduct_noFiledCategories_recordsProductWithoutCategory() {
+        // given
+        UUID uuid = UUID.randomUUID();
+        ProductDto product = new ProductDto();
+        product.setUuid(uuid);
+        product.setTitle("Desk lamp");
+        product.setCategories(List.of());
+        when(dimRepository.findByIdOptional(uuid.toString())).thenReturn(Optional.empty());
+
+        // when
+        ingestionService.upsertProduct(product);
+
+        // then
+        ArgumentCaptor<DimProduct> captor = ArgumentCaptor.forClass(DimProduct.class);
+        verify(dimRepository).persist(captor.capture());
+        assertNull(captor.getValue().getCategoryId());
         assertNull(captor.getValue().getCategoryLabel());
     }
 
