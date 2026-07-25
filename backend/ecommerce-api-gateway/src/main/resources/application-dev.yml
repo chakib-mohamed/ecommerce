@@ -62,6 +62,13 @@ spring:
           filters:
             - StripPrefix=1
 
+        - id: analytics-service
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/analytics/**
+          filters:
+            - StripPrefix=1
+
 
 security:
   jwt:

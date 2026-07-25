@@ -66,6 +66,13 @@ spring:
             - Path=/api/pricing/**
           filters:
             - StripPrefix=1
+
+        - id: analytics-service
+          uri: http://analytics-service:8080
+          predicates:
+            - Path=/api/analytics/**
+          filters:
+            - StripPrefix=1
   jackson:
     property-naming-strategy: SNAKE_CASE
     default-property-inclusion: NON_NULL

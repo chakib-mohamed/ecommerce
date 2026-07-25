@@ -219,6 +219,40 @@ services:
         reservations:
           memory: 256M
 
+  analytics-service:
+    profiles: [backend]
+    build:
+      context: ./backend/analytics-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8086:8080
+    environment:
+      - QUARKUS_PROFILE=prod
+      - QUARKUS_DATASOURCE_USERNAME=postgres
+      - QUARKUS_DATASOURCE_PASSWORD=postgres
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - JWT_PUBLIC_KEY
+    depends_on:
+      analytics-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8080/q/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 256M
+
   mongodb:
     profiles: [infra]
     image: mongo:6.0
@@ -290,6 +324,27 @@ services:
       - backend
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # The warehouse gets its own database so reporting scans never touch the
+  # operational store, and so it can be reset without disturbing the catalog.
+  analytics-postgres:
+    profiles: [infra]
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=analytics
+    ports:
+      - 5433:5432
+    networks:
+      - backend
+    volumes:
+      - analytics_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -472,6 +527,7 @@ networks:
 volumes:
   mongodb_data:
   postgres_data:
+  analytics_postgres_data:
   prometheus_data:
   grafana_data:
   loki_data:

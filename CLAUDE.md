@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Overview
 
-Microservices-based ecommerce platform. Backend has 6 services: one Spring Boot API Gateway plus 5 Quarkus services. Frontend is React 18 + TypeScript + Vite.
+Microservices-based ecommerce platform. Backend has 7 services: one Spring Boot API Gateway plus 6 Quarkus services. Frontend is React 18 + TypeScript + Vite.
 
 ### Architecture
 
@@ -22,6 +22,7 @@ Microservices-based ecommerce platform. Backend has 6 services: one Spring Boot 
 | featured-products-service | Quarkus 3.17.6    | 8083 | MongoDB    | Kafka consumer                      |
 | orders-service            | Quarkus 3.17.6    | 8084 | MongoDB    |                                     |
 | price-service             | Quarkus 3.17.6    | 8085 | MongoDB    |                                     |
+| analytics-service         | Quarkus 3.17.6    | 8086 | PostgreSQL | Kafka consumer; read-model warehouse |
 
 Shared API modules: `products-api` and `orders-api` (DTOs only, no runtime).
 
@@ -49,7 +50,7 @@ See `frontend/CLAUDE.md` for frontend dev commands.
 
 ### Observability
 
-Distributed tracing, metrics, and logs across all 6 backend services. The local stack — **OTel
+Distributed tracing, metrics, and logs across all 7 backend services. The local stack — **OTel
 Collector + Jaeger + Prometheus + Loki + Grafana** — runs under the `observability` Docker Compose
 profile (`make observability`, also folded into `make up`):
 
