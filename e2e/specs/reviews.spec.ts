@@ -43,20 +43,6 @@ test.describe('Product reviews', () => {
     expect(res.ok()).toBe(true);
   });
 
-  test.afterAll(async ({ request }) => {
-    // Best-effort cleanup so a re-run starts from an empty review list for this product.
-    const token = readAccessToken(RETAIL_USER);
-    const reviews = (await (await request.get(`/api/reviews?product_id=${productId}`)).json()) as Array<{
-      id: string;
-      reviewer: string;
-    }>;
-    for (const review of reviews.filter((r) => r.reviewer === RETAIL_USER.email)) {
-      await request.delete(`/api/reviews/${review.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    }
-  });
-
   test.describe('anonymous visitor', () => {
     test('sees a login prompt and no write-review form', async ({ page }) => {
       await page.goto(`/product/${productId}`);
@@ -89,6 +75,24 @@ test.describe('Product reviews', () => {
   test.describe.serial('verified purchaser', () => {
     test.use({ storageState: RETAIL_USER.storageStatePath });
 
+    // Cleanup belongs to this group, not the file. Under `fullyParallel` Playwright dispatches
+    // tests individually, so a file-level afterAll runs once per group of tests it happens to
+    // schedule together — and the other groups' copies would delete this group's review out from
+    // under it, between the submit and the delete below.
+    test.afterAll(async ({ request }) => {
+      // Best-effort, so a re-run starts from an empty review list for this product.
+      const token = readAccessToken(RETAIL_USER);
+      const reviews = (await (await request.get(`/api/reviews?product_id=${productId}`)).json()) as Array<{
+        id: string;
+        reviewer: string;
+      }>;
+      for (const review of reviews.filter((r) => r.reviewer === RETAIL_USER.email)) {
+        await request.delete(`/api/reviews/${review.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    });
+
     test('submits a review and sees the product rating and review count update', async ({ page }) => {
       await page.goto(`/product/${productId}`);
       await expect(page.getByRole('heading', { name: 'Write a review' })).toBeVisible();
@@ -115,7 +119,9 @@ test.describe('Product reviews', () => {
       await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 
       await expect(page.getByRole('heading', { name: 'Write a review' })).toBeVisible();
-      await expect(page.getByText('No reviews yet')).toBeVisible();
+      // The star summary says "No reviews yet" too, so match the review list's own empty state
+      // rather than the substring both share.
+      await expect(page.getByText('No reviews yet — be the first.')).toBeVisible();
     });
   });
 });
