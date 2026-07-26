@@ -16,13 +16,13 @@ Microservices-based ecommerce platform. Backend has 7 services: one Spring Boot 
 
 | Service                   | Framework         | Port | Database   | Notes                              |
 |---------------------------|-------------------|------|------------|-------------------------------------|
-| ecommerce-api-gateway     | Spring Boot 3.4.1 | 8080 | Redis      | Spring Cloud Gateway; JWT + CORS   |
-| authenticate-service      | Quarkus 3.17.6    | 8081 | MongoDB    | JWT auth, jBCrypt passwords         |
-| products-service          | Quarkus 3.17.6    | 8082 | PostgreSQL | Kafka producer, MinIO image storage |
-| featured-products-service | Quarkus 3.17.6    | 8083 | MongoDB    | Kafka consumer                      |
-| orders-service            | Quarkus 3.17.6    | 8084 | MongoDB    |                                     |
-| price-service             | Quarkus 3.17.6    | 8085 | MongoDB    |                                     |
-| analytics-service         | Quarkus 3.17.6    | 8086 | PostgreSQL | Kafka consumer; read-model warehouse |
+| ecommerce-api-gateway     | Spring Boot 3.5.14 | 8080 | Redis      | Spring Cloud Gateway; JWT + CORS   |
+| authenticate-service      | Quarkus 3.20.6.1    | 8081 | MongoDB    | JWT auth, jBCrypt passwords         |
+| products-service          | Quarkus 3.20.6.1    | 8082 | PostgreSQL | Kafka producer, MinIO image storage |
+| featured-products-service | Quarkus 3.20.6.1    | 8083 | MongoDB    | Kafka consumer                      |
+| orders-service            | Quarkus 3.20.6.1    | 8084 | MongoDB    |                                     |
+| price-service             | Quarkus 3.20.6.1    | 8085 | MongoDB    |                                     |
+| analytics-service         | Quarkus 3.20.6.1    | 8086 | PostgreSQL | Kafka consumer; read-model warehouse |
 
 Shared API modules: `products-api` and `orders-api` (DTOs only, no runtime).
 

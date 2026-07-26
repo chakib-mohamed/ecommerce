@@ -1,6 +1,6 @@
 # ecommerce-api-gateway/CLAUDE.md
 
-**Spring Boot 3.4.1** (Spring Cloud Gateway 2024.0.0) — this is the only non-Quarkus service. Use `mvn`, not `./mvnw` from the backend root.
+**Spring Boot 3.5.14** (Spring Cloud Gateway 2025.0.2) — this is the only non-Quarkus service. Use `mvn`, not `./mvnw` from the backend root.
 
 ## Build & Run
 

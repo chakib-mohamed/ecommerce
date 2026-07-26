@@ -1,6 +1,6 @@
 # backend/CLAUDE.md
 
-Covers all Quarkus services (Quarkus 3.17.6, Java 21). The API gateway is Spring Boot — see `ecommerce-api-gateway/CLAUDE.md`.
+Covers all Quarkus services (Quarkus 3.20.6.1, Java 21). The API gateway is Spring Boot — see `ecommerce-api-gateway/CLAUDE.md`.
 
 `analytics-service` is the odd one out: it owns no operational data and writes nothing of its own.
 It is a read model — a warehouse fed by consuming the other services' events. See

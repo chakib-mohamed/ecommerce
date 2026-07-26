@@ -1,6 +1,6 @@
 # analytics-service/CLAUDE.md
 
-Quarkus 3.17.6 service. Serves the back-office dashboard's sales figures at `GET /api/analytics`.
+Quarkus 3.20.6.1 service. Serves the back-office dashboard's sales figures at `GET /api/analytics`.
 
 Unlike the other services it owns no operational data and accepts no writes over HTTP. It is a
 **read model**: a small star-schema warehouse in its own Postgres database, filled by consuming the
