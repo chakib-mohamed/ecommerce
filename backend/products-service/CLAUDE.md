@@ -1,6 +1,6 @@
 # products-service/CLAUDE.md
 
-Quarkus 3.17.6 service. Handles products, categories, promotions, and image uploads.
+Quarkus 3.20.6.1 service. Handles products, categories, promotions, and image uploads.
 
 ## Prerequisites
 

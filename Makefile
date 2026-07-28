@@ -8,7 +8,7 @@
         infra observability backend front up down logs \
         build build-api build-front \
         dev-front dev-gateway \
-        dev-authenticate dev-products dev-featured dev-orders dev-price \
+        dev-authenticate dev-products dev-featured dev-orders dev-price dev-analytics \
         e2e e2e-env e2e-up e2e-run e2e-down
 
 ## help: list available targets
@@ -35,6 +35,7 @@ help:
 	@echo "  make dev-featured     quarkus:dev on :8083"
 	@echo "  make dev-orders       quarkus:dev on :8084"
 	@echo "  make dev-price        quarkus:dev on :8085"
+	@echo "  make dev-analytics    quarkus:dev on :8086"
 	@echo ""
 	@echo "E2E targets:"
 	@echo "  make e2e              full cycle: build, bring up the stack, run the e2e suite, tear down"
@@ -90,7 +91,8 @@ build-api:
 	mvn package -DskipTests -f ./backend/pom.xml
 	docker compose --profile "*" build \
 		products-service authenticate-service orders-service \
-		featured-products-service price-service api-gateway
+		featured-products-service price-service api-gateway \
+		analytics-service
 
 ## build-front: build the frontend image (single in-image build)
 build-front:
@@ -129,6 +131,10 @@ dev-orders:
 ## dev-price: price-service hot reload (:8085)
 dev-price:
 	cd backend && ./mvnw quarkus:dev -pl price-service -Dquarkus.http.port=8085
+
+## dev-analytics: analytics-service hot reload (:8086)
+dev-analytics:
+	cd backend && ./mvnw quarkus:dev -pl analytics-service -Dquarkus.http.port=8086
 
 # ----------------------------------------------------------------------------
 # E2E — browser tests against the real stack (see e2e/README.md)

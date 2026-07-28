@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../../components/UI/Button/Button';
-import { buildAnalytics } from '../../../lib/analytics';
 import { money } from '../../../lib/money';
+import { useAnalytics } from '../../../lib/use-analytics';
 import { useCatalogCategories, useCatalogProducts } from '../../../lib/use-catalog';
 import CategoryDonut from './CategoryDonut';
 import SalesChart from './SalesChart';
@@ -17,14 +16,35 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const products = useCatalogProducts();
   const categories = useCatalogCategories();
-  const analytics = useMemo(() => buildAnalytics(products, categories), [products, categories]);
+  const { data: analytics, loading, error } = useAnalytics();
 
   const lowStock = products.filter((p) => p.stock <= 5);
   const subCount = categories.reduce((n, c) => n + c.subs.length, 0);
+
+  if (loading || error || !analytics) {
+    return (
+      <div className="px-10 py-9 max-w-[1100px] flex-1">
+        <div className="mb-7 reveal">
+          <span className="eyebrow">Overview</span>
+          <h1 className="display text-4xl mt-1.5">Dashboard</h1>
+        </div>
+        <div className={CARD}>
+          <span className="text-muted text-sm">
+            {error ? 'Sales figures are unavailable right now.' : 'Loading sales figures…'}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const topProducts = analytics.productSales.slice(0, 5);
-  const lastMonth = analytics.sales[analytics.sales.length - 1].value;
-  const prevMonth = analytics.sales[analytics.sales.length - 2].value;
-  const monthDelta = ((lastMonth - prevMonth) / prevMonth) * 100;
+  const lastMonth = analytics.sales[analytics.sales.length - 1]?.value ?? 0;
+  const prevMonth = analytics.sales[analytics.sales.length - 2]?.value ?? 0;
+  // A month following one with no sales has no meaningful percentage to show.
+  const monthDelta = prevMonth ? ((lastMonth - prevMonth) / prevMonth) * 100 : 0;
+  // The card is labelled "12 mo", so it sums the same window the chart plots -- `totalRevenue`
+  // covers all sales ever recorded, which would disagree with the chart beside it.
+  const revenue12 = analytics.sales.reduce((sum, m) => sum + m.value, 0);
   const totalUnits = analytics.productSales.reduce((s, p) => s + p.units, 0);
   const avgOrder = totalUnits ? Math.round(analytics.totalRevenue / totalUnits) : 0;
 
@@ -39,7 +59,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6 reveal" style={{ animationDelay: '40ms' }}>
         <StatCard
           label="Revenue (12 mo)"
-          value={money(analytics.totalRevenue)}
+          value={money(revenue12)}
           sub={`${monthDelta >= 0 ? '+' : ''}${monthDelta.toFixed(1)}% vs last month`}
         />
         <StatCard

@@ -17,6 +17,7 @@
     <module>authenticate-service</module>
     <module>price-service</module>
     <module>featured-products-service</module>
+    <module>analytics-service</module>
   </modules>
 
   <properties>
@@ -29,7 +30,45 @@
     <spotbugs-maven-plugin.version>4.8.3.1</spotbugs-maven-plugin.version>
     <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
     <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+
+    <!--
+      Security floors for libraries the framework BOMs still resolve below a fixed version.
+      Each is the lowest release that clears the advisories Trivy reports; raise them when a
+      newer advisory lands, and drop an entry once the framework BOM catches up on its own.
+    -->
+    <netty.version>4.1.136.Final</netty.version>
+    <jackson-bom.version>2.21.4</jackson-bom.version>
+    <kafka-clients.version>3.9.2</kafka-clients.version>
+    <bouncycastle.version>1.81.1</bouncycastle.version>
+    <postgresql.version>42.7.12</postgresql.version>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!--
+        Plain managed versions, which do override what a module's imported BOM resolves.
+        The netty and jackson floors cannot live here: an imported BOM in this parent loses to
+        the framework BOM each module imports itself, so those two are imported per module,
+        ahead of the framework BOM. Netty is pinned as a BOM rather than artifact by artifact
+        because its modules are not designed to run at mixed versions.
+      -->
+      <dependency>
+        <groupId>org.apache.kafka</groupId>
+        <artifactId>kafka-clients</artifactId>
+        <version>${kafka-clients.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcprov-jdk18on</artifactId>
+        <version>${bouncycastle.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>${postgresql.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <build>
     <plugins>

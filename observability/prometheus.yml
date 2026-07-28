@@ -43,3 +43,8 @@ scrape_configs:
     metrics_path: /q/metrics
     static_configs:
       - targets: ["price-service:8080"]
+
+  - job_name: analytics-service
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["analytics-service:8080"]

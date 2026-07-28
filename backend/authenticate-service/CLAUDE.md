@@ -1,6 +1,6 @@
 # authenticate-service/CLAUDE.md
 
-Quarkus 3.17.6 service. Handles user registration, login, and JWT issuance.
+Quarkus 3.20.6.1 service. Handles user registration, login, and JWT issuance.
 
 ## Storage
 

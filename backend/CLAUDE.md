@@ -1,6 +1,10 @@
 # backend/CLAUDE.md
 
-Covers all Quarkus services (Quarkus 3.17.6, Java 21). The API gateway is Spring Boot — see `ecommerce-api-gateway/CLAUDE.md`.
+Covers all Quarkus services (Quarkus 3.20.6.1, Java 21). The API gateway is Spring Boot — see `ecommerce-api-gateway/CLAUDE.md`.
+
+`analytics-service` is the odd one out: it owns no operational data and writes nothing of its own.
+It is a read model — a warehouse fed by consuming the other services' events. See
+`docs/adr/0010-analytics-service-event-sourced-warehouse.md`.
 
 This file is a lean index. Each section states the non-negotiable rules; full detail (code snippets, tables, rationale) lives in `docs/conventions/`.
 
@@ -28,6 +32,7 @@ just fail at the gateway.
 | `dev-featured`      | 8083 | `/api/products/featured` |
 | `dev-orders`        | 8084 | `/api/orders/**`, `/api/cart/**` |
 | `dev-price`         | 8085 | `/api/prices/**`, `/api/pricing/**` |
+| `dev-analytics`     | 8086 | `/api/analytics/**` |
 
 Run `make help` for the full target list. The gateway is Spring Boot — see
 `ecommerce-api-gateway/CLAUDE.md`.
@@ -105,7 +110,7 @@ See `docs/conventions/logging-conventions.md` for logging rules — structured f
 
 ## Observability
 
-All 5 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
+All 6 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
 (metrics); the gateway uses `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`. Per
 service:
 
