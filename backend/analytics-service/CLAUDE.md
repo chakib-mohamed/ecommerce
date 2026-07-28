@@ -29,16 +29,18 @@ confirmed, so pending ones never arrive.
 ### The dimension records the category a product is *filed under*
 
 Product events carry `categories` — the single category the product is filed under, which is the
-subcategory when it has one. They do **not** carry `category_id`/`subcategory_id`: those are
-submission-side fields, and `ProductEventMapper` (products-service) does not derive them the way the
-REST `ProductMapper` does. Reading them yields null and files every sale under "Uncategorized".
+subcategory when it has one, and that entry brings its label. Ingestion takes the dimension's
+category from there.
 
-`ProductEventWireFormatTest` pins this by ingesting a captured event payload rather than one built
-with setters — the shape that a hand-built payload lets you get wrong.
+Events also carry `category_id`/`subcategory_id`, but only since the producer was fixed to derive
+them (PR #17). Anything published before that has both null, so ingestion must not depend on them —
+`ProductEventWireFormatTest` ingests a payload captured before the fix to keep that true. Reading
+those fields was the original bug: they were null on every event, and every sale landed under
+"Uncategorized".
 
 Consequence: the revenue breakdown groups by the filed (leaf) category — "Dining Tables", not
-"Dining". Rolling up to the top-level category would need the parent's **label**, which no event
-carries; the alternatives are widening the product event or querying the category tree over REST,
+"Dining". The top-level *id* is available now, but no event carries the parent's **label**, so
+rolling up would still mean widening the product event or querying the category tree over REST —
 both rejected in ADR-0010.
 
 ## Operating the warehouse
