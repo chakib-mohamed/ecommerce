@@ -47,10 +47,10 @@ store fed by the platform's existing business events.
   sales fact to it. A product that can't be resolved (e.g. deleted before it was ever seen) folds
   into an **"Uncategorized"** bucket rather than failing the request.
 - **The breakdown groups by the category a product is filed under**, which is its subcategory when
-  it has one — so "Dining Tables" rather than "Dining". Product events carry only the filed category
-  and its label; the parent's label appears on no event, so rolling up to the top level would mean
-  widening the product event or querying the category tree over REST. Both are rejected in ADR-0010,
-  and the revenue split is accurate either way.
+  it has one — so "Dining Tables" rather than "Dining". A product event carries that category with
+  its label, and the top-level category's id, but the parent's **label** appears on no event — so
+  rolling up to the top level would mean widening the product event or querying the category tree
+  over REST. Both are rejected in ADR-0010, and the revenue split is accurate either way.
 - **12-month rolling window ending in the current month**, always 12 points (months with no sales
   return `0`), labelled with short month names to match the frontend `SalesChart`.
 - **Read-only, admin-facing, authenticated** (`@Authenticated`).

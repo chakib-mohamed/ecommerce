@@ -29,6 +29,10 @@ import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
  * shape go unchallenged -- reading a field the producer never sends looks fine until the real
  * stream arrives. This payload is a capture from a running stack, so it fails if what the producer
  * sends and what ingestion reads ever drift apart again.
+ *
+ * <p>It was captured before products-service was fixed to derive the category ids (PR #17), so it
+ * carries none -- which is exactly what makes it worth keeping. Events published before that fix
+ * are still on the topic and still replayed, so ingestion has to resolve the category without them.
  */
 @ExtendWith(MockitoExtension.class)
 class ProductEventWireFormatTest {
@@ -68,18 +72,18 @@ class ProductEventWireFormatTest {
     }
 
     @Test
-    @DisplayName("Takes the category from a product event in the exact shape the producer sends")
-    void upsertProduct_realEventPayload_recordsTheCategoryItCarries() {
+    @DisplayName("Takes the category from a product event that predates the producer's id fix")
+    void upsertProduct_payloadWithoutDerivedIds_recordsTheCategoryItCarries() {
         // given
         ProductUpdatedEvent event = decode(PRODUCT_UPDATED_PAYLOAD);
         String productId = "a0000000-0000-0000-0000-000000000001";
         when(dimRepository.findByIdOptional(productId)).thenReturn(Optional.empty());
 
-        // the fields ingestion must not depend on: the producer does not send them
+        // this capture has no derived ids, and replayed history still looks like this
         assertNull(event.getProduct().getCategoryId(),
-                "a product event carries no category_id; ingestion must not rely on one");
+                "the captured payload should predate the producer fix; ingestion must not need it");
         assertNull(event.getProduct().getSubcategoryId(),
-                "a product event carries no subcategory_id; ingestion must not rely on one");
+                "the captured payload should predate the producer fix; ingestion must not need it");
 
         // when
         ingestionService.upsertProduct(event.getProduct());
