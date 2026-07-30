@@ -29,3 +29,9 @@ The serializer uses the CDI-managed `Jsonb`, so event payloads are **snake_case 
 Uses AWS SDK v2 (`software.amazon.awssdk:s3:2.42.27`) via `StorageService`, pointed at **LocalStack** (`http://localstack:4566` in Docker, `http://localhost:4566` in dev mode). Config prefix `products.storage.*`. Bucket name is `product-images`. Images are served via the gateway at `/api/products/images/{filename}`.
 
 Tests use `StorageTestResource` which starts a `LocalStackContainer` (Testcontainers) with S3 enabled and injects the endpoint/credentials at runtime. No MinIO dependency remains.
+
+The API returns the storage key as `image_key`, never image bytes — the `image` field on `ProductDto` is upload-only (base64 on POST/PUT) and is absent from read responses. Clients turn a key into a URL as `/api/products/images/{image_key}`; the frontend does this in `catalog-adapter.ts`'s `imageUrl`.
+
+### Default seed images
+
+`SeedImageInitializer` gives each Liquibase-seeded product (004) a deterministic `image_key` where null and uploads the matching committed WebP from `src/main/resources/seed-images/`. It is gated at **runtime** on `products.seed-images.enabled` — off by default, on under `%dev`/`%test`, and switched on for the Compose stack via `PRODUCTS_SEED_IMAGES_ENABLED=true` in `docker-compose.yml`. The gate is deliberately not a build-profile check: the Compose stack runs a prod-profile build but still needs real photos locally.
