@@ -31,7 +31,12 @@ export interface RawProduct {
   name?: string;
   title?: string;
   description?: string;
-  image?: string;
+  /**
+   * Storage key for the product's image — a key, not a URL. Resolved to a
+   * browser-facing URL by `imageUrl`. (The API's `image` field is upload-only:
+   * it carries the base64 payload on writes and is absent from read responses.)
+   */
+  image_key?: string;
   price?: number | string;
   stock?: number;
   category_id?: number | string;
@@ -58,6 +63,15 @@ export const productId = (raw: RawProduct): string =>
  */
 export const featuredKey = (raw: RawProduct): string =>
   String(raw.product_id ?? raw.uuid ?? raw.productID ?? raw.id ?? '');
+
+/**
+ * Resolves a product's storage key to the URL that serves its image bytes.
+ * Root-absolute so it works both behind the dev server's `/api` proxy and the
+ * deployed reverse proxy; `<img src>` bypasses the axios instance, so the `/api`
+ * prefix has to be spelled out here.
+ */
+export const imageUrl = (key: string | undefined): string | undefined =>
+  key ? `/api/products/images/${encodeURIComponent(key)}` : undefined;
 
 /** FNV-1a hash of a string → a stable positive 31-bit seed. */
 const hashId = (s: string): number => {
@@ -130,7 +144,7 @@ export const adaptProduct = (raw: RawProduct, featuredIds: Set<string>): Product
     stock,
     tone,
     blurb: raw.description ?? '',
-    image: raw.image || undefined,
+    image: imageUrl(raw.image_key),
     featured,
     badge: stock <= 5 ? 'Low stock' : featured ? 'New' : undefined,
   };

@@ -93,6 +93,9 @@ services:
       - QUARKUS_DATASOURCE_PASSWORD=postgres
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - JWT_PUBLIC_KEY
+      # The seeded dev catalog (Liquibase 004) loads under every profile; this lets the
+      # matching default images load too, so the storefront shows real photos locally.
+      - PRODUCTS_SEED_IMAGES_ENABLED=true
     depends_on:
       postgres:
         condition: service_healthy

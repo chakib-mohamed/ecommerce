@@ -5,27 +5,28 @@ import java.io.InputStream;
 import java.util.Map;
 import java.util.UUID;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-import io.quarkus.arc.profile.UnlessBuildProfile;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
 /**
- * Dev/test-only default-image seeding. On startup, for each locally-seeded product this
+ * Default-image seeding for local runs. On startup, for each locally-seeded product this
  * uploads a committed WebP image to object storage under a deterministic key and sets
  * the product's {@code image_key} to that key (only when it is still null, so an
  * API-uploaded image is never clobbered).
  *
- * <p>The bean is registered only under the {@code dev} and {@code test} profiles
- * ({@code @UnlessBuildProfile("prod")}), so a production build neither uploads images nor sets
- * {@code image_key}. The upload runs on every startup, which restores objects after the local
- * object store is reset between runs.
+ * <p>Gated at <em>runtime</em> on {@code products.seed-images.enabled} rather than on the build
+ * profile: the Compose stack runs a prod-profile build of this service but still needs the seeded
+ * catalog to show real photos, and a build-time gate cannot be re-enabled by that deployment. The
+ * flag defaults to off, so a real production deployment neither uploads images nor sets
+ * {@code image_key} unless it opts in. The upload runs on every enabled startup, which restores
+ * objects after the local object store is reset between runs.
  */
 @ApplicationScoped
-@UnlessBuildProfile("prod")
 public class SeedImageInitializer {
 
     private static final Logger LOG = Logger.getLogger(SeedImageInitializer.class);
@@ -53,7 +54,14 @@ public class SeedImageInitializer {
     @Inject
     SeedImageAssigner seedImageAssigner;
 
+    @ConfigProperty(name = "products.seed-images.enabled", defaultValue = "false")
+    boolean seedImagesEnabled;
+
     void onStart(@Observes StartupEvent event) {
+        if (!seedImagesEnabled) {
+            LOG.debug("Seed images disabled, skipping");
+            return;
+        }
         int uploaded = 0;
         int updated = 0;
         for (Map.Entry<UUID, String> seed : SEED_IMAGES.entrySet()) {
