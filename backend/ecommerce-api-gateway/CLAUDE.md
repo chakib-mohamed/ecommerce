@@ -28,15 +28,9 @@ from `localhost:3000`. There is **no Maven `dev` profile** — activate the Spri
 - Routes point to `localhost:808x` ports instead of Docker hostnames
 - HTTP wiretap enabled (`httpclient.wiretap: true`, `httpserver.wiretap: true`) — logs full request/response at TRACE level; produces verbose output, disable for normal debugging
 
-## Route Table (from `application.yml`)
+## Routes
 
-| Path pattern                                            | Upstream service          |
-|---------------------------------------------------------|---------------------------|
-| `/api/users/**`                                         | authenticate-service:8080 |
-| `/api/products/featured`                                | featured-products-service:8080 |
-| `/api/products/**`, `/api/categories/**`, `/api/promotions/**` | products-service:8080 |
-| `/api/reviews/**`                                       | products-service:8080     |
-| `/api/orders/**`                                        | orders-service:8080       |
-| `/api/pricing/**`                                       | price-service:8080        |
-
-All routes strip the `/api` prefix before forwarding.
+The route table is `spring.cloud.gateway.routes` in `application.yml` — read it there rather than
+from a copy. All routes strip the `/api` prefix before forwarding. Note that ordering matters: the
+more specific `/api/products/featured` route must stay above the `/api/products/**` route, or
+featured requests get swallowed by products-service.

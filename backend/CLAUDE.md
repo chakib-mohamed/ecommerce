@@ -110,26 +110,15 @@ See `docs/conventions/logging-conventions.md` for logging rules — structured f
 
 ## Observability
 
-All 6 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
-(metrics); the gateway uses `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`. Per
-service:
+Tracing, metrics, and log shipping are auto-instrumented — the per-service wiring is in each
+`application.properties`, and the stack is described in the `observability` skill.
 
-- **Tracing** — OTLP endpoint `http://otel-collector:4317`, sampler `quarkus.otel.traces.sampler=always_on`
-  (the Collector tail-samples). Auto-instrumentation covers JAX-RS, Rest Client, JDBC/Mongo, and
-  SmallRye Reactive Messaging, so HTTP and Kafka spans join one trace with no hand-written propagation.
-- **Metrics** — Prometheus exposition at `/q/metrics` (Quarkus) / `/actuator/prometheus` (gateway);
-  scrape targets in `observability/prometheus.yml`.
-- **Logs** — `quarkus.log.console.format` stamps `traceId=%X{traceId} spanId=%X{spanId}` (OTel
-  populates MDC automatically). `requestId`/`X-Request-ID` is retired. Logs are also shipped to
-  **Loki** over OTLP — `quarkus.otel.logs.enabled=true` (the gateway uses Spring Boot OTLP logging
-  + the OTel Logback appender); reuses the existing OTLP endpoint and `%test…sdk.disabled=true`
-  silences it in tests. Console/stdout is unchanged. See `docs/specs/log-aggregation.md`.
+The one thing auto-instrumentation does **not** handle:
 
-**Outbox trace propagation:** the transactional outbox relay publishes on a background thread after
+**Outbox trace propagation** — the transactional outbox relay publishes on a background thread after
 the request ends, so it re-parents the Kafka producer span on the originating request via a
 `traceparent` stored on the outbox record — shared helper `OutboxTracing` in `outbox-common`. See
-`memory/project_outbox_breaks_kafka_trace_continuity.md`. Full stack/usage: root `CLAUDE.md` →
-*Observability* and `docs/specs/observability.md`.
+`memory/project_outbox_breaks_kafka_trace_continuity.md`.
 
 ## Service-Specific Details
 
