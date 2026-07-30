@@ -1,7 +1,9 @@
 # IDE
 .idea/
 .vscode/
-.claude/
+.claude/*
+# ...except shared skills, which are part of the repo's guidance like CLAUDE.md is.
+!.claude/skills/
 
 # Environment
 .env

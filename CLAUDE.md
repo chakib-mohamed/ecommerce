@@ -14,32 +14,23 @@ Microservices-based ecommerce platform. Backend has 7 services: one Spring Boot 
 
 ### Architecture
 
-| Service                   | Framework         | Port | Database   | Notes                              |
-|---------------------------|-------------------|------|------------|-------------------------------------|
-| ecommerce-api-gateway     | Spring Boot 3.5.14 | 8080 | Redis      | Spring Cloud Gateway; JWT + CORS   |
-| authenticate-service      | Quarkus 3.20.6.1    | 8081 | MongoDB    | JWT auth, jBCrypt passwords         |
-| products-service          | Quarkus 3.20.6.1    | 8082 | PostgreSQL | Kafka producer, MinIO image storage |
-| featured-products-service | Quarkus 3.20.6.1    | 8083 | MongoDB    | Kafka consumer                      |
-| orders-service            | Quarkus 3.20.6.1    | 8084 | MongoDB    |                                     |
-| price-service             | Quarkus 3.20.6.1    | 8085 | MongoDB    |                                     |
-| analytics-service         | Quarkus 3.20.6.1    | 8086 | PostgreSQL | Kafka consumer; read-model warehouse |
+Framework versions live in the poms — the gateway is the only Spring Boot service, every other one is Quarkus.
+
+| Service                   | Port | Database   | Notes                                    |
+|---------------------------|------|------------|------------------------------------------|
+| ecommerce-api-gateway     | 8080 | Redis      | Spring Cloud Gateway; JWT + CORS         |
+| authenticate-service      | 8081 | MongoDB    | JWT auth, jBCrypt passwords              |
+| products-service          | 8082 | PostgreSQL | Kafka producer, LocalStack S3 image storage |
+| featured-products-service | 8083 | MongoDB    | Kafka consumer                           |
+| orders-service            | 8084 | MongoDB    |                                          |
+| price-service             | 8085 | MongoDB    |                                          |
+| analytics-service         | 8086 | PostgreSQL | Kafka consumer; read-model warehouse     |
 
 Shared API modules: `products-api` and `orders-api` (DTOs only, no runtime).
 
 All traffic goes through the gateway at `/api/**`. Two Docker Compose networks: `frontend` (gateway + frontend) and `backend` (all internal services).
 
 ### Build & Run
-
-```bash
-make build          # mvn package (skip tests) + all Docker images
-make up             # full stack (infra + backend + frontend)
-make down           # stop & remove everything
-
-make infra          # just infra containers (db/kafka/etc.)
-make backend        # infra + backend services
-make front          # full stack (infra + backend + frontend)
-make logs           # tail logs for all services
-```
 
 Run `make help` for the full target list (including the `dev-*` hot-reload targets).
 The `kubernetes/` manifests are stale (they reference a removed `eureka-server`) and are
@@ -50,35 +41,14 @@ See `frontend/CLAUDE.md` for frontend dev commands.
 
 ### Observability
 
-Distributed tracing, metrics, and logs across all 7 backend services. The local stack — **OTel
-Collector + Jaeger + Prometheus + Loki + Grafana** — runs under the `observability` Docker Compose
-profile (`make observability`, also folded into `make up`):
+Distributed tracing, metrics, and logs across all 7 backend services, via **OTel Collector + Jaeger +
+Prometheus + Loki + Grafana** under the `observability` Compose profile (`make observability`, also
+folded into `make up`). One request is one connected trace across the gateway, downstream HTTP calls,
+and Kafka. **`X-Request-ID` is retired** — the gateway echoes the trace id back as `X-Trace-Id`.
 
-| UI | URL | Purpose |
-|----|-----|---------|
-| Jaeger | http://localhost:16686 | traces |
-| Prometheus | http://localhost:9090 | metrics + targets |
-| Loki | http://localhost:3100 | log store (query via Grafana Explore; `/ready` health) |
-| Grafana | http://localhost:3000 | dashboards + log search (anon admin; *Ecommerce Overview* + *Ecommerce Business KPIs* auto-provisioned) |
-
-- Every service exports OTLP to `otel-collector:4317`; the Collector **tail-samples** (keeps all
-  error/slow traces, ~10% of the rest) and forwards to Jaeger. One request is one connected trace
-  across the gateway, downstream HTTP calls, **and** Kafka (including outbox-published events).
-- Metrics are scraped by Prometheus from each service (gateway `/actuator/prometheus`, Quarkus
-  `/q/metrics`) — config in `observability/prometheus.yml`; Grafana provisioning in
-  `observability/grafana/provisioning/`.
-- Logs ship over **OTLP** to the Collector, which forwards them to **Loki** (Quarkus
-  `quarkus.otel.logs.enabled=true`; gateway via Spring Boot OTLP logging + the Logback appender).
-  `traceId`/`spanId` arrive as **structured metadata**, so Grafana pivots both ways — log → trace
-  (Loki `derivedFields` → Jaeger) and trace → log (Jaeger `tracesToLogsV2` → Loki). Console/stdout
-  logging is unchanged (`make logs` still works). **`X-Request-ID` is retired** — the gateway echoes
-  the trace id back as an `X-Trace-Id` response header. Spec: `docs/specs/log-aggregation.md`.
-- Beyond the auto-instrumented RED/JVM/Kafka signals, the four business-owning Quarkus services
-  (`authenticate`, `products`, `orders`, `price`) record curated **functional/business meters** in
-  their control layer (orders/revenue, auth success/failure, catalog mutations, pricing/discounts),
-  surfaced on the *Ecommerce Business KPIs* dashboard.
-
-Specs: `docs/specs/observability.md`, `docs/specs/functional-metrics.md`. Logging/correlation rules: `docs/conventions/logging-conventions.md`.
+Dashboard URLs, sampling behavior, the log↔trace pivot, and the per-service wiring live in the
+`observability` skill. Specs: `docs/specs/observability.md`, `docs/specs/functional-metrics.md`,
+`docs/specs/log-aggregation.md`. Logging/correlation rules: `docs/conventions/logging-conventions.md`.
 
 ### JSON Serialization Rules
 
