@@ -94,6 +94,13 @@ Tests use JUnit 5 + Mockito + Testcontainers + REST Assured. Run with:
 
 See `docs/conventions/testing-conventions.md` for all test conventions — including Testcontainers vs Dev Services, Kafka test setup, and container reuse, plus naming, display names, body structure, split conventions, and coverage requirements.
 
+Locally you still want `-am` so the shared modules (`products-api`, `orders-api`, `outbox-common`)
+are built alongside the service. CI does that once up front — `install -pl
+products-api,orders-api,outbox-common -am` — and then verifies each service without `-am`, because
+repeating it per service cost about a minute per run. CI also verifies only the services a pull
+request affects; the mapping from changed paths to services lives in
+`.github/scripts/affected-services.sh`, and pushes to `main` always verify everything.
+
 ### Git hooks (pre-merge-commit)
 
 One version-controlled hook lives in `.githooks/`. Activate it once per clone:
