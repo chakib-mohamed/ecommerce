@@ -108,6 +108,14 @@ jobs:
             echo "::endgroup::"
           done
 
+      # The coverage gate cannot report whether it measured anything: JaCoCo prints the same
+      # success line for seven classes checked and for none, which is how it enforced nothing for
+      # its whole life. This reads the poms and the reports and says so.
+      - name: Verify the coverage gate enforced something
+        if: steps.select.outputs.services != ''
+        working-directory: .
+        run: python3 .github/scripts/verify-coverage-gate.py
+
   # Full-stack browser suite (e2e/) — boots the real docker-compose stack (6 JVM
   # services + Postgres/Mongo/Kafka/Redis/Zookeeper + the built frontend image),
   # so it's meaningfully slower than the jobs above. Not run on every PR by

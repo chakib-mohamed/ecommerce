@@ -173,6 +173,16 @@
               <append>true</append>
             </configuration>
           </execution>
+          <!--
+            Bound ahead of the check below so the XML report exists even when the gate fails.
+            .github/scripts/verify-coverage-gate.py reads it to confirm the gate actually
+            measured something, which the gate itself cannot report.
+          -->
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals><goal>report</goal></goals>
+          </execution>
           <execution>
             <id>check</id>
             <phase>verify</phase>
