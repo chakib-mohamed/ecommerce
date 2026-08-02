@@ -53,7 +53,6 @@ public class OutboxEventFactory {
         dto.setCreationDate(order.getCreationDate());
         dto.setPrice(order.getPrice());
         dto.setUserID(order.getUserID());
-        dto.setValidationNumber(order.getValidationNumber());
         dto.setStatus(order.getStatus() == null ? null
                 : the.chak.ecommerce.orders.boundary.dto.OrderStatus.valueOf(order.getStatus().name()));
         dto.setProducts(toProductDtos(order));

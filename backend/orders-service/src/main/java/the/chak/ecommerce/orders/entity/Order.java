@@ -17,6 +17,5 @@ public class Order {
     private List<ProductVO> products;
     private OrderStatus status;
     private String userID;
-    private String validationNumber;
     private String processID;
 }
