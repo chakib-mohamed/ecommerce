@@ -128,14 +128,10 @@ components:
       properties:
         id:
           type: string
-        card_number:
-          type: string
         creation_date:
           type: string
           format: date-time
           description: ISO-8601 datetime
-        expiration_date:
-          type: string
         price:
           type: number
           format: double
@@ -146,11 +142,17 @@ components:
             $ref: '#/components/schemas/ProductVO'
         user_id:
           type: string
-        validation_number:
-          type: string
         status:
           type: string
-          enum: [INITIATED, CONFIRMED]
+          enum:
+            - INITIATED
+            - CONFIRMED
+            - RESERVED
+            - PAID
+            - SHIPPED
+            - DELIVERED
+            - CANCELLED
+            - REFUNDED
 
     ProductVO:
       type: object
