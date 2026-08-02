@@ -52,6 +52,10 @@ public class OrdersResource implements OrdersApi {
         if (!userId.equals(order.getUserID())) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
+        // Past INITIATED the order has been committed and its sale published; an edit here would
+        // leave the read models describing something that no longer matches, with no event to
+        // reconcile them. Cancelling remains available.
+        orderService.assertMutable(order);
         orderMapper.updateOrderFromRequest(orderRequest, order);
         orderService.updateOrder(order);
         return Response.ok(order).status(200).build();
@@ -67,6 +71,7 @@ public class OrdersResource implements OrdersApi {
         if (!userId.equals(existing.getUserID())) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
+        orderService.assertMutable(existing);
         orderService.deleteOrder(existing);
         return Response.ok().status(200).build();
     }
@@ -83,5 +88,19 @@ public class OrdersResource implements OrdersApi {
         }
         Order confirmed = orderService.confirmOrder(orderID);
         return Response.ok(confirmed).status(200).build();
+    }
+
+    public Response cancelOrder(String orderID) {
+        var existing = orderService.findById(orderID);
+        if (existing.isEmpty()) {
+            return Response.status(404).build();
+        }
+        Order order = existing.get();
+        String userId = sec.getUserPrincipal().getName();
+        if (!userId.equals(order.getUserID())) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+        Order cancelled = orderService.cancelOrder(orderID);
+        return Response.ok(cancelled).status(200).build();
     }
 }

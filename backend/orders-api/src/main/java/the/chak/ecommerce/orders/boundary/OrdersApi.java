@@ -45,4 +45,8 @@ public interface OrdersApi {
     @Path("/{orderID}/confirm")
     Response confirmOrder(@PathParam("orderID") String orderID);
 
+    @POST
+    @Path("/{orderID}/cancel")
+    Response cancelOrder(@PathParam("orderID") String orderID);
+
 }

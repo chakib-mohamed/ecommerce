@@ -293,4 +293,168 @@ class OrdersResourceTest {
                 .body("type", is("FUNCTIONAL"))
                 .body("error_code", is("VALIDATION_ERROR"));
     }
+
+    // --ownership and lifecycle guards ---------------------------------------
+    // Each order operation refuses in three ways: the order does not exist, it belongs to someone
+    // else, or it has moved past the point where the operation still makes sense.
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 404 when updating an order that does not exist")
+    void updateOrder_unknownOrder_returns404() {
+        String body = String.format(
+                "{\"id\":\"%s\",\"products\":[{\"product_id\":\"p\",\"qty\":1,\"price\":1.0}]}",
+                new ObjectId());
+
+        given().contentType(ContentType.JSON).body(body)
+                .when().put("/orders")
+                .then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "intruder")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "intruder") })
+    @DisplayName("Returns 403 when updating an order belonging to someone else")
+    void updateOrder_otherUsersOrder_returns403() {
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+        String body = String.format(
+                "{\"id\":\"%s\",\"products\":[{\"product_id\":\"p\",\"qty\":1,\"price\":1.0}]}", order.id);
+
+        given().contentType(ContentType.JSON).body(body)
+                .when().put("/orders")
+                .then().statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 409 when updating an order that has already been confirmed")
+    void updateOrder_confirmedOrder_returns409() {
+        Order order = persistedOrder("owner", OrderStatus.CONFIRMED);
+        String body = String.format(
+                "{\"id\":\"%s\",\"products\":[{\"product_id\":\"p\",\"qty\":1,\"price\":1.0}]}", order.id);
+
+        given().contentType(ContentType.JSON).body(body)
+                .when().put("/orders")
+                .then().statusCode(409)
+                .body("error_code", is("ORDER_NOT_MUTABLE"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 404 when deleting an order that does not exist")
+    void deleteOrder_unknownOrder_returns404() {
+        given().when().delete("/orders/" + new ObjectId()).then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "intruder")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "intruder") })
+    @DisplayName("Returns 403 when deleting an order belonging to someone else")
+    void deleteOrder_otherUsersOrder_returns403() {
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+
+        given().when().delete("/orders/" + order.id).then().statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 409 when deleting an order that has already been confirmed")
+    void deleteOrder_confirmedOrder_returns409() {
+        Order order = persistedOrder("owner", OrderStatus.CONFIRMED);
+
+        given().when().delete("/orders/" + order.id)
+                .then().statusCode(409)
+                .body("error_code", is("ORDER_NOT_MUTABLE"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 404 when confirming an order that does not exist")
+    void confirmOrder_unknownOrder_returns404() {
+        given().when().post("/orders/" + new ObjectId() + "/confirm").then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "intruder")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "intruder") })
+    @DisplayName("Returns 403 when confirming an order belonging to someone else")
+    void confirmOrder_otherUsersOrder_returns403() {
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+
+        given().when().post("/orders/" + order.id + "/confirm").then().statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 409 when confirming an order that is already confirmed")
+    void confirmOrder_alreadyConfirmed_returns409() {
+        Order order = persistedOrder("owner", OrderStatus.CONFIRMED);
+
+        given().when().post("/orders/" + order.id + "/confirm")
+                .then().statusCode(409)
+                .body("error_code", is("ILLEGAL_ORDER_TRANSITION"));
+    }
+
+    // --cancel ---------------------------------------------------------------
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 200 with CANCELLED status when cancelling a confirmed order")
+    void cancelOrder_confirmedOrder_returns200() {
+        Order order = persistedOrder("owner", OrderStatus.CONFIRMED);
+
+        given().when().post("/orders/" + order.id + "/cancel")
+                .then().statusCode(200)
+                .body("status", is(OrderStatus.CANCELLED.name()));
+
+        assertEquals(OrderStatus.CANCELLED, orderRepository.findById(order.id).getStatus());
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 404 when cancelling an order that does not exist")
+    void cancelOrder_unknownOrder_returns404() {
+        given().when().post("/orders/" + new ObjectId() + "/cancel").then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "intruder")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "intruder") })
+    @DisplayName("Returns 403 when cancelling an order belonging to someone else")
+    void cancelOrder_otherUsersOrder_returns403() {
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+
+        given().when().post("/orders/" + order.id + "/cancel").then().statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 409 when cancelling an order that has already been cancelled")
+    void cancelOrder_alreadyCancelled_returns409() {
+        Order order = persistedOrder("owner", OrderStatus.CANCELLED);
+
+        given().when().post("/orders/" + order.id + "/cancel")
+                .then().statusCode(409)
+                .body("error_code", is("ILLEGAL_ORDER_TRANSITION"));
+    }
+
+    private Order persistedOrder(String userId, OrderStatus status) {
+        Order order = new Order();
+        order.setCreationDate(LocalDateTime.now());
+        order.setStatus(status);
+        order.setUserID(userId);
+        order.setPrice(10.0);
+        order.setProducts(new ArrayList<>());
+        orderRepository.persist(order);
+        return order;
+    }
 }

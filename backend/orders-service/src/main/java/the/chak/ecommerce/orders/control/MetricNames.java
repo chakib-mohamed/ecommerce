@@ -20,6 +20,9 @@ public final class MetricNames {
     /** Counter - orders confirmed. */
     public static final String ORDERS_CONFIRMED = "orders.confirmed";
 
+    /** Counter - orders cancelled, whether before or after confirmation. */
+    public static final String ORDERS_CANCELLED = "orders.cancelled";
+
     /** Counter - cart checkouts, tagged by {@link #TAG_OUTCOME}. */
     public static final String CHECKOUTS = "checkouts";
 

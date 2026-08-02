@@ -5,13 +5,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import the.chak.ecommerce.orders.control.exceptions.ConcurrentOrderModificationException;
+import the.chak.ecommerce.orders.control.exceptions.OrderNotMutableException;
 import the.chak.ecommerce.orders.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.entity.OrderStatus;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.ReplaceOptions;
+import com.mongodb.client.result.UpdateResult;
+import org.bson.conversions.Bson;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -34,6 +37,9 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 public class OrderService {
 
     private static final Logger LOG = Logger.getLogger(OrderService.class);
+
+    /** Mongo field backing the optimistic-locking version on an order document. */
+    private static final String VERSION_FIELD = "version";
 
     @Inject
     ProductsApiClient productsApiClient;
@@ -59,6 +65,9 @@ public class OrderService {
 
     @Inject
     MeterRegistry meterRegistry;
+
+    @Inject
+    OrderStateMachine stateMachine;
 
     public Order saveOrder(Order order) {
         order.setCreationDate(LocalDateTime.now());
@@ -143,18 +152,36 @@ public class OrderService {
         if (order == null) {
             return null;
         }
+        // Guard before anything else: a second confirmation would write a second outbox entry and
+        // publish the sale twice.
+        stateMachine.assertCanTransition(order.getStatus(), OrderStatus.CONFIRMED);
         order.setStatus(OrderStatus.CONFIRMED);
 
         OutboxEntry outboxEntry = outboxEventFactory.orderInitiated(order);
 
+        // The status guard above is a read-then-write, so on its own two concurrent confirmations
+        // could both pass it. The write is therefore conditional on the version the order carried
+        // when it was read: whichever transaction commits second matches nothing and is rejected.
+        // Filters.eq matches a missing field when the value is null, so an order written before
+        // this field existed is handled by the same condition with no special case.
+        Long readVersion = order.getVersion();
+        order.setVersion(readVersion == null ? 1L : readVersion + 1);
+        Bson expectedVersion = Filters.eq(VERSION_FIELD, readVersion);
+
         Order toWrite = order;
         try (ClientSession session = mongoClient.startSession()) {
             session.withTransaction(() -> {
-                orderRepository.mongoCollection().replaceOne(
+                // No upsert: a confirmation updates an order, it never creates one. With upsert the
+                // write would resurrect an order deleted between the read above and this commit.
+                UpdateResult result = orderRepository.mongoCollection().replaceOne(
                         session,
-                        Filters.eq("_id", toWrite.id),
-                        toWrite,
-                        new ReplaceOptions().upsert(true));
+                        Filters.and(Filters.eq("_id", toWrite.id), expectedVersion),
+                        toWrite);
+                if (result.getMatchedCount() == 0) {
+                    // Either the order changed underneath us or it was deleted. Aborting rolls the
+                    // outbox insert back with it, so no event is published for a write that lost.
+                    throw new ConcurrentOrderModificationException(orderId);
+                }
                 outboxRepository.mongoCollection().insertOne(session, outboxEntry);
                 return null;
             });
@@ -169,6 +196,36 @@ public class OrderService {
 
     public Optional<Order> findById(String orderId) {
         return Optional.ofNullable(orderRepository.findById(new org.bson.types.ObjectId(orderId)));
+    }
+
+    /**
+     * Stops an order that has not yet shipped, releasing anything held for it and returning any
+     * payment taken. Cancelling is a lifecycle move rather than an edit, so it stays available
+     * after the order has been confirmed, when the order itself can no longer be changed.
+     */
+    public Order cancelOrder(String orderId) {
+        Order order = orderRepository.findById(new org.bson.types.ObjectId(orderId));
+        if (order == null) {
+            return null;
+        }
+        stateMachine.assertCanTransition(order.getStatus(), OrderStatus.CANCELLED);
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.persistOrUpdate(order);
+        meterRegistry.counter(MetricNames.ORDERS_CANCELLED).increment();
+        LOG.infof("Order cancelled orderId=%s userId=%s", order.getId(), order.getUserID());
+        return order;
+    }
+
+    /**
+     * Rejects a change to an order that has moved past INITIATED.
+     *
+     * @throws the.chak.ecommerce.orders.control.exceptions.OrderNotMutableException
+     *         if the order can no longer be changed
+     */
+    public void assertMutable(Order order) {
+        if (!stateMachine.isMutable(order.getStatus())) {
+            throw new OrderNotMutableException(order.getStatus());
+        }
     }
 
     public void updateOrder(Order order) {

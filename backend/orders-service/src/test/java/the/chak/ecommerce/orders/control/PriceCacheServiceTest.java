@@ -3,6 +3,7 @@ package the.chak.ecommerce.orders.control;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -148,5 +149,23 @@ class PriceCacheServiceTest {
 
         // then
         assertNull(result);
+    }
+
+    @Test
+    @DisplayName("Returns null without caching when the product exists but carries no price")
+    void getPrice_productWithoutPrice_returnsNullAndCachesNothing() {
+        // given - a product the catalog knows about but has not priced
+        String productId = "unpriced-id";
+        ProductDto unpriced = new ProductDto();
+        unpriced.setTitle("Not priced yet");
+        when(priceValues.get("price:" + productId)).thenReturn(null);
+        when(productsApiClient.getProduct(productId)).thenReturn(unpriced);
+
+        // when
+        Double result = priceCacheService.getPrice(productId);
+
+        // then - caching a null price would serve it for the whole TTL
+        assertNull(result);
+        verify(priceValues, never()).setex(anyString(), anyLong(), any());
     }
 }

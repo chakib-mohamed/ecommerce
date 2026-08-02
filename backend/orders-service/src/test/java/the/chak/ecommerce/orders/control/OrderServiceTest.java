@@ -35,6 +35,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.bson.types.ObjectId;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 import the.chak.ecommerce.orders.boundary.dto.Tuple;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import the.chak.ecommerce.orders.control.exceptions.IllegalOrderTransitionException;
+import the.chak.ecommerce.orders.control.exceptions.OrderNotMutableException;
 import the.chak.ecommerce.orders.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.entity.OrderStatus;
@@ -64,6 +68,11 @@ class OrderServiceTest {
     // @InjectMocks injects @Spy fields, so OrderService receives this registry.
     @Spy
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    // The real state machine, not a mock: these tests are about the guards actually refusing
+    // illegal moves, which a stubbed machine would not exercise.
+    @Spy
+    OrderStateMachine stateMachine = new OrderStateMachine();
 
     // --saveOrder ----------------------------------------------------------
 
@@ -240,6 +249,172 @@ class OrderServiceTest {
 
         // then
         assertNull(meterRegistry.find("orders.confirmed").counter());
+    }
+
+    // --confirmOrder: lifecycle guards --------------------------------------
+    // Confirming is only legal from INITIATED. Without this guard a second confirm rewrites the
+    // status and inserts a second outbox entry, so `order-initiated` is published twice and any
+    // consumer that is not idempotent double-processes the sale.
+
+    @Test
+    @DisplayName("Refuses to confirm an order that has already been confirmed")
+    void confirmOrder_alreadyConfirmed_isRejected() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+
+        // when / then
+        assertThrows(IllegalOrderTransitionException.class,
+                () -> orderService.confirmOrder(order.id.toString()));
+    }
+
+    @Test
+    @DisplayName("Refuses to confirm an order that has been cancelled")
+    void confirmOrder_cancelled_isRejected() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.CANCELLED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+
+        // when / then
+        assertThrows(IllegalOrderTransitionException.class,
+                () -> orderService.confirmOrder(order.id.toString()));
+    }
+
+    @Test
+    @DisplayName("Records no orders-confirmed metric when a second confirmation is refused")
+    void confirmOrder_alreadyConfirmed_doesNotIncrementConfirmedCounter() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+
+        // when
+        assertThrows(IllegalOrderTransitionException.class,
+                () -> orderService.confirmOrder(order.id.toString()));
+
+        // then - a refused confirmation is not a confirmation
+        assertNull(meterRegistry.find("orders.confirmed").counter());
+    }
+
+    // --cancelOrder ---------------------------------------------------------
+
+    @Test
+    @DisplayName("Cancels an order that has not been confirmed yet")
+    void cancelOrder_initiated_movesToCancelled() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.INITIATED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+
+        // when
+        Order cancelled = orderService.cancelOrder(order.id.toString());
+
+        // then
+        assertEquals(OrderStatus.CANCELLED, cancelled.getStatus());
+    }
+
+    @Test
+    @DisplayName("Refuses to cancel an order that has already shipped")
+    void cancelOrder_shipped_isRejected() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.SHIPPED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+
+        // when / then
+        assertThrows(IllegalOrderTransitionException.class,
+                () -> orderService.cancelOrder(order.id.toString()));
+    }
+
+    @Test
+    @DisplayName("Returns null when cancelling an order id that does not exist")
+    void cancelOrder_nonExistentOrderId_returnsNull() {
+        // given
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(null);
+
+        // when
+        Order result = orderService.cancelOrder(new ObjectId().toString());
+
+        // then
+        assertNull(result);
+    }
+
+    // --promotion windows ---------------------------------------------------
+    // A promotion with an open-ended window is not a promotion the order can price against, and a
+    // window is checked at both ends. These are the guards the discount calculation leans on.
+
+    @Test
+    @DisplayName("Ignores a promotion that has no start date")
+    void saveOrder_promotionWithoutStartDate_isIgnored() {
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveTo(LocalDate.now().plusDays(5));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 10.0, List.of(promo)));
+        mockPricingResult(10.0);
+
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Ignores a promotion that has no end date")
+    void saveOrder_promotionWithoutEndDate_isIgnored() {
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now().minusDays(5));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 10.0, List.of(promo)));
+        mockPricingResult(10.0);
+
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Ignores a promotion whose window has not opened yet")
+    void saveOrder_promotionStartingLater_isIgnored() {
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now().plusDays(1));
+        promo.setActiveTo(LocalDate.now().plusDays(5));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 10.0, List.of(promo)));
+        mockPricingResult(10.0);
+
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    // --assertMutable -------------------------------------------------------
+
+    @Test
+    @DisplayName("Allows a change to an order that has not been confirmed yet")
+    void assertMutable_initiated_isAllowed() {
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.INITIATED);
+
+        orderService.assertMutable(order);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = OrderStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "INITIATED")
+    @DisplayName("Refuses a change to an order that has moved past initiation")
+    void assertMutable_pastInitiated_isRejected(OrderStatus status) {
+        Order order = newOrder("p1", 1);
+        order.setStatus(status);
+
+        assertThrows(OrderNotMutableException.class, () -> orderService.assertMutable(order));
     }
 
     // --helpers ------------------------------------------------------------

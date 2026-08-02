@@ -18,4 +18,11 @@ public class Order {
     private OrderStatus status;
     private String userID;
     private String processID;
+
+    /**
+     * Optimistic-locking counter. Bumped on each guarded write and used as a condition on that
+     * write, so a second concurrent update matches nothing rather than silently overwriting.
+     * Null on orders written before this field existed.
+     */
+    private Long version;
 }
