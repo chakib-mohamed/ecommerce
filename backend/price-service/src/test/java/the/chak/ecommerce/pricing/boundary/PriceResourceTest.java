@@ -46,6 +46,32 @@ class PriceResourceTest {
 
     @Test
     @TestSecurity(user = "test-user")
+    @DisplayName("Replaces the stored price when the product already has one")
+    void updatePrice_productAlreadyPriced_replacesExistingPrice() {
+        // given - the same product priced twice; the second update must overwrite rather than
+        // insert a second record for it
+        String productId = UUID.randomUUID().toString();
+        UpdatePriceRequest first = new UpdatePriceRequest();
+        first.setPrice(10.0);
+        given().contentType(ContentType.JSON).body(first)
+                .when().put("/prices/{productId}", productId)
+                .then().statusCode(200);
+
+        UpdatePriceRequest second = new UpdatePriceRequest();
+        second.setPrice(25.5);
+
+        // when
+        var response = given().contentType(ContentType.JSON).body(second)
+                .when().put("/prices/{productId}", productId);
+
+        // then
+        response.then().statusCode(200)
+                .body("product_id", is(productId))
+                .body("price", is(25.5f));
+    }
+
+    @Test
+    @TestSecurity(user = "test-user")
     @DisplayName("Returns 400 with VALIDATION_ERROR when updating with a negative price")
     void updatePrice_negativePrice_returns400() {
         // given

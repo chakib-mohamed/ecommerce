@@ -2,11 +2,14 @@ package the.chak.ecommerce.products.control;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
 import java.util.UUID;
+import the.chak.ecommerce.products.control.exceptions.ProductNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -88,5 +91,97 @@ class ReviewServiceTest {
 
         // then
         verify(reviewRepository).delete(review);
+    }
+
+    // -- submitReview: the verified-purchaser path --------------------------
+
+    @Test
+    @DisplayName("Stores the review and recomputes the product's rating for a verified purchaser")
+    void submitReview_verifiedPurchaser_storesReviewAndRecomputesRating() {
+        // given
+        UUID productUuid = UUID.randomUUID();
+        Product product = new Product();
+        product.setUuid(productUuid);
+        when(ordersApiClient.hasPurchased("shopper", productUuid.toString())).thenReturn(true);
+        when(productRepository.findByUuid(productUuid)).thenReturn(product);
+        when(reviewRepository.findByProductAndReviewer(productUuid, "shopper"))
+                .thenReturn(Optional.empty());
+        when(reviewRepository.aggregateForProduct(productUuid))
+                .thenReturn(new Object[]{4.5d, 2L});
+
+        ReviewRequest request = new ReviewRequest();
+        request.setProductId(productUuid.toString());
+        request.setStars(5);
+
+        // when
+        Review saved = reviewService.submitReview("shopper", request);
+
+        // then
+        assertEquals("shopper", saved.getReviewer());
+        assertEquals(4.5d, product.getRating());
+        assertEquals(2, product.getReviewCount());
+    }
+
+    @Test
+    @DisplayName("Throws ProductNotFoundException when reviewing a product that no longer exists")
+    void submitReview_productRemoved_throwsProductNotFoundException() {
+        // given - the order history still names a product the catalog has since dropped
+        UUID productUuid = UUID.randomUUID();
+        when(ordersApiClient.hasPurchased("shopper", productUuid.toString())).thenReturn(true);
+        when(productRepository.findByUuid(productUuid)).thenReturn(null);
+
+        ReviewRequest request = new ReviewRequest();
+        request.setProductId(productUuid.toString());
+        request.setStars(4);
+
+        // when / then
+        assertThrows(ProductNotFoundException.class,
+                () -> reviewService.submitReview("shopper", request));
+    }
+
+    @Test
+    @DisplayName("Reports no rating when the last review of a product is removed")
+    void submitReview_noReviewsRemain_clearsTheCount() {
+        // given - the aggregate query returns nulls when nothing is left to average
+        UUID productUuid = UUID.randomUUID();
+        Product product = new Product();
+        product.setUuid(productUuid);
+        when(ordersApiClient.hasPurchased("shopper", productUuid.toString())).thenReturn(true);
+        when(productRepository.findByUuid(productUuid)).thenReturn(product);
+        when(reviewRepository.findByProductAndReviewer(productUuid, "shopper"))
+                .thenReturn(Optional.empty());
+        when(reviewRepository.aggregateForProduct(productUuid))
+                .thenReturn(new Object[]{null, null});
+
+        ReviewRequest request = new ReviewRequest();
+        request.setProductId(productUuid.toString());
+        request.setStars(3);
+
+        // when
+        reviewService.submitReview("shopper", request);
+
+        // then - a null count reads as zero rather than propagating
+        assertEquals(0, product.getReviewCount());
+    }
+
+    @Test
+    @DisplayName("Leaves the aggregate alone when the reviewed product has since been removed")
+    void deleteReview_productRemoved_skipsRecompute() {
+        // given
+        UUID reviewUuid = UUID.randomUUID();
+        UUID productUuid = UUID.randomUUID();
+        Review review = new Review();
+        review.setUuid(reviewUuid);
+        review.setReviewer("owner");
+        review.setProductId(productUuid);
+        when(reviewRepository.findByUuidOptional(reviewUuid)).thenReturn(Optional.of(review));
+        when(productRepository.findByUuid(productUuid)).thenReturn(null);
+
+        // when
+        reviewService.deleteReview("owner", reviewUuid.toString());
+
+        // then
+        verify(reviewRepository).delete(review);
+        verify(reviewRepository, never()).aggregateForProduct(productUuid);
     }
 }

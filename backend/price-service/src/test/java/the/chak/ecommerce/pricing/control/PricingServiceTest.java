@@ -48,6 +48,19 @@ class PricingServiceTest {
     }
 
     @Test
+    @DisplayName("Throws InvalidOrderException when the order carries no product list at all")
+    void calculate_nullProducts_throwsInvalidOrderException() {
+        // given - distinct from an empty list: the field was never populated
+        OrderDTO order = new OrderDTO();
+        order.setProducts(null);
+        PriceCalculationRequest request = new PriceCalculationRequest();
+        request.setOrder(order);
+
+        // when / then
+        assertThrows(InvalidOrderException.class, () -> pricingService.calculate(request));
+    }
+
+    @Test
     @DisplayName("Throws InvalidOrderException when the order has no products")
     void calculate_emptyProducts_throwsInvalidOrderException() {
         // given

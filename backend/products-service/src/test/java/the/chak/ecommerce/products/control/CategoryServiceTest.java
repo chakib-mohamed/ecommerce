@@ -14,6 +14,10 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
 import jakarta.ws.rs.BadRequestException;
+import java.util.ArrayList;
+import the.chak.ecommerce.products.control.exceptions.InvalidCategoryParentException;
+import the.chak.ecommerce.products.control.exceptions.ParentCategoryNotFoundException;
+import the.chak.ecommerce.products.control.exceptions.CategoryHasChildrenException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -101,6 +105,98 @@ class CategoryServiceTest {
 
         // then
         verify(categoryRepository, never()).merge(ghost);
+    }
+
+    @Test
+    @DisplayName("Links the category to its new parent when a parent id is supplied")
+    void updateCategory_withParentId_linksResolvedParent() {
+        // given
+        Long id = 1L;
+        Long parentId = 2L;
+        Category update = new Category();
+        update.id = id;
+        Category parent = new Category();
+        parent.id = parentId;
+
+        when(categoryRepository.findById(id)).thenReturn(new Category());
+        when(categoryRepository.findById(parentId)).thenReturn(parent);
+
+        // when
+        categoryService.updateCategory(update, parentId);
+
+        // then
+        assertEquals(parent, update.getParent());
+        verify(categoryRepository).merge(update);
+    }
+
+    @Test
+    @DisplayName("Refuses to make a category its own parent")
+    void updateCategory_parentIsItself_throwsInvalidCategoryParentException() {
+        // given
+        Long id = 1L;
+        Category update = new Category();
+        update.id = id;
+
+        when(categoryRepository.findById(id)).thenReturn(new Category());
+
+        // when / then - a self-reference would make the tree cyclic
+        assertThrows(InvalidCategoryParentException.class,
+                () -> categoryService.updateCategory(update, id));
+        verify(categoryRepository, never()).merge(update);
+    }
+
+    @Test
+    @DisplayName("Refuses a parent id that matches no category")
+    void updateCategory_unknownParentId_throwsParentCategoryNotFoundException() {
+        // given
+        Long id = 1L;
+        Long parentId = 404L;
+        Category update = new Category();
+        update.id = id;
+
+        when(categoryRepository.findById(id)).thenReturn(new Category());
+        when(categoryRepository.findById(parentId)).thenReturn(null);
+
+        // when / then
+        assertThrows(ParentCategoryNotFoundException.class,
+                () -> categoryService.updateCategory(update, parentId));
+        verify(categoryRepository, never()).merge(update);
+    }
+
+    @Test
+    @DisplayName("Refuses to delete a category that still has subcategories")
+    void deleteCategory_withSubCategories_throwsCategoryHasChildrenException() {
+        // given - deleting would orphan the children
+        Long id = 1L;
+        Category parent = new Category();
+        parent.id = id;
+        Category child = new Category();
+        child.id = 2L;
+        parent.setSubCategories(new ArrayList<>(List.of(child)));
+
+        when(categoryRepository.findById(id)).thenReturn(parent);
+
+        // when / then
+        assertThrows(CategoryHasChildrenException.class, () -> categoryService.deleteCategory(id));
+        verify(categoryRepository, never()).deleteById(id);
+    }
+
+    @Test
+    @DisplayName("Removes a category that exists and has no subcategories")
+    void deleteCategory_existingLeafCategory_removesIt() {
+        // given
+        Long id = 1L;
+        Category leaf = new Category();
+        leaf.id = id;
+        leaf.setSubCategories(new ArrayList<>());
+
+        when(categoryRepository.findById(id)).thenReturn(leaf);
+
+        // when
+        categoryService.deleteCategory(id);
+
+        // then
+        verify(categoryRepository).deleteById(id);
     }
 
     @Test

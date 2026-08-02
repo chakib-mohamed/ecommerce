@@ -8,6 +8,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.stream.Stream;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -160,5 +164,83 @@ class StorageServiceTest {
 
         // then
         verify(s3).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    // -- detectContentType: signature sniffing -------------------------------
+    // The type is read from the leading bytes, not the filename, so each signature has to be
+    // rejected at every position it checks. A near-miss that still passed would let a caller
+    // label arbitrary bytes as an image.
+
+    static Stream<Arguments> signatures() {
+        return Stream.of(
+                // recognised
+                Arguments.of("JPEG", bytes(3, 0xFF, 0xD8, 0xFF), "image/jpeg"),
+                Arguments.of("PNG", bytes(8, 0x89, 0x50, 0x4E, 0x47), "image/png"),
+                Arguments.of("GIF", gif('G', 'I', 'F'), "image/gif"),
+                Arguments.of("WebP", webp('R', 'I', 'F', 'F', 'W', 'E', 'B', 'P'), "image/webp"),
+
+                // too short for any signature to be read
+                Arguments.of("empty", new byte[0], "application/octet-stream"),
+                Arguments.of("two bytes", bytes(2, 0xFF, 0xD8), "application/octet-stream"),
+
+                // JPEG near-misses, one byte off at each checked position
+                Arguments.of("JPEG byte 0 wrong", bytes(3, 0x00, 0xD8, 0xFF), "application/octet-stream"),
+                Arguments.of("JPEG byte 1 wrong", bytes(3, 0xFF, 0x00, 0xFF), "application/octet-stream"),
+                Arguments.of("JPEG byte 2 wrong", bytes(3, 0xFF, 0xD8, 0x00), "application/octet-stream"),
+
+                // PNG near-misses
+                Arguments.of("PNG byte 0 wrong", bytes(8, 0x00, 0x50, 0x4E, 0x47), "application/octet-stream"),
+                Arguments.of("PNG byte 1 wrong", bytes(8, 0x89, 0x00, 0x4E, 0x47), "application/octet-stream"),
+                Arguments.of("PNG byte 2 wrong", bytes(8, 0x89, 0x50, 0x00, 0x47), "application/octet-stream"),
+                Arguments.of("PNG byte 3 wrong", bytes(8, 0x89, 0x50, 0x4E, 0x00), "application/octet-stream"),
+                Arguments.of("PNG signature but too short", bytes(4, 0x89, 0x50, 0x4E, 0x47),
+                        "application/octet-stream"),
+
+                // GIF near-misses
+                Arguments.of("GIF byte 0 wrong", gif('X', 'I', 'F'), "application/octet-stream"),
+                Arguments.of("GIF byte 1 wrong", gif('G', 'X', 'F'), "application/octet-stream"),
+                Arguments.of("GIF byte 2 wrong", gif('G', 'I', 'X'), "application/octet-stream"),
+
+                // WebP near-misses, one byte off at each of the eight checked positions
+                Arguments.of("WebP byte 0 wrong", webp('X', 'I', 'F', 'F', 'W', 'E', 'B', 'P'), "application/octet-stream"),
+                Arguments.of("WebP byte 1 wrong", webp('R', 'X', 'F', 'F', 'W', 'E', 'B', 'P'), "application/octet-stream"),
+                Arguments.of("WebP byte 2 wrong", webp('R', 'I', 'X', 'F', 'W', 'E', 'B', 'P'), "application/octet-stream"),
+                Arguments.of("WebP byte 3 wrong", webp('R', 'I', 'F', 'X', 'W', 'E', 'B', 'P'), "application/octet-stream"),
+                Arguments.of("WebP byte 8 wrong", webp('R', 'I', 'F', 'F', 'X', 'E', 'B', 'P'), "application/octet-stream"),
+                Arguments.of("WebP byte 9 wrong", webp('R', 'I', 'F', 'F', 'W', 'X', 'B', 'P'), "application/octet-stream"),
+                Arguments.of("WebP byte 10 wrong", webp('R', 'I', 'F', 'F', 'W', 'E', 'X', 'P'), "application/octet-stream"),
+                Arguments.of("WebP byte 11 wrong", webp('R', 'I', 'F', 'F', 'W', 'E', 'B', 'X'), "application/octet-stream"),
+                Arguments.of("WebP header but too short", bytes(11, 'R', 'I', 'F', 'F'),
+                        "application/octet-stream"));
+    }
+
+    @ParameterizedTest(name = "{0} -> {2}")
+    @MethodSource("signatures")
+    @DisplayName("Reads the content type from the leading bytes")
+    void detectContentType_readsSignature(String description, byte[] data, String expected) {
+        assertEquals(expected, storageService.detectContentType(data), description);
+    }
+
+    /** A buffer of {@code length} bytes whose leading bytes are those given. */
+    private static byte[] bytes(int length, int... leading) {
+        byte[] data = new byte[length];
+        for (int i = 0; i < leading.length && i < length; i++) {
+            data[i] = (byte) leading[i];
+        }
+        return data;
+    }
+
+    private static byte[] gif(char a, char b, char c) {
+        return bytes(6, a, b, c);
+    }
+
+    /** RIFF containers carry the format tag at offset 8, after a four-byte length. */
+    private static byte[] webp(char r, char i, char f1, char f2, char w, char e, char b, char p) {
+        byte[] data = bytes(12, r, i, f1, f2);
+        data[8] = (byte) w;
+        data[9] = (byte) e;
+        data[10] = (byte) b;
+        data[11] = (byte) p;
+        return data;
     }
 }
