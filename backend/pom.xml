@@ -150,7 +150,11 @@
         </configuration>
       </plugin>
 
-      <!-- JaCoCo coverage — 100% branch coverage on control/*Service classes and boundary resources -->
+      <!--
+        JaCoCo coverage - 100% branch coverage on control/*Service classes and boundary resources.
+        Class names are matched in dotted form: JaCoCo compares against the fully qualified name,
+        so a slash-separated pattern here silently matches nothing and the gate passes everything.
+      -->
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
@@ -159,6 +163,15 @@
           <execution>
             <id>prepare-agent</id>
             <goals><goal>prepare-agent</goal></goals>
+            <configuration>
+              <!--
+                Surefire and Failsafe both write to this destfile. Without append the integration
+                run replaces the unit run's data instead of adding to it, and the gate below then
+                measures the integration tests alone - every unit test is discarded. A build always
+                starts from a clean target in CI, so accumulation is bounded to one build.
+              -->
+              <append>true</append>
+            </configuration>
           </execution>
           <execution>
             <id>check</id>
@@ -169,7 +182,7 @@
                 <rule>
                   <element>CLASS</element>
                   <includes>
-                    <include>the/chak/ecommerce/*/control/*Service</include>
+                    <include>the.chak.ecommerce.*.control.*Service</include>
                   </includes>
                   <limits>
                     <limit>
@@ -182,8 +195,8 @@
                 <rule>
                   <element>CLASS</element>
                   <includes>
-                    <include>the/chak/ecommerce/*/boundary/*Resource</include>
-                    <include>the/chak/ecommerce/*/boundary/*Controller</include>
+                    <include>the.chak.ecommerce.*.boundary.*Resource</include>
+                    <include>the.chak.ecommerce.*.boundary.*Controller</include>
                   </includes>
                   <limits>
                     <limit>
