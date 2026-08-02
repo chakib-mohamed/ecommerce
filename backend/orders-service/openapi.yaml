@@ -298,7 +298,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: The order is not in a state that can be confirmed
+          description: >-
+            The order cannot be confirmed: either it is no longer awaiting confirmation, or the
+            price of one or more products has changed since the order was placed. The response
+            names the affected products with their previous and current prices, so the order can
+            be reviewed and placed again.
           content:
             application/json:
               schema:

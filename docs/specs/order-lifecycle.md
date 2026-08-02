@@ -105,7 +105,7 @@ renaming it.
 
 | From | To | Trigger |
 |---|---|---|
-| `INITIATED` | `CONFIRMED` | buyer confirms |
+| `INITIATED` | `CONFIRMED` | buyer confirms **and catalog prices still match the quote** (§10.1) |
 | `INITIATED` | `CANCELLED` | buyer cancels, or order expires |
 | `CONFIRMED` | `RESERVED` | stock reserved |
 | `CONFIRMED` | `CANCELLED` | reservation failed, or buyer cancels |
@@ -187,6 +187,10 @@ This spec requires:
   failed and compensated.
 - Failed outbox records must be **observable** — a metric and an alert, not just a log line.
 - A dead-saga sweep that moves timed-out orders to `CANCELLED` with compensations applied.
+
+**These are mandatory, not best-effort.** Per §10.3 reservations have no TTL, so nothing else ever
+releases stock. Without the step deadline and the sweep, a single stalled saga takes inventory out
+of sale permanently and silently.
 
 ---
 
@@ -274,16 +278,49 @@ Removing these fields from the contract is safe: they are referenced only within
 
 ---
 
-## 10. Open questions
+## 10. Decisions
 
-1. **Reservation TTL** — how long does stock stay reserved before an unpaid order releases it?
-2. **Unconfirmed-order expiry** — how long may an order sit in `INITIATED`? Related: whether
-   expiring one should restore the cart.
-3. **Price at confirm** — revalidate against the current catalog and reject if it moved, or price-lock
-   at create for the TTL window? (Defect 8. The choice interacts with question 2.)
-4. **Partial fulfilment** — is a partially shippable order allowed, or is it all-or-nothing? The
-   machine above assumes all-or-nothing.
-5. **Refund scope** — full only, or partial? Partial refunds make the analytics reversal harder.
+These were open during drafting and are now settled.
+
+### 10.1 Price is revalidated at confirm
+
+Confirming re-reads current catalog prices and **rejects with `409` if anything moved**, rather than
+honouring the quote from checkout. This closes defect 8: no order is ever billed at a stale price.
+
+Two consequences that constrain the implementation:
+
+- **The revalidation must happen before the transaction opens.**
+  `docs/conventions/persistence-conventions.md` forbids network I/O inside a transaction, and
+  `confirmOrder` currently wraps the status write and the outbox insert in one Mongo transaction.
+  The products-service call therefore runs first, and only its *result* enters the transaction.
+- **The `409` must say what changed**, so a client can show the buyer the difference rather than a
+  bare failure. The error body carries the affected products and their old and new prices.
+
+### 10.2 No unconfirmed-order expiry
+
+Because price is revalidated at confirm, a stale `INITIATED` order is harmless — an old quote can
+never be billed. No expiry sweeper is needed, and orders may sit in `INITIATED` indefinitely.
+
+### 10.3 Reservations have no TTL
+
+Stock stays reserved until something explicitly releases it. There is no independent reaper.
+
+**This makes §4.4 load-bearing rather than advisory.** With no TTL, the saga's own step deadline is
+the *only* mechanism that ever releases stock. If the step timeout, the dead-saga sweep, and the
+alert on abandoned outbox records are not built, a stalled saga removes inventory from sale
+**permanently**, with nothing to notice or recover it. These are therefore requirements of the first
+implementation phase that introduces reservations, not follow-ups.
+
+### 10.4 Fulfilment is all-or-nothing
+
+An order ships once, completely. State stays on the order aggregate; no per-line state, no per-line
+events, and the warehouse keeps its one-row-per-line model.
+
+### 10.5 Refunds are full-order only
+
+`REFUNDED` negates the whole order. Analytics reverses by order id, which its existing
+delete-by-order-id ingestion already does cleanly (`IngestionService`). `REFUNDED` stays terminal and
+accurate. Partial refunds would require per-line reversal and would make the status ambiguous.
 
 ---
 
