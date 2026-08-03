@@ -43,6 +43,9 @@ public class OrderService {
     /** Mongo field backing the optimistic-locking version on an order document. */
     private static final String VERSION_FIELD = "version";
 
+    /** A discount can take the price to zero and no further. */
+    private static final double FULL_DISCOUNT = 100d;
+
     @Inject
     ProductsApiClient productsApiClient;
 
@@ -130,6 +133,9 @@ public class OrderService {
                         .collect(Collectors.toList()))
                 .map(promos -> promos.stream().map(PromotionDto::getPercentageOff).reduce(0d,
                         Double::sum))
+                // Promotions stack by summing, so two generous ones can exceed the whole price.
+                // Uncapped that produces a negative line total and the order is priced at it.
+                .map(total -> Math.min(FULL_DISCOUNT, Math.max(0d, total)))
                 .orElse(null);
     }
 
@@ -137,8 +143,10 @@ public class OrderService {
         if (promotion.getActiveFrom() == null || promotion.getActiveTo() == null) {
             return false;
         }
+        // Both ends are inclusive: a promotion running "from today" or "until today" is running
+        // today. Exclusive comparisons silently dropped the first and last day of every promotion.
         var now = LocalDate.now();
-        return promotion.getActiveFrom().isBefore(now) && now.isBefore(promotion.getActiveTo());
+        return !promotion.getActiveFrom().isAfter(now) && !now.isAfter(promotion.getActiveTo());
     }
 
     public Tuple<Long, List<Order>> searchOrders(SearchOrdersCommand searchOrdersCommand) {

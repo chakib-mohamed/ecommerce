@@ -396,6 +396,112 @@ class OrderServiceTest {
         assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
     }
 
+    // --stacked discounts ---------------------------------------------------
+    // Promotions are summed, so nothing stops two generous ones from exceeding the whole price.
+    // Unclamped that yields a negative line total, which the order would then be priced at.
+
+    @Test
+    @DisplayName("Caps the combined discount at the full price when promotions stack past 100%")
+    void saveOrder_promotionsStackingPastFull_capsDiscountAtFullPrice() {
+        // given - 60% and 50% together would be 110% off
+        PromotionDto first = activePromotion(60.0);
+        PromotionDto second = activePromotion(50.0);
+
+        when(productsApiClient.getProduct("prod-1"))
+                .thenReturn(productDto("Widget", 100.0, List.of(first, second)));
+        mockPricingResult(0.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then - the buyer gets it free, never paid to take it
+        assertEquals(100.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Leaves a combined discount below the full price untouched")
+    void saveOrder_promotionsStackingBelowFull_keepsTheSum() {
+        // given
+        when(productsApiClient.getProduct("prod-1"))
+                .thenReturn(productDto("Widget", 100.0, List.of(activePromotion(20.0), activePromotion(15.0))));
+        mockPricingResult(65.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then
+        assertEquals(35.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    // --promotion window boundaries -----------------------------------------
+    // A promotion that runs "from today" or "until today" is running today. Excluding the
+    // boundary days silently drops the first and last day of every promotion.
+
+    @Test
+    @DisplayName("Applies a promotion on the day it starts")
+    void saveOrder_promotionStartingToday_isApplied() {
+        // given
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now());
+        promo.setActiveTo(LocalDate.now().plusDays(5));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 100.0, List.of(promo)));
+        mockPricingResult(75.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then
+        assertEquals(25.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Applies a promotion on the day it ends")
+    void saveOrder_promotionEndingToday_isApplied() {
+        // given
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now().minusDays(5));
+        promo.setActiveTo(LocalDate.now());
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 100.0, List.of(promo)));
+        mockPricingResult(75.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then
+        assertEquals(25.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Ignores a promotion whose window closed yesterday")
+    void saveOrder_promotionEndedYesterday_isIgnored() {
+        // given
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now().minusDays(5));
+        promo.setActiveTo(LocalDate.now().minusDays(1));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 100.0, List.of(promo)));
+        mockPricingResult(100.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then
+        assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    private static PromotionDto activePromotion(double percentageOff) {
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(percentageOff);
+        promo.setActiveFrom(LocalDate.now().minusDays(1));
+        promo.setActiveTo(LocalDate.now().plusDays(1));
+        return promo;
+    }
+
     // --assertMutable -------------------------------------------------------
 
     @Test
