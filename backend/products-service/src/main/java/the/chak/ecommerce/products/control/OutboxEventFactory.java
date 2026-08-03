@@ -26,14 +26,14 @@ public class OutboxEventFactory {
     Jsonb jsonb;
 
     public OutboxEvent productUpdated(UUID aggregateId, ProductUpdatedEvent event) {
-        return build(aggregateId, TOPIC_PRODUCT_UPDATED, event);
+        return build(aggregateId.toString(), TOPIC_PRODUCT_UPDATED, event);
     }
 
     public OutboxEvent productDeleted(UUID aggregateId, ProductDeletedEvent event) {
-        return build(aggregateId, TOPIC_PRODUCT_DELETED, event);
+        return build(aggregateId.toString(), TOPIC_PRODUCT_DELETED, event);
     }
 
-    private OutboxEvent build(UUID aggregateId, String topic, Object payload) {
+    private OutboxEvent build(String aggregateId, String topic, Object payload) {
         OutboxEvent row = new OutboxEvent();
         row.setAggregateType(AGGREGATE_TYPE_PRODUCT);
         row.setAggregateId(aggregateId);

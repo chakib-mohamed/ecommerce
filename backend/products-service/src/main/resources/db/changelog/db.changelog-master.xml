@@ -16,5 +16,6 @@
     <include file="changes/009-add-reviews.sql" relativeToChangelogFile="true"/>
     <include file="changes/010-money-as-numeric.sql" relativeToChangelogFile="true"/>
     <include file="changes/011-stock-reservation.sql" relativeToChangelogFile="true"/>
+    <include file="changes/012-outbox-aggregate-id-text.sql" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

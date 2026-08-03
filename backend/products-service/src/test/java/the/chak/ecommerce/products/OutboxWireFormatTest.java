@@ -95,7 +95,7 @@ class OutboxWireFormatTest {
     private void insertUnpublished(String topic, UUID aggregateId, String payload) {
         OutboxEvent event = new OutboxEvent();
         event.setAggregateType("product");
-        event.setAggregateId(aggregateId);
+        event.setAggregateId(aggregateId.toString());
         event.setEventType(topic);
         event.setTopic(topic);
         event.setPayload(payload);

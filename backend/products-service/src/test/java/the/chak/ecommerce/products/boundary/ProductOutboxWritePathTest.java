@@ -157,7 +157,7 @@ class ProductOutboxWritePathTest {
 
     private List<OutboxEvent> outboxRows(String uuid, String topic) {
         return QuarkusTransaction.requiringNew().call(() ->
-                outboxRepository.find("aggregateId = ?1 and topic = ?2", UUID.fromString(uuid), topic).list());
+                outboxRepository.find("aggregateId = ?1 and topic = ?2", uuid, topic).list());
     }
 
     private void awaitPublished(String uuid, String topic) {

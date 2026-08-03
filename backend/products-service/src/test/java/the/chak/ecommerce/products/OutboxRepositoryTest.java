@@ -34,7 +34,7 @@ class OutboxRepositoryTest {
         UUID aggregateId = UUID.randomUUID();
         OutboxEvent event = new OutboxEvent();
         event.setAggregateType("product");
-        event.setAggregateId(aggregateId);
+        event.setAggregateId(aggregateId.toString());
         event.setEventType("product-updated");
         event.setTopic("product-updated");
         event.setPayload("{\"product\":{\"uuid\":\"" + aggregateId + "\"}}");
@@ -47,7 +47,7 @@ class OutboxRepositoryTest {
         assertNotNull(stored.getId());
         assertNotNull(stored.getCreatedAt());
         assertNull(stored.getPublishedAt());
-        assertEquals(aggregateId, stored.getAggregateId());
+        assertEquals(aggregateId.toString(), stored.getAggregateId());
         assertEquals("product-updated", stored.getTopic());
     }
 
@@ -59,7 +59,7 @@ class OutboxRepositoryTest {
         UUID aggregateId = UUID.randomUUID();
         OutboxEvent event = new OutboxEvent();
         event.setAggregateType("product");
-        event.setAggregateId(aggregateId);
+        event.setAggregateId(aggregateId.toString());
         event.setEventType("product-deleted");
         event.setTopic("product-deleted");
         event.setPayload("{\"productUuid\":\"" + aggregateId + "\"}");
