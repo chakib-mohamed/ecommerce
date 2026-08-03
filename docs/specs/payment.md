@@ -42,8 +42,8 @@ one, but the reactor has no such module and Compose has no such service.
 A thin adapter between the saga and the gateway. Its whole job:
 
 ```
-capture-payment (Kafka)  ->  payment-service  ->  POST /charges (gateway HTTPS)
-                                              <-  charge result
+capture-payment (Kafka)  ->  payment-service  ->  POST /v1/payment_intents (Stripe HTTPS)
+                                              <-  intent result
 payment-captured / payment-failed (Kafka)  <-
 ```
 
@@ -68,13 +68,12 @@ them. The service never receives them, so it cannot store them by accident.
 
 ## 4. How card data stays out
 
-The buyer's card never touches the platform. The gateway's own client-side SDK collects it in the
-browser and exchanges it for a **single-use token** directly with the gateway. Only that token
-reaches us.
+The buyer's card never touches the platform. Stripe.js collects it in the browser and exchanges it
+for a **payment method reference** (`pm_...`) directly with Stripe. Only that reference reaches us.
 
 ```
-browser  --card details-->  gateway SDK  --token-->  browser
-browser  --token----------> checkout                 (card data never enters our network)
+browser  --card details-->  Stripe.js  --pm_xxx-->  browser
+browser  --pm_xxx---------> checkout                (card data never enters our network)
 ```
 
 The token is an opaque string. The platform treats it as meaningless: it is passed to the gateway
@@ -128,20 +127,53 @@ waiting on money that had already been taken.
 
 ---
 
-## 7. Where the gateway lives
+## 7. The gateway: Stripe
 
-The gateway is external and configured, never embedded:
+**Stripe**, via the Payment Intents API. One capture is one intent, created and confirmed in a
+single call.
+
+| Call | Purpose |
+|---|---|
+| `POST /v1/payment_intents` | capture, with `confirm=true` |
+| `POST /v1/refunds` | refund, by `payment_intent` |
 
 | Setting | Meaning |
 |---|---|
-| `payment.gateway.url` | base URL of the provider |
-| `payment.gateway.api-key` | credential, supplied by the environment, never committed |
-| `payment.gateway.timeout` | per-request timeout, shorter than the saga step deadline |
+| `payment.stripe.url` | API base URL; the mock in local and test, `api.stripe.com` elsewhere |
+| `payment.stripe.api-key` | secret key, supplied by the environment, never committed |
+| `payment.stripe.timeout` | per-request timeout, shorter than the saga step deadline |
 
-**Local and test environments** point at a stub that speaks the same HTTP contract - a container in
-the Compose stack and a WireMock in tests. The stub exists so the platform can be run and tested
-without a real merchant account; it is **not** a fallback, and no code path chooses between stub and
-real gateway. The URL decides.
+### 7.1 Two Stripe details that constrain the code
+
+**Amounts are integer minor units.** Stripe takes `amount: 1050` for 10.50, not a decimal. The
+platform holds money as `BigDecimal` at scale 2 (phase 5), so the client converts at the boundary
+with `movePointRight(2).longValueExact()` - and `longValueExact` deliberately, because a value
+carrying more than two decimals is a bug that must throw rather than round silently on its way to a
+real charge.
+
+**The idempotency key is a header**, `Idempotency-Key`, carrying the saga `stepId`. Stripe stores
+the first response against that key and replays it for 24 hours. The saga step deadline must stay
+well inside that window, or a retry after expiry would create a second intent - a second charge.
+
+### 7.2 Mocking it locally
+
+`stripe/stripe-mock` runs as a container in the Compose stack, and the same image backs the
+integration tests through Testcontainers. `payment.stripe.url` points at it. It is **not** a
+fallback: no code path chooses between mock and Stripe, the URL decides, and the client is identical
+either way.
+
+**What the mock is good for, and what it is not.** `stripe-mock` validates requests against Stripe's
+published OpenAPI spec and returns canned responses from it. That makes it a genuine check that our
+requests are *shaped* the way Stripe expects - wrong field name, wrong amount type, missing
+parameter all fail against it.
+
+It is stateless. It does not track idempotency keys, does not decline test cards, and does not
+remember an intent between calls. So it cannot exercise the behaviour section 8 cares about most:
+declines, timeouts, and whether a redelivered capture charges twice. **Those paths are tested against
+WireMock**, where the response can be programmed per test.
+
+Both are needed and they test different things: `stripe-mock` proves we speak Stripe's dialect,
+WireMock proves we handle what Stripe says back.
 
 ---
 
@@ -163,8 +195,9 @@ real gateway. The URL decides.
 
 These need answering before implementation, not during.
 
-1. **Which gateway?** The HTTP contract, the idempotency-key header name, and the decline-reason
-   vocabulary are all provider-specific. The stub can only be written once one is chosen.
+1. **Which decline reasons are shown to the buyer?** Stripe returns a `decline_code` from a long
+   vocabulary (`insufficient_funds`, `lost_card`, `do_not_honor`, ...). Some are safe to show and
+   some are deliberately vague for fraud reasons. The mapping is a business decision.
 2. **Who resolves a timed-out-but-charged capture?** Section 8's worst case leaves money taken
    against a cancelled order. An automated refund sweep is possible but risky; an operator queue is
    safer and slower. This is a business decision.
