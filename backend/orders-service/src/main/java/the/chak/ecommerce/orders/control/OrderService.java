@@ -1,12 +1,14 @@
 package the.chak.ecommerce.orders.control;
 
 import java.time.LocalDate;
+import java.util.Locale;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import the.chak.ecommerce.orders.control.exceptions.ConcurrentOrderModificationException;
 import the.chak.ecommerce.orders.control.exceptions.OrderNotMutableException;
+import the.chak.ecommerce.orders.control.exceptions.OrderPriceChangedException;
 import the.chak.ecommerce.orders.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.entity.OrderStatus;
@@ -80,12 +82,7 @@ public class OrderService {
             }
             productVO.setTitle(product.getTitle());
             productVO.setPrice(product.getPrice());
-            productVO.setPercentageOff(Optional.ofNullable(product.getPromotions())
-                    .map(promos -> promos.stream().filter(this::isPromotionActive)
-                            .collect(Collectors.toList()))
-                    .map(promos -> promos.stream().map(PromotionDto::getPercentageOff).reduce(0d,
-                            Double::sum))
-                    .orElse(null));
+            productVO.setPercentageOff(effectiveDiscount(product));
         });
 
         OrderDTO pricingOrder = new OrderDTO();
@@ -122,6 +119,20 @@ public class OrderService {
         return order;
     }
 
+    /**
+     * The discount a product currently attracts, summing every promotion whose window is open.
+     * Used both when the order is quoted and when that quote is re-checked at confirmation, so the
+     * two can never disagree about what "the price" means.
+     */
+    private Double effectiveDiscount(ProductDto product) {
+        return Optional.ofNullable(product.getPromotions())
+                .map(promos -> promos.stream().filter(this::isPromotionActive)
+                        .collect(Collectors.toList()))
+                .map(promos -> promos.stream().map(PromotionDto::getPercentageOff).reduce(0d,
+                        Double::sum))
+                .orElse(null);
+    }
+
     private boolean isPromotionActive(PromotionDto promotion) {
         if (promotion.getActiveFrom() == null || promotion.getActiveTo() == null) {
             return false;
@@ -155,6 +166,12 @@ public class OrderService {
         // Guard before anything else: a second confirmation would write a second outbox entry and
         // publish the sale twice.
         stateMachine.assertCanTransition(order.getStatus(), OrderStatus.CONFIRMED);
+
+        // Deliberately outside the transaction below: persistence-conventions.md forbids network
+        // I/O inside one, and this reads the live catalog. Only its verdict crosses into the
+        // transaction.
+        assertPricesUnchanged(order);
+
         order.setStatus(OrderStatus.CONFIRMED);
 
         OutboxEntry outboxEntry = outboxEventFactory.orderInitiated(order);
@@ -214,6 +231,56 @@ public class OrderService {
         meterRegistry.counter(MetricNames.ORDERS_CANCELLED).increment();
         LOG.infof("Order cancelled orderId=%s userId=%s", order.getId(), order.getUserID());
         return order;
+    }
+
+    /**
+     * Rejects the confirmation if the catalog no longer agrees with the prices the order was
+     * quoted at. An order can sit unconfirmed indefinitely, so the quote is re-checked rather
+     * than trusted.
+     *
+     * @throws the.chak.ecommerce.orders.control.exceptions.OrderPriceChangedException
+     *         if any line's price or discount has moved
+     */
+    void assertPricesUnchanged(Order order) {
+        if (order.getProducts() == null) {
+            return;
+        }
+        List<String> changes = new java.util.ArrayList<>();
+        for (the.chak.ecommerce.orders.entity.ProductVO line : order.getProducts()) {
+            ProductDto current = productsApiClient.getProduct(line.getProductID());
+            if (current == null) {
+                throw new ProductNotFoundException(line.getProductID());
+            }
+            Double quotedPrice = line.getPrice();
+            Double currentPrice = current.getPrice();
+            if (!sameAmount(quotedPrice, currentPrice)) {
+                changes.add(String.format(Locale.US, "%s was %.2f, now %.2f",
+                        line.getTitle(), orZero(quotedPrice), orZero(currentPrice)));
+                continue;
+            }
+            // A discount moving changes what is owed just as surely as the list price moving.
+            Double quotedDiscount = line.getPercentageOff();
+            Double currentDiscount = effectiveDiscount(current);
+            if (!sameAmount(quotedDiscount, currentDiscount)) {
+                changes.add(String.format(Locale.US, "%s was %.2f at %.0f%% off, now %.0f%% off",
+                        line.getTitle(), orZero(quotedPrice), orZero(quotedDiscount),
+                        orZero(currentDiscount)));
+            }
+        }
+        if (!changes.isEmpty()) {
+            LOG.infof("Confirmation refused, prices moved orderId=%s changes=%d",
+                    order.getId(), changes.size());
+            throw new OrderPriceChangedException(changes);
+        }
+    }
+
+    /** Treats null as absent-and-therefore-zero, so a missing discount equals no discount. */
+    private static boolean sameAmount(Double left, Double right) {
+        return Double.compare(orZero(left), orZero(right)) == 0;
+    }
+
+    private static double orZero(Double value) {
+        return value == null ? 0d : value;
     }
 
     /**
