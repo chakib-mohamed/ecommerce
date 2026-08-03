@@ -14,6 +14,8 @@ import org.eclipse.microprofile.reactive.messaging.Message;
 import org.eclipse.microprofile.reactive.messaging.Metadata;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
+import the.chak.ecommerce.products.control.events.StockRejectedEvent;
+import the.chak.ecommerce.products.control.events.StockReservedEvent;
 
 /**
  * Sole owner of the {@code product-updated} / {@code product-deleted} outgoing channels (SmallRye
@@ -32,6 +34,14 @@ public class KafkaEventPublisher {
     @Inject
     @Channel("product-deleted")
     Emitter<ProductDeletedEvent> productDeletedEmitter;
+
+    @Inject
+    @Channel("stock-reserved")
+    Emitter<StockReservedEvent> stockReservedEmitter;
+
+    @Inject
+    @Channel("stock-rejected")
+    Emitter<StockRejectedEvent> stockRejectedEmitter;
 
     @Inject
     OutboxRelay relay;
@@ -87,5 +97,23 @@ public class KafkaEventPublisher {
                     ack.completeExceptionally(throwable);
                     return CompletableFuture.completedFuture(null);
                 });
+    }
+
+    /**
+     * Publishes a saga reply. Keyed by order id, so the broker keeps one order's replies in the
+     * sequence the catalog produced them.
+     */
+    public CompletableFuture<Void> publishStockReserved(
+            StockReservedEvent event, String key, Context parent) {
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        stockReservedEmitter.send(keyedMessage(event, key, parent, ack));
+        return ack;
+    }
+
+    public CompletableFuture<Void> publishStockRejected(
+            StockRejectedEvent event, String key, Context parent) {
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        stockRejectedEmitter.send(keyedMessage(event, key, parent, ack));
+        return ack;
     }
 }

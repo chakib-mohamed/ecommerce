@@ -7,6 +7,8 @@ import jakarta.json.bind.Jsonb;
 import the.chak.ecommerce.outbox.OutboxTracing;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
+import the.chak.ecommerce.products.control.events.StockRejectedEvent;
+import the.chak.ecommerce.products.control.events.StockReservedEvent;
 import the.chak.ecommerce.products.entity.OutboxEvent;
 
 /**
@@ -21,6 +23,9 @@ public class OutboxEventFactory {
     static final String AGGREGATE_TYPE_PRODUCT = "product";
     static final String TOPIC_PRODUCT_UPDATED = "product-updated";
     static final String TOPIC_PRODUCT_DELETED = "product-deleted";
+    static final String AGGREGATE_TYPE_ORDER = "order";
+    static final String TOPIC_STOCK_RESERVED = "stock-reserved";
+    static final String TOPIC_STOCK_REJECTED = "stock-rejected";
 
     @Inject
     Jsonb jsonb;
@@ -33,9 +38,25 @@ public class OutboxEventFactory {
         return build(aggregateId.toString(), TOPIC_PRODUCT_DELETED, event);
     }
 
+    /**
+     * Saga replies are keyed by order, not product: the orchestrator consumes them per order, and
+     * the key is what keeps one order's replies in the sequence they were produced.
+     */
+    public OutboxEvent stockReserved(String orderId, StockReservedEvent event) {
+        return build(AGGREGATE_TYPE_ORDER, orderId, TOPIC_STOCK_RESERVED, event);
+    }
+
+    public OutboxEvent stockRejected(String orderId, StockRejectedEvent event) {
+        return build(AGGREGATE_TYPE_ORDER, orderId, TOPIC_STOCK_REJECTED, event);
+    }
+
     private OutboxEvent build(String aggregateId, String topic, Object payload) {
+        return build(AGGREGATE_TYPE_PRODUCT, aggregateId, topic, payload);
+    }
+
+    private OutboxEvent build(String aggregateType, String aggregateId, String topic, Object payload) {
         OutboxEvent row = new OutboxEvent();
-        row.setAggregateType(AGGREGATE_TYPE_PRODUCT);
+        row.setAggregateType(aggregateType);
         row.setAggregateId(aggregateId);
         row.setEventType(topic);
         row.setTopic(topic);
