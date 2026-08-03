@@ -105,6 +105,22 @@ Delegate fan-out searches to the `explorer` agent rather than running Grep/Glob/
 
 Use `feature/`, `fix/`, or `chore/` prefixes — e.g., `feature/add-cart`, `fix/auth-token-refresh`, `chore/update-deps`.
 
+## Commit Authorship
+
+Commits are authored by the repository owner and committed by the agent. Pass the author
+explicitly on every commit:
+
+```bash
+git commit --author="chakib mohamed <chakib.mohamed2@gmail.com>" -m "..."
+```
+
+Leave `user.name` / `user.email` as `Claude <noreply@anthropic.com>` — that is the **committer**
+line, and the SSH signature is issued against it. Putting the owner's address there instead breaks
+signature verification and GitHub marks the commit Unverified.
+
+Keep the `Co-Authored-By: Claude ...` trailer; with the author line now the owner's, the trailer is
+what records the agent's involvement.
+
 ## Git Push Policy
 
 **Never push to a remote without explicit user approval.** `git push` (and any push-equivalent such as `git push --force`, `gh pr merge`, or creating/pushing a PR branch) is always a manual, user-approved step.
