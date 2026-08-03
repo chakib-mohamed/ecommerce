@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.boundary.dto;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import jakarta.validation.Valid;
@@ -28,7 +29,13 @@ public class ProductDto {
 
     @NotNull
     @Positive
-    private Double price;
+    private BigDecimal price;
+
+    /**
+     * Denomination of {@code price}. One currency, no conversion - the value must match
+     * {@code Money.DEFAULT_CURRENCY} on the order path.
+     */
+    private String currency = "EUR";
 
     @NotBlank
     private String title;

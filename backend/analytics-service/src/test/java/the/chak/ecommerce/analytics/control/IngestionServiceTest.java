@@ -1,5 +1,6 @@
 package the.chak.ecommerce.analytics.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -49,7 +50,7 @@ class IngestionServiceTest {
         item.setProductID(productId);
         item.setTitle("Desk lamp");
         item.setQty(qty);
-        item.setPrice(price);
+        item.setPrice(BigDecimal.valueOf(price));
         item.setPercentageOff(percentageOff);
         return item;
     }
@@ -97,7 +98,8 @@ class IngestionServiceTest {
         // then
         ArgumentCaptor<FactSalesLine> captor = ArgumentCaptor.forClass(FactSalesLine.class);
         verify(factRepository).persist(captor.capture());
-        assertEquals(180d, captor.getValue().getLineRevenue());
+        assertEquals(0, BigDecimal.valueOf(180).compareTo(captor.getValue().getLineRevenue()),
+                "expected 180, was " + captor.getValue().getLineRevenue());
     }
 
     @Test
@@ -113,7 +115,8 @@ class IngestionServiceTest {
         // then
         ArgumentCaptor<FactSalesLine> captor = ArgumentCaptor.forClass(FactSalesLine.class);
         verify(factRepository).persist(captor.capture());
-        assertEquals(75d, captor.getValue().getLineRevenue());
+        assertEquals(0, BigDecimal.valueOf(75).compareTo(captor.getValue().getLineRevenue()),
+                "expected 75, was " + captor.getValue().getLineRevenue());
     }
 
     @Test

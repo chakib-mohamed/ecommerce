@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -138,12 +139,12 @@ class CheckoutTransactionTest {
         ProductVO line = new ProductVO();
         line.setProductID("prod-1");
         line.setQty(1);
-        line.setPrice(10.0);
+        line.setPrice(BigDecimal.valueOf(10.0));
 
         Order order = new Order();
         order.setUserID("buyer");
         order.setStatus(OrderStatus.INITIATED);
-        order.setPrice(10.0);
+        order.setPrice(BigDecimal.valueOf(10.0));
         order.setProducts(new ArrayList<>(List.of(line)));
         return order;
     }

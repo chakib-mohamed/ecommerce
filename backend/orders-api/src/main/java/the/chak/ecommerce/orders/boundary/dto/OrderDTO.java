@@ -3,6 +3,7 @@ package the.chak.ecommerce.orders.boundary.dto;
 import lombok.Data;
 
 import jakarta.json.bind.annotation.JsonbDateFormat;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,7 +21,11 @@ public class OrderDTO {
     @JsonbDateFormat("yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime creationDate;
 
-    private Double price;
+    private BigDecimal price;
+
+    /** Denomination of {@code price}. One currency, no conversion. */
+    private String currency = Money.DEFAULT_CURRENCY;
+
     private List<ProductVO> products;
     private String userID;
     private OrderStatus status;

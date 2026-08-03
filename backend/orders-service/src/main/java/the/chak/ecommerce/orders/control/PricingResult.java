@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import lombok.Data;
 
 @Data
@@ -10,6 +11,6 @@ public class PricingResult {
 
     @Data
     public static class PricingResultOrder {
-        private Double price;
+        private BigDecimal price;
     }
 }

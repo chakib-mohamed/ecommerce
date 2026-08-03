@@ -237,14 +237,27 @@ Until then, the dashboard's "revenue" is **orders placed**, and the spec for the
 
 ## 7. Money
 
-Replace `Double` throughout the order and pricing path:
+`Double` is replaced throughout the order and pricing path:
 
-- **Amounts** become `BigDecimal` (or integer minor units), with rounding applied **once**, at a
-  single documented point — today `String.format("%.2f")` happens in both `ApplyPromotionsService`
-  and `PricingService`.
-- **Currency** becomes an explicit field on the order and on every amount crossing a service
-  boundary. There is no currency anywhere in the platform today, which makes every price implicitly
-  and silently single-currency.
+- **Amounts** are `BigDecimal` at scale 2, rounded `HALF_UP`. The contract lives in
+  `orders-api`'s `Money`. Binary floating point cannot represent most decimal fractions, so a price
+  held as a `double` is already not the number that was entered, and the error compounds through
+  every total derived from it.
+- **Rounding happens once per amount, where that amount is finalised.** A discounted unit price is
+  rounded as it is set, because it is itself published on the order line; the order total is then
+  the exact sum of those and needs no second rounding. Previously `String.format("%.2f")` ran in
+  both `ApplyPromotionsService` and `PricingService`, and the first result was discarded — the
+  surviving total was rounded from unit prices that had never been rounded at all.
+- **Currency** is an explicit field on the order and on every amount crossing a service boundary,
+  defaulting to `EUR`. There is one currency and no conversion; the field exists so that amounts
+  are not silently currency-less.
+- **Percentages stay `Double`.** A discount rate is not an amount. It is only ever applied to a
+  `BigDecimal` price, and the result of that application is what gets rounded.
+
+Storage follows the type: `product.price` and `fact_sales_line.unit_price` / `line_revenue` are
+`numeric(12,2)` in Postgres, and Mongo stores `Decimal128`. Leaving the warehouse on
+`DOUBLE PRECISION` would have let it drift from the operational store, so its migration belongs to
+the same change.
 - **Discounts** are clamped to the range 0–100 after summing (defect 6), and promotion windows use
   inclusive comparisons at both ends (defect 7).
 

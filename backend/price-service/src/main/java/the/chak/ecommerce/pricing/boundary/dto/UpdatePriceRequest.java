@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.boundary.dto;
 
+import java.math.BigDecimal;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Getter;
@@ -10,5 +11,5 @@ import lombok.Setter;
 public class UpdatePriceRequest {
     @NotNull
     @Positive
-    private Double price;
+    private BigDecimal price;
 }

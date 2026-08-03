@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.control.events;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,5 +12,5 @@ import lombok.Setter;
 @AllArgsConstructor
 public class PriceChangedEvent {
     private String productId;
-    private Double newPrice;
+    private BigDecimal newPrice;
 }

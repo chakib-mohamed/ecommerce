@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.entity;
 
+import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,6 +10,6 @@ public class ProductVO {
     private String productID;
     private String title;
     private Integer qty;
-    private Double price;
+    private BigDecimal price;
     private Double percentageOff;
 }

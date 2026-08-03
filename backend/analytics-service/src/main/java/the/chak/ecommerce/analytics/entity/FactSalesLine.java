@@ -1,5 +1,6 @@
 package the.chak.ecommerce.analytics.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -46,13 +47,13 @@ public class FactSalesLine {
     private Integer units;
 
     @Column(nullable = false)
-    private Double unitPrice;
+    private BigDecimal unitPrice;
 
     /** Discount percentage that applied at purchase time, if any. */
     private Double percentageOff;
 
     @Column(nullable = false)
-    private Double lineRevenue;
+    private BigDecimal lineRevenue;
 
     @Column(nullable = false)
     private LocalDateTime orderDate;

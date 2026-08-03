@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.boundary.dto;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -8,6 +9,6 @@ import lombok.Getter;
 public class CartItemResponse {
     private String productId;
     private int quantity;
-    private Double unitPrice;
-    private Double totalPrice;
+    private BigDecimal unitPrice;
+    private BigDecimal totalPrice;
 }

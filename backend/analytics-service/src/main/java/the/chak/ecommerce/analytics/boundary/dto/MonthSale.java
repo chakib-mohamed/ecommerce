@@ -1,5 +1,6 @@
 package the.chak.ecommerce.analytics.boundary.dto;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,5 +14,5 @@ public class MonthSale {
     /** Short month label, e.g. {@code Jan}. */
     private String month;
 
-    private Double value;
+    private BigDecimal value;
 }

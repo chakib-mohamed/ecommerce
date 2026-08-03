@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -231,10 +232,11 @@ class ProductServiceTest {
         when(productRepository.findByUuid(uuid)).thenReturn(product);
 
         // when
-        productService.updatePrice(uuid.toString(), 25.0);
+        productService.updatePrice(uuid.toString(), BigDecimal.valueOf(25.0));
 
         // then
-        assertEquals(25.0, product.getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(25.0).compareTo(product.getPrice()),
+                "expected 25.00, was " + product.getPrice());
     }
 
     @Test
@@ -245,7 +247,7 @@ class ProductServiceTest {
         when(productRepository.findByUuid(uuid)).thenReturn(null);
 
         // when
-        productService.updatePrice(uuid.toString(), 50.0);
+        productService.updatePrice(uuid.toString(), BigDecimal.valueOf(50.0));
 
         // then - no exception
     }
@@ -487,7 +489,7 @@ class ProductServiceTest {
         when(productRepository.findByUuid(uuid)).thenReturn(product);
 
         // when
-        productService.updatePrice(uuid.toString(), 25.0);
+        productService.updatePrice(uuid.toString(), BigDecimal.valueOf(25.0));
 
         // then
         assertEquals(1.0, meterRegistry.get("catalog.price.updates.consumed").counter().count(), 0.001);
@@ -501,7 +503,7 @@ class ProductServiceTest {
         when(productRepository.findByUuid(uuid)).thenReturn(null);
 
         // when
-        productService.updatePrice(uuid.toString(), 50.0);
+        productService.updatePrice(uuid.toString(), BigDecimal.valueOf(50.0));
 
         // then
         assertNull(meterRegistry.find("catalog.price.updates.consumed").counter());

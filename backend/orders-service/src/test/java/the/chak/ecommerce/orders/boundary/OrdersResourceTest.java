@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.boundary;
 
+import java.math.BigDecimal;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.empty;
@@ -73,7 +74,7 @@ class OrdersResourceTest {
         order.setCreationDate(originalCreationDate);
         order.setStatus(OrderStatus.INITIATED);
         order.setUserID("original_user");
-        order.setPrice(100.0);
+        order.setPrice(BigDecimal.valueOf(100.0));
         order.setProducts(new ArrayList<>());
         orderRepository.persist(order);
 
@@ -94,7 +95,8 @@ class OrdersResourceTest {
         Order updated = orderRepository.findById(order.id);
         assertEquals(OrderStatus.INITIATED, updated.getStatus());
         assertEquals("original_user", updated.getUserID());
-        assertEquals(100.0, updated.getPrice());
+        assertEquals(0, BigDecimal.valueOf(100.0).compareTo(updated.getPrice()),
+                "expected 100.00, was " + updated.getPrice());
         assertEquals(
                 originalCreationDate.truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
                 updated.getCreationDate().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
@@ -110,11 +112,11 @@ class OrdersResourceTest {
         // given
         ProductDto mockProduct = new ProductDto();
         mockProduct.setTitle("Mock Product");
-        mockProduct.setPrice(50.0);
+        mockProduct.setPrice(BigDecimal.valueOf(50.0));
         when(productsApiClient.getProduct(any())).thenReturn(mockProduct);
 
         PricingResult.PricingResultOrder mockResultOrder = new PricingResult.PricingResultOrder();
-        mockResultOrder.setPrice(100.0);
+        mockResultOrder.setPrice(BigDecimal.valueOf(100.0));
         PricingResult mockPricingResult = new PricingResult();
         mockPricingResult.setOrder(mockResultOrder);
         mockPricingResult.setId("process123");
@@ -452,7 +454,7 @@ class OrdersResourceTest {
         order.setCreationDate(LocalDateTime.now());
         order.setStatus(status);
         order.setUserID(userId);
-        order.setPrice(10.0);
+        order.setPrice(BigDecimal.valueOf(10.0));
         order.setProducts(new ArrayList<>());
         orderRepository.persist(order);
         return order;

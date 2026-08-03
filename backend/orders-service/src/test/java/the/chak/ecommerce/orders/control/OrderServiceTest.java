@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -138,7 +139,8 @@ class OrderServiceTest {
         // then
         assertNotNull(saved);
         assertEquals(15.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
-        assertEquals(75.0, saved.getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(75.0).compareTo(saved.getPrice()),
+                "expected 75.00, was " + saved.getPrice());
         assertEquals(OrderStatus.INITIATED, saved.getStatus());
         verify(orderRepository).persist(saved);
     }
@@ -539,7 +541,7 @@ class OrderServiceTest {
     private static ProductDto productDto(String title, double price, List<PromotionDto> promotions) {
         ProductDto dto = new ProductDto();
         dto.setTitle(title);
-        dto.setPrice(price);
+        dto.setPrice(BigDecimal.valueOf(price));
         dto.setPromotions(promotions);
         return dto;
     }
@@ -554,7 +556,7 @@ class OrderServiceTest {
 
     private static PricingResult pricingResult(double price) {
         PricingResult.PricingResultOrder resultOrder = new PricingResult.PricingResultOrder();
-        resultOrder.setPrice(price);
+        resultOrder.setPrice(BigDecimal.valueOf(price));
         PricingResult result = new PricingResult();
         result.setOrder(resultOrder);
         result.setId("process-id");
@@ -563,7 +565,7 @@ class OrderServiceTest {
 
     private void mockPricingResult(double price) {
         PricingResult.PricingResultOrder resultOrder = new PricingResult.PricingResultOrder();
-        resultOrder.setPrice(price);
+        resultOrder.setPrice(BigDecimal.valueOf(price));
         PricingResult pricingResult = new PricingResult();
         pricingResult.setOrder(resultOrder);
         pricingResult.setId("process-id");

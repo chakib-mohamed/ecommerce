@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Locale;
 import java.time.LocalDateTime;
@@ -151,7 +152,7 @@ public class OrderService {
         DistributionSummary.builder(MetricNames.ORDER_VALUE)
                 .publishPercentileHistogram()
                 .register(meterRegistry)
-                .record(order.getPrice());
+                .record(order.getPrice().doubleValue());
         LOG.infof("Order created orderId=%s userId=%s products=%d total=%.2f",
                 order.getId(), order.getUserID(), order.getProducts().size(), order.getPrice());
     }
@@ -293,11 +294,11 @@ public class OrderService {
             if (current == null) {
                 throw new ProductNotFoundException(line.getProductID());
             }
-            Double quotedPrice = line.getPrice();
-            Double currentPrice = current.getPrice();
-            if (!sameAmount(quotedPrice, currentPrice)) {
+            BigDecimal quotedPrice = line.getPrice();
+            BigDecimal currentPrice = current.getPrice();
+            if (!samePrice(quotedPrice, currentPrice)) {
                 changes.add(String.format(Locale.US, "%s was %.2f, now %.2f",
-                        line.getTitle(), orZero(quotedPrice), orZero(currentPrice)));
+                        line.getTitle(), orZeroAmount(quotedPrice), orZeroAmount(currentPrice)));
                 continue;
             }
             // A discount moving changes what is owed just as surely as the list price moving.
@@ -305,7 +306,7 @@ public class OrderService {
             Double currentDiscount = effectiveDiscount(current);
             if (!sameAmount(quotedDiscount, currentDiscount)) {
                 changes.add(String.format(Locale.US, "%s was %.2f at %.0f%% off, now %.0f%% off",
-                        line.getTitle(), orZero(quotedPrice), orZero(quotedDiscount),
+                        line.getTitle(), orZeroAmount(quotedPrice), orZero(quotedDiscount),
                         orZero(currentDiscount)));
             }
         }
@@ -319,6 +320,19 @@ public class OrderService {
     /** Treats null as absent-and-therefore-zero, so a missing discount equals no discount. */
     private static boolean sameAmount(Double left, Double right) {
         return Double.compare(orZero(left), orZero(right)) == 0;
+    }
+
+    /**
+     * Compares two amounts by value with null read as zero. Deliberately not
+     * {@link BigDecimal#equals}, which also compares scale and would call 10.5 and 10.50 different
+     * prices - they are the same amount written two ways, and the catalog may hand back either.
+     */
+    private static boolean samePrice(BigDecimal left, BigDecimal right) {
+        return orZeroAmount(left).compareTo(orZeroAmount(right)) == 0;
+    }
+
+    private static BigDecimal orZeroAmount(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private static double orZero(Double value) {

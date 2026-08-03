@@ -90,7 +90,7 @@ components:
       properties:
         price:
           type: number
-          format: double
+          format: decimal
           minimum: 0
           exclusiveMinimum: true
           description: New base price; must be strictly positive
@@ -103,7 +103,7 @@ components:
           format: uuid
         price:
           type: number
-          format: double
+          format: decimal
 
     PriceCalculationRequest:
       type: object
@@ -134,8 +134,12 @@ components:
           description: ISO-8601 datetime
         price:
           type: number
-          format: double
+          format: decimal
           description: Computed effective total; null on request, populated on response
+        currency:
+          type: string
+          example: EUR
+          description: ISO-4217 code the amounts on this order are denominated in.
         products:
           type: array
           items:
@@ -170,7 +174,7 @@ components:
           minimum: 1
         price:
           type: number
-          format: double
+          format: decimal
           minimum: 0
           exclusiveMinimum: true
           description: Unit price

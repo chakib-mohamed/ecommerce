@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.boundary;
 
+import java.math.BigDecimal;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.closeTo;
 import static org.hamcrest.Matchers.is;
@@ -59,7 +60,7 @@ class PricingResourceTest {
         product.setProductID("prod-1");
         product.setTitle("Widget");
         product.setQty(6);
-        product.setPrice(10.0);
+        product.setPrice(BigDecimal.valueOf(10.0));
         product.setPercentageOff(null);
 
         OrderDTO order = new OrderDTO();
@@ -87,7 +88,7 @@ class PricingResourceTest {
         product.setProductID("prod-2");
         product.setTitle("Gadget");
         product.setQty(1);
-        product.setPrice(100.0);
+        product.setPrice(BigDecimal.valueOf(100.0));
         product.setPercentageOff(10.0);
 
         OrderDTO order = new OrderDTO();

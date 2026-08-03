@@ -1,5 +1,7 @@
 package the.chak.ecommerce.pricing.control;
 
+import the.chak.ecommerce.orders.boundary.dto.Money;
+import java.math.BigDecimal;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.Filters;
@@ -45,8 +47,9 @@ public class PriceService {
     @Inject
     MeterRegistry meterRegistry;
 
-    public Price update(String productId, Double price) {
-        if (price == null || price <= 0) {
+    public Price update(String productId, BigDecimal price) {
+        // compareTo, not <=: BigDecimal has no operators, and equals would also compare scale.
+        if (price == null || price.signum() <= 0) {
             recordPriceUpdate(MetricNames.OUTCOME_FAILURE);
             throw new InvalidPriceException();
         }
@@ -56,10 +59,11 @@ public class PriceService {
             entity = new Price();
             entity.productId = productId;
         }
-        entity.price = price;
+        entity.price = Money.round(price);
 
         OutboxEntry outboxEntry =
-                outboxEventFactory.priceChanged(productId, new PriceChangedEvent(productId, price));
+                outboxEventFactory.priceChanged(productId,
+                        new PriceChangedEvent(productId, Money.round(price)));
 
         Price toWrite = entity;
         try (ClientSession session = mongoClient.startSession()) {

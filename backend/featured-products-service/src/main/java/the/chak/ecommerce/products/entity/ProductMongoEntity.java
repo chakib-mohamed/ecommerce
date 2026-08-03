@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.entity;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import io.quarkus.mongodb.panache.common.MongoEntity;
@@ -15,7 +16,7 @@ public class ProductMongoEntity {
     private UUID productID;
     private String description;
     private String image;
-    private Double price;
+    private BigDecimal price;
     private String title;
 
     private List<EmbeddedPromotion> promotions;

@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import the.chak.ecommerce.orders.boundary.dto.AddItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.UpdateItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.CartItemResponse;
@@ -164,8 +165,9 @@ public class CartService {
     private CartResponse toResponse(Cart cart) {
         List<CartItemResponse> items = cart.items.stream()
                 .map(i -> {
-                    Double unitPrice = priceCacheService.getPrice(i.getProductId());
-                    Double totalPrice = unitPrice != null ? unitPrice * i.getQuantity() : null;
+                    BigDecimal unitPrice = priceCacheService.getPrice(i.getProductId());
+                    BigDecimal totalPrice = unitPrice == null ? null
+                            : unitPrice.multiply(BigDecimal.valueOf(i.getQuantity()));
                     return new CartItemResponse(i.getProductId(), i.getQuantity(), unitPrice, totalPrice);
                 })
                 .toList();

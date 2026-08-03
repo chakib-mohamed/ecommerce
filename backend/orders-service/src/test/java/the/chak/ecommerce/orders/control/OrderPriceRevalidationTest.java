@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -161,6 +162,41 @@ class OrderPriceRevalidationTest {
     }
 
     @Test
+    @DisplayName("Refuses the confirmation when the order line carries no price at all")
+    void quotedPriceMissing_isRefused() {
+        // given - a line written without a price reads as zero, which is not what the catalog says
+        catalogHas("p1", 49.99, null);
+        Order order = orderOf(lineWithoutPrice("p1", "Lamp"));
+
+        // when / then
+        assertThrows(OrderPriceChangedException.class,
+                () -> service().assertPricesUnchanged(order));
+    }
+
+    @Test
+    @DisplayName("Refuses the confirmation when the catalog carries no price for the product")
+    void catalogPriceMissing_isRefused() {
+        // given - a product whose price has been cleared cannot honour an existing quote
+        catalogHas("p1", null, null);
+        Order order = orderOf(line("p1", "Lamp", 49.99, null));
+
+        // when / then
+        assertThrows(OrderPriceChangedException.class,
+                () -> service().assertPricesUnchanged(order));
+    }
+
+    @Test
+    @DisplayName("Accepts the confirmation when neither the quote nor the catalog names a price")
+    void bothPricesMissing_isAccepted() {
+        // given - nothing has moved, because there was never an amount to move
+        catalogHas("p1", null, null);
+        Order order = orderOf(lineWithoutPrice("p1", "Lamp"));
+
+        // when / then
+        assertDoesNotThrow(() -> service().assertPricesUnchanged(order));
+    }
+
+    @Test
     @DisplayName("Accepts an order that carries no lines to revalidate")
     void orderWithoutLines_isAccepted() {
         // given - an order whose product list was never populated; nothing to re-check, and it
@@ -178,7 +214,7 @@ class OrderPriceRevalidationTest {
     private void catalogHas(String productId, Double price, PromotionDto promotion) {
         ProductDto dto = new ProductDto();
         dto.setTitle("p1".equals(productId) ? "Lamp" : "Rug");
-        dto.setPrice(price);
+        dto.setPrice(price == null ? null : BigDecimal.valueOf(price));
         dto.setPromotions(promotion == null ? null : List.of(promotion));
         when(productsApiClient.getProduct(productId)).thenReturn(dto);
     }
@@ -191,13 +227,21 @@ class OrderPriceRevalidationTest {
         return promotion;
     }
 
-    private static ProductVO line(String productId, String title, Double price, Double percentageOff) {
+    private static ProductVO line(String productId, String title, double price, Double percentageOff) {
         ProductVO vo = new ProductVO();
         vo.setProductID(productId);
         vo.setTitle(title);
         vo.setQty(1);
-        vo.setPrice(price);
+        vo.setPrice(BigDecimal.valueOf(price));
         vo.setPercentageOff(percentageOff);
+        return vo;
+    }
+
+    private static ProductVO lineWithoutPrice(String productId, String title) {
+        ProductVO vo = new ProductVO();
+        vo.setProductID(productId);
+        vo.setTitle(title);
+        vo.setQty(1);
         return vo;
     }
 

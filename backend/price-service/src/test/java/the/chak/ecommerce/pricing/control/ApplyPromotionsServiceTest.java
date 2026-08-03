@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -27,8 +28,8 @@ class ApplyPromotionsServiceTest {
     }
 
     @Test
-    @DisplayName("Applies the percentage discount to each line and the order total")
-    void applyPromotion_withPercentageOff_appliesDiscountToTotal() {
+    @DisplayName("Applies the percentage discount to the line's unit price")
+    void applyPromotion_withPercentageOff_discountsTheUnitPrice() {
         // given
         OrderDTO order = orderWith(product("p1", 2, 100.0, 10.0));
 
@@ -36,8 +37,11 @@ class ApplyPromotionsServiceTest {
         OrderDTO result = applyPromotionsService.applyPromotion(order);
 
         // then
-        assertEquals(180.0, result.getPrice(), 0.001);
-        assertEquals(90.0, result.getProducts().get(0).getPrice(), 0.001);
+        assertEquals(0, new BigDecimal("90.00").compareTo(result.getProducts().get(0).getPrice()),
+                "expected 90.00, was " + result.getProducts().get(0).getPrice());
+        // The total is deliberately left unset here: Drools runs next and may move unit prices
+        // again, so PricingService computes it once, afterwards.
+        assertNull(result.getPrice(), "applyPromotion must not set the order total");
     }
 
     @Test
@@ -50,13 +54,14 @@ class ApplyPromotionsServiceTest {
         OrderDTO result = applyPromotionsService.applyPromotion(order);
 
         // then
-        assertEquals(150.0, result.getPrice(), 0.001);
-        assertEquals(50.0, result.getProducts().get(0).getPrice(), 0.001);
+        assertEquals(0, new BigDecimal("50.00").compareTo(result.getProducts().get(0).getPrice()),
+                "an undiscounted line keeps its price, was "
+                        + result.getProducts().get(0).getPrice());
     }
 
     @Test
-    @DisplayName("Sums the per-line totals across multiple products into the order price")
-    void applyPromotion_multipleProducts_sumsTotals() {
+    @DisplayName("Discounts each line independently when products are mixed")
+    void applyPromotion_multipleProducts_discountsEachLine() {
         // given
         ProductVO p1 = product("p1", 1, 100.0, null);
         ProductVO p2 = product("p2", 2, 50.0, 50.0);
@@ -67,20 +72,25 @@ class ApplyPromotionsServiceTest {
         OrderDTO result = applyPromotionsService.applyPromotion(order);
 
         // then
-        assertEquals(150.0, result.getPrice(), 0.001);
+        assertEquals(0, new BigDecimal("100.00").compareTo(result.getProducts().get(0).getPrice()),
+                "undiscounted line, was " + result.getProducts().get(0).getPrice());
+        assertEquals(0, new BigDecimal("25.00").compareTo(result.getProducts().get(1).getPrice()),
+                "50% off 50.00, was " + result.getProducts().get(1).getPrice());
     }
 
     @Test
-    @DisplayName("Rounds the discounted total to two decimal places")
+    @DisplayName("Rounds a discounted unit price to two decimal places, once")
     void applyPromotion_roundingNeeded_returnsRoundedTwoDecimalPlaces() {
         // given
+        // 33.33% off 10.00 is 6.667, which has no exact cent value
         OrderDTO order = orderWith(product("p1", 3, 10.0, 33.33));
 
         // when
         OrderDTO result = applyPromotionsService.applyPromotion(order);
 
         // then
-        assertEquals(20.0, result.getPrice(), 0.005);
+        assertEquals(0, new BigDecimal("6.67").compareTo(result.getProducts().get(0).getPrice()),
+                "expected 6.67 (half-up), was " + result.getProducts().get(0).getPrice());
     }
 
     // --metrics ------------------------------------------------------------
@@ -141,7 +151,7 @@ class ApplyPromotionsServiceTest {
         ProductVO p = new ProductVO();
         p.setProductID(id);
         p.setQty(qty);
-        p.setPrice(price);
+        p.setPrice(BigDecimal.valueOf(price));
         p.setPercentageOff(percentageOff);
         return p;
     }

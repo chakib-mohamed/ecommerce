@@ -1,5 +1,7 @@
 package the.chak.ecommerce.pricing.control;
 
+import the.chak.ecommerce.orders.boundary.dto.Money;
+import java.math.BigDecimal;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -18,7 +20,6 @@ import the.chak.ecommerce.pricing.boundary.dto.PriceCalculationResponse;
 import the.chak.ecommerce.pricing.control.exceptions.InvalidOrderException;
 
 import java.util.ArrayList;
-import java.util.Locale;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -72,14 +73,19 @@ public class PricingService {
         applyPromotionsService.applyPromotion(order);
         applyDroolsRules(order);
 
-        double total = order.getProducts().stream()
-                .mapToDouble(p -> p.getPrice() * p.getQty())
-                .sum();
-        order.setPrice(Double.parseDouble(String.format(Locale.US, "%.2f", total)));
+        // The one place an order total is finalised. Every unit price is already at cent scale, so
+        // this sum is exact; rounding it is a guard against a rule handing back a longer scale,
+        // not a second rounding of an already-rounded figure.
+        BigDecimal total = order.getProducts().stream()
+                .map(p -> p.getPrice().multiply(BigDecimal.valueOf(p.getQty())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        order.setPrice(Money.round(total));
+        order.setCurrency(Money.DEFAULT_CURRENCY);
 
         String processId = UUID.randomUUID().toString();
         recordCalculation(MetricNames.OUTCOME_SUCCESS);
-        LOG.infof("Pricing calculation complete processId=%s total=%.2f", processId, order.getPrice());
+        LOG.infof("Pricing calculation complete processId=%s total=%s %s", processId,
+                order.getPrice(), order.getCurrency());
 
         return new PriceCalculationResponse(processId, order);
     }

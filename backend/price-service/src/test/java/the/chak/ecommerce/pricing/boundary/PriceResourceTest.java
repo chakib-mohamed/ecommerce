@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.boundary;
 
+import java.math.BigDecimal;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -32,7 +33,7 @@ class PriceResourceTest {
     void updatePrice_validPrice_returns200WithStoredPrice() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();
-        request.setPrice(49.99);
+        request.setPrice(BigDecimal.valueOf(49.99));
 
         // when
         var response = given().contentType(ContentType.JSON).body(request)
@@ -52,13 +53,13 @@ class PriceResourceTest {
         // insert a second record for it
         String productId = UUID.randomUUID().toString();
         UpdatePriceRequest first = new UpdatePriceRequest();
-        first.setPrice(10.0);
+        first.setPrice(BigDecimal.valueOf(10.0));
         given().contentType(ContentType.JSON).body(first)
                 .when().put("/prices/{productId}", productId)
                 .then().statusCode(200);
 
         UpdatePriceRequest second = new UpdatePriceRequest();
-        second.setPrice(25.5);
+        second.setPrice(BigDecimal.valueOf(25.5));
 
         // when
         var response = given().contentType(ContentType.JSON).body(second)
@@ -76,7 +77,7 @@ class PriceResourceTest {
     void updatePrice_negativePrice_returns400() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();
-        request.setPrice(-1.0);
+        request.setPrice(BigDecimal.valueOf(-1.0));
 
         // when
         var response = given().contentType(ContentType.JSON).body(request)
