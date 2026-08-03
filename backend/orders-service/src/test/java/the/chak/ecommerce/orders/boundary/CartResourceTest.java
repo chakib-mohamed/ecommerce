@@ -345,7 +345,7 @@ class CartResourceTest {
             o.setStatus(OrderStatus.INITIATED);
             o.setPrice(100.0);
             return o;
-        }).when(orderService).saveOrder(any());
+        }).when(orderService).priceOrder(any());
 
         // when
         var response = given().when().post("/cart/checkout");
@@ -399,7 +399,7 @@ class CartResourceTest {
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 1)));
         cart.updatedAt = Instant.now();
         cartRepository.persist(cart);
-        doThrow(new RuntimeException("pricing service down")).when(orderService).saveOrder(any());
+        doThrow(new RuntimeException("pricing service down")).when(orderService).priceOrder(any());
 
         // when
         var response = given().when().post("/cart/checkout");

@@ -322,6 +322,17 @@ events, and the warehouse keeps its one-row-per-line model.
 delete-by-order-id ingestion already does cleanly (`IngestionService`). `REFUNDED` stays terminal and
 accurate. Partial refunds would require per-line reversal and would make the status ambiguous.
 
+### 10.6 Checkout prices before it opens the transaction
+
+Checkout writes the order and removes the cart in one transaction, closing defect 1. Pricing stays
+outside it, for the same reason as §10.1: it is REST traffic to two services, and holding write locks
+across a network round trip is how a slow dependency becomes a stalled database. Checkout therefore
+runs in three steps - price, then the paired writes, then the metrics.
+
+The `orders_created` counter is incremented **after** the commit rather than inside the transaction
+body. An abort rolls back the writes but cannot roll back a counter, so recording inside would
+overcount every checkout that aborts and is retried.
+
 ---
 
 ## 11. Convention compliance checklist

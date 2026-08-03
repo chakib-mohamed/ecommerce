@@ -74,7 +74,27 @@ public class OrderService {
     @Inject
     OrderStateMachine stateMachine;
 
+    /**
+     * Prices an order and stores it. Used where the order is the only thing being written; checkout
+     * has a cart to remove in the same breath and drives the three steps below itself so that the
+     * two writes share a transaction.
+     */
     public Order saveOrder(Order order) {
+        priceOrder(order);
+        orderRepository.persist(order);
+        recordOrderCreated(order);
+        return order;
+    }
+
+    /**
+     * Fills in title, unit price and discount from the live catalog and asks price-service for the
+     * total.
+     *
+     * <p>This is REST traffic to two other services, so it must run before any transaction is
+     * opened - persistence-conventions.md forbids network I/O inside one, and holding write locks
+     * across a round trip is how a slow dependency turns into a stalled database.
+     */
+    public void priceOrder(Order order) {
         order.setCreationDate(LocalDateTime.now());
         order.setStatus(OrderStatus.INITIATED);
 
@@ -111,7 +131,22 @@ public class OrderService {
         PricingResult result = response.readEntity(PricingResult.class);
         order.setPrice(result.getOrder().getPrice());
         order.setProcessID(result.getId());
-        orderRepository.persist(order);
+    }
+
+    /**
+     * Inserts an already-priced order using the caller's session, so the write can be rolled back
+     * along with whatever else that transaction is doing.
+     */
+    public void insertOrder(Order order, ClientSession session) {
+        orderRepository.mongoCollection().insertOne(session, order);
+    }
+
+    /**
+     * Counts a created order. Kept apart from the write so a caller inside a transaction can call it
+     * after the commit - a counter incremented in the body would still be incremented after an
+     * abort, and metrics that overcount on retry are worse than no metrics.
+     */
+    public void recordOrderCreated(Order order) {
         meterRegistry.counter(MetricNames.ORDERS_CREATED).increment();
         DistributionSummary.builder(MetricNames.ORDER_VALUE)
                 .publishPercentileHistogram()
@@ -119,7 +154,6 @@ public class OrderService {
                 .record(order.getPrice());
         LOG.infof("Order created orderId=%s userId=%s products=%d total=%.2f",
                 order.getId(), order.getUserID(), order.getProducts().size(), order.getPrice());
-        return order;
     }
 
     /**
