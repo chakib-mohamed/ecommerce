@@ -10,6 +10,10 @@ import jakarta.json.bind.Jsonb;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
 import the.chak.ecommerce.orders.entity.Order;
+import the.chak.ecommerce.orders.control.events.OrderCancelledEvent;
+import the.chak.ecommerce.orders.control.events.ReleaseStockCommand;
+import the.chak.ecommerce.orders.control.events.ReserveStockCommand;
+import the.chak.ecommerce.orders.control.events.ReserveStockLine;
 import the.chak.ecommerce.orders.entity.OutboxEntry;
 import the.chak.ecommerce.outbox.OutboxTracing;
 
@@ -29,6 +33,9 @@ public class OutboxEventFactory {
 
     static final String AGGREGATE_TYPE_ORDER = "order";
     static final String TOPIC_ORDER_INITIATED = "order-initiated";
+    static final String TOPIC_RESERVE_STOCK = "reserve-stock";
+    static final String TOPIC_RELEASE_STOCK = "release-stock";
+    static final String TOPIC_ORDER_CANCELLED = "order-cancelled";
 
     @Inject
     Jsonb jsonb;
@@ -42,6 +49,43 @@ public class OutboxEventFactory {
         entry.eventType = TOPIC_ORDER_INITIATED;
         entry.topic = TOPIC_ORDER_INITIATED;
         entry.payload = jsonb.toJson(toDto(order, orderId));
+        entry.traceparent = OutboxTracing.currentTraceparent();
+        entry.createdAt = Instant.now();
+        return entry;
+    }
+
+    /**
+     * Asks the catalog to hold this order's lines. Keyed by order id like every other entry, so the
+     * command and any later compensation for the same order stay in sequence on the broker.
+     */
+    public OutboxEntry reserveStock(Order order, String stepId) {
+        String orderId = order.id.toString();
+        List<ReserveStockLine> lines = order.getProducts() == null ? List.of()
+                : order.getProducts().stream()
+                        .map(p -> new ReserveStockLine(p.getProductID(), p.getQty()))
+                        .collect(Collectors.toList());
+        return build(orderId, TOPIC_RESERVE_STOCK,
+                new ReserveStockCommand(orderId, stepId, lines));
+    }
+
+    public OutboxEntry releaseStock(String orderId, String stepId) {
+        return build(orderId, TOPIC_RELEASE_STOCK, new ReleaseStockCommand(orderId, stepId));
+    }
+
+    public OutboxEntry orderCancelled(Order order, String reason) {
+        String orderId = order.id.toString();
+        return build(orderId, TOPIC_ORDER_CANCELLED,
+                new OrderCancelledEvent(orderId, order.getUserID(), reason));
+    }
+
+    private OutboxEntry build(String orderId, String topic, Object payload) {
+        OutboxEntry entry = new OutboxEntry();
+        entry.id = UUID.randomUUID();
+        entry.aggregateType = AGGREGATE_TYPE_ORDER;
+        entry.aggregateId = orderId;
+        entry.eventType = topic;
+        entry.topic = topic;
+        entry.payload = jsonb.toJson(payload);
         entry.traceparent = OutboxTracing.currentTraceparent();
         entry.createdAt = Instant.now();
         return entry;

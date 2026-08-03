@@ -67,6 +67,7 @@ class OrderConfirmConcurrencyTest {
         service.mongoClient = mongoClient;
         service.meterRegistry = new SimpleMeterRegistry();
         service.stateMachine = new OrderStateMachine();
+        service.stepTimeout = java.time.Duration.ofMinutes(5);
         return service;
     }
 

@@ -37,4 +37,15 @@ public class OrderRepository implements PanacheMongoRepository<Order> {
 
         return new PagedResult<>(totalCount, result);
     }
+
+    /**
+     * Orders whose outstanding saga step is past its deadline.
+     *
+     * <p>Ordered oldest first so a backlog drains in the order it accumulated, and bounded so one
+     * sweep cannot monopolise the scheduler.
+     */
+    public java.util.List<Order> findExpiredSteps(java.time.Instant now, int limit) {
+        return find("stepDeadline != null and stepDeadline < ?1 order by stepDeadline", now)
+                .page(0, limit).list();
+    }
 }

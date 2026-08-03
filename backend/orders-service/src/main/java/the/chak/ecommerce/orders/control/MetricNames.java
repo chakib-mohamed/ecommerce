@@ -23,6 +23,12 @@ public final class MetricNames {
     /** Counter - orders cancelled, whether before or after confirmation. */
     public static final String ORDERS_CANCELLED = "orders.cancelled";
 
+    /** Orders whose stock the catalog has confirmed it is holding. */
+    public static final String ORDERS_RESERVED = "orders.reserved";
+
+    /** Sagas abandoned because a step ran past its deadline. Alert on this: each one held stock. */
+    public static final String SAGAS_TIMED_OUT = "orders.sagas.timed.out";
+
     /** Counter - cart checkouts, tagged by {@link #TAG_OUTCOME}. */
     public static final String CHECKOUTS = "checkouts";
 

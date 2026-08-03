@@ -1,5 +1,8 @@
 package the.chak.ecommerce.orders.control;
 
+import the.chak.ecommerce.orders.control.events.ReserveStockCommand;
+import the.chak.ecommerce.orders.control.events.ReleaseStockCommand;
+import the.chak.ecommerce.orders.control.events.OrderCancelledEvent;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -59,12 +62,19 @@ public class OutboxRelay extends AbstractOutboxRelay<OutboxEntry> {
 
     @Override
     protected CompletableFuture<Void> publish(OutboxEntry entry) {
-        if (!"order-initiated".equals(entry.topic)) {
-            throw new IllegalStateException("Unknown outbox topic: " + entry.topic);
-        }
-        OrderDTO payload = jsonb.fromJson(entry.payload, OrderDTO.class);
         Context parent = OutboxTracing.extract(entry.traceparent);
-        return publisher.publishOrderInitiated(payload, entry.aggregateKey(), parent);
+        String key = entry.aggregateKey();
+        return switch (entry.topic) {
+            case "order-initiated" -> publisher.publishOrderInitiated(
+                    jsonb.fromJson(entry.payload, OrderDTO.class), key, parent);
+            case "reserve-stock" -> publisher.publishReserveStock(
+                    jsonb.fromJson(entry.payload, ReserveStockCommand.class), key, parent);
+            case "release-stock" -> publisher.publishReleaseStock(
+                    jsonb.fromJson(entry.payload, ReleaseStockCommand.class), key, parent);
+            case "order-cancelled" -> publisher.publishOrderCancelled(
+                    jsonb.fromJson(entry.payload, OrderCancelledEvent.class), key, parent);
+            default -> throw new IllegalStateException("Unknown outbox topic: " + entry.topic);
+        };
     }
 
     @Override

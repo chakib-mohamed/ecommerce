@@ -1,5 +1,8 @@
 package the.chak.ecommerce.orders.control;
 
+import the.chak.ecommerce.orders.control.events.ReserveStockCommand;
+import the.chak.ecommerce.orders.control.events.ReleaseStockCommand;
+import the.chak.ecommerce.orders.control.events.OrderCancelledEvent;
 import java.util.concurrent.CompletableFuture;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -27,6 +30,18 @@ public class KafkaOrderEventPublisher {
     @Channel("order-initiated")
     Emitter<OrderDTO> emitter;
 
+    @Inject
+    @Channel("reserve-stock")
+    Emitter<ReserveStockCommand> reserveStockEmitter;
+
+    @Inject
+    @Channel("release-stock")
+    Emitter<ReleaseStockCommand> releaseStockEmitter;
+
+    @Inject
+    @Channel("order-cancelled")
+    Emitter<OrderCancelledEvent> orderCancelledEmitter;
+
     /**
      * Publishes an {@code order-initiated} event with the given Kafka message key, parenting the
      * producer span on {@code parent} (the originating request's trace). The returned future
@@ -36,13 +51,23 @@ public class KafkaOrderEventPublisher {
         LOG.infof("Publishing order-initiated event orderId=%s userId=%s", order.getId(),
                 order.getUserID());
         CompletableFuture<Void> ack = new CompletableFuture<>();
-        // TracingMetadata.withCurrent carries the outbox-stored parent context on the message itself;
-        // SmallRye's outgoing Kafka tracing reads getCurrentContext() as the producer span's parent,
-        // so a relay publish stays in the request's trace even across the background-thread hop.
+        emitter.send(keyedMessage(order, key, parent, ack));
+        return ack;
+    }
+
+    /**
+     * A payload wrapped with its Kafka key and the trace it belongs to.
+     *
+     * <p>TracingMetadata.withCurrent carries the outbox-stored parent context on the message itself;
+     * SmallRye's outgoing Kafka tracing reads getCurrentContext() as the producer span's parent, so
+     * a relay publish stays in the request's trace even across the background-thread hop.
+     */
+    private static <T> Message<T> keyedMessage(
+            T payload, String key, Context parent, CompletableFuture<Void> ack) {
         Metadata metadata = Metadata.of(
                 OutgoingKafkaRecordMetadata.<String>builder().withKey(key).build(),
                 TracingMetadata.withCurrent(parent));
-        emitter.send(Message.of(order, metadata,
+        return Message.of(payload, metadata,
                 () -> {
                     ack.complete(null);
                     return CompletableFuture.completedFuture(null);
@@ -50,7 +75,32 @@ public class KafkaOrderEventPublisher {
                 throwable -> {
                     ack.completeExceptionally(throwable);
                     return CompletableFuture.completedFuture(null);
-                }));
+                });
+    }
+
+    /**
+     * Saga commands and the cancellation notice. All keyed by order id, so everything concerning
+     * one order stays in the sequence it was produced - a release must never overtake the reserve
+     * it compensates.
+     */
+    public CompletableFuture<Void> publishReserveStock(
+            ReserveStockCommand command, String key, Context parent) {
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        reserveStockEmitter.send(keyedMessage(command, key, parent, ack));
+        return ack;
+    }
+
+    public CompletableFuture<Void> publishReleaseStock(
+            ReleaseStockCommand command, String key, Context parent) {
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        releaseStockEmitter.send(keyedMessage(command, key, parent, ack));
+        return ack;
+    }
+
+    public CompletableFuture<Void> publishOrderCancelled(
+            OrderCancelledEvent event, String key, Context parent) {
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        orderCancelledEmitter.send(keyedMessage(event, key, parent, ack));
         return ack;
     }
 }

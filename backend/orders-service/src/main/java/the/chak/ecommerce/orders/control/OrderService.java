@@ -1,5 +1,9 @@
 package the.chak.ecommerce.orders.control;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import java.util.UUID;
+import java.time.Instant;
+import java.time.Duration;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Locale;
@@ -74,6 +78,13 @@ public class OrderService {
 
     @Inject
     OrderStateMachine stateMachine;
+
+    /**
+     * How long a saga step is worth waiting for. Reservations have no expiry of their own, so this
+     * is what bounds how long a stalled step can hold stock out of sale.
+     */
+    @ConfigProperty(name = "orders.saga.step-timeout", defaultValue = "PT5M")
+    Duration stepTimeout;
 
     /**
      * Prices an order and stores it. Used where the order is the only thing being written; checkout
@@ -217,7 +228,15 @@ public class OrderService {
 
         order.setStatus(OrderStatus.CONFIRMED);
 
+        // Confirming opens the saga's first step. The command goes out in the same transaction as
+        // the status write: sent separately it could be lost after the order had already moved,
+        // leaving an order waiting on a request that was never made.
+        String stepId = UUID.randomUUID().toString();
+        order.setSagaStepId(stepId);
+        order.setStepDeadline(Instant.now().plus(stepTimeout));
+
         OutboxEntry outboxEntry = outboxEventFactory.orderInitiated(order);
+        OutboxEntry reserveCommand = outboxEventFactory.reserveStock(order, stepId);
 
         // The status guard above is a read-then-write, so on its own two concurrent confirmations
         // could both pass it. The write is therefore conditional on the version the order carried
@@ -243,6 +262,7 @@ public class OrderService {
                     throw new ConcurrentOrderModificationException(orderId);
                 }
                 outboxRepository.mongoCollection().insertOne(session, outboxEntry);
+                outboxRepository.mongoCollection().insertOne(session, reserveCommand);
                 return null;
             });
         }

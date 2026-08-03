@@ -25,6 +25,19 @@ public class Order {
     private String processID;
 
     /**
+     * Identifies the saga step currently outstanding. A reply carries it back, so a reply arriving
+     * for a step the order has already moved past can be told apart from the current one and
+     * discarded. Null when no step is in flight.
+     */
+    private String sagaStepId;
+
+    /**
+     * When the outstanding step stops being worth waiting for. Reservations have no expiry of their
+     * own, so this deadline is the only thing that ever frees stock held by a stalled saga.
+     */
+    private java.time.Instant stepDeadline;
+
+    /**
      * Optimistic-locking counter. Bumped on each guarded write and used as a condition on that
      * write, so a second concurrent update matches nothing rather than silently overwriting.
      * Null on orders written before this field existed.
