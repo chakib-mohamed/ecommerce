@@ -9,6 +9,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import jakarta.json.bind.JsonbBuilder;
+import jakarta.json.bind.JsonbConfig;
+import jakarta.json.bind.config.PropertyNamingStrategy;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,9 +31,16 @@ class OrderPaidEventTest {
 
     private static final String PAYMENT_METHOD = "pm_card_visa";
 
+    /**
+     * Built with the same JSON-B configuration the application registers, so the payload asserted
+     * here is the payload that goes on the wire. A default JsonbBuilder would emit camelCase and
+     * quietly pass tests that a real consumer could not read.
+     */
     private OutboxEventFactory factory() {
         OutboxEventFactory factory = new OutboxEventFactory();
-        factory.jsonb = JsonbBuilder.create();
+        factory.jsonb = JsonbBuilder.create(new JsonbConfig()
+                .withPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CASE_WITH_UNDERSCORES)
+                .withNullValues(false));
         return factory;
     }
 

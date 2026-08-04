@@ -76,6 +76,8 @@ public class OutboxRelay extends AbstractOutboxRelay<OutboxEntry> {
                     jsonb.fromJson(entry.payload, OrderCancelledEvent.class), key, parent);
             case "capture-payment" -> publisher.publishCapturePayment(
                     jsonb.fromJson(entry.payload, CapturePaymentCommand.class), key, parent);
+            case "order-paid" -> publisher.publishOrderPaid(
+                    jsonb.fromJson(entry.payload, OrderDTO.class), key, parent);
             default -> throw new IllegalStateException("Unknown outbox topic: " + entry.topic);
         };
     }

@@ -47,6 +47,10 @@ public class KafkaOrderEventPublisher {
     @Channel("capture-payment")
     Emitter<CapturePaymentCommand> capturePaymentEmitter;
 
+    @Inject
+    @Channel("order-paid")
+    Emitter<OrderDTO> orderPaidEmitter;
+
     /**
      * Publishes an {@code order-initiated} event with the given Kafka message key, parenting the
      * producer span on {@code parent} (the originating request's trace). The returned future
@@ -99,6 +103,18 @@ public class KafkaOrderEventPublisher {
             ReleaseStockCommand command, String key, Context parent) {
         CompletableFuture<Void> ack = new CompletableFuture<>();
         releaseStockEmitter.send(keyedMessage(command, key, parent, ack));
+        return ack;
+    }
+
+    /**
+     * Publishes {@code order-paid}. Distinct from {@code order-initiated}, which says an order was
+     * placed; this one says money was taken, and it is the one analytics counts as revenue.
+     */
+    public CompletableFuture<Void> publishOrderPaid(OrderDTO order, String key, Context parent) {
+        LOG.infof("Publishing order-paid event orderId=%s userId=%s", order.getId(),
+                order.getUserID());
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        orderPaidEmitter.send(keyedMessage(order, key, parent, ack));
         return ack;
     }
 

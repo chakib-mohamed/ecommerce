@@ -20,11 +20,14 @@ Liquibase creates the schema at startup (`db/changelog/db.changelog-master.xml`)
 ## Ingestion
 
 Consumes three topics with its own consumer group per topic, reading from the earliest offset:
-`order-initiated` (fills the fact), `product-updated` / `product-deleted` (maintain the dimension).
+`order-paid` (fills the fact), `product-updated` / `product-deleted` (maintain the dimension).
 Delivery is at-least-once, so every write is idempotent. Poison messages land on `*-dlq`.
 
-Only completed orders are counted, and that costs nothing: an order is evented only when it is
-confirmed, so pending ones never arrive.
+**Revenue is money taken, not orders placed.** The fact table is filled from `order-paid`, so an
+order confirmed but never paid for contributes nothing. `order-initiated` is deliberately not
+consumed — counting it would report a declined card as revenue. Nothing needs to reverse a counted
+sale either: `CANCELLED` is not reachable from `PAID`, so an order is either paid or cancelled and
+never both. See `docs/specs/analytics-revenue.md`.
 
 ### The dimension records the category a product is *filed under*
 
@@ -74,7 +77,7 @@ start it again:
 
 ```bash
 docker compose stop analytics-service
-for T in order-initiated product-updated product-deleted; do
+for T in order-paid product-updated product-deleted; do
   docker exec ecommerce-kafka-1 kafka-consumer-groups --bootstrap-server localhost:9092 \
     --group "analytics-service-$T" --topic "$T" --reset-offsets --to-earliest --execute
 done
@@ -84,6 +87,30 @@ docker compose start analytics-service
 Replay is safe: ingestion is idempotent, so re-reading the same events rewrites the same rows rather
 than doubling them. It only recovers what the broker still retains, and it cannot conjure events
 that were never published (see the seeded-catalog note above).
+
+### Replaying does not remove a row, so a stale row survives it
+
+Ingestion rewrites and inserts; it never deletes rows no event mentions. A replay therefore
+*corrects* rows the stream still covers and *leaves* everything else exactly as it was.
+
+That matters once, concretely: every row written before revenue moved to `order-paid` came from a
+confirmation, and no `order-paid` event exists for it. Replaying will not touch those rows, and
+afterwards they are indistinguishable from real revenue. **Clear the fact table as part of the
+rebuild**, not merely reset the offsets:
+
+```bash
+docker compose stop analytics-service
+docker exec ecommerce-analytics-postgres-1 psql -U postgres -d analytics \
+  -c 'TRUNCATE fact_sales_line;'
+# ... reset the consumer groups as above, then start the service
+```
+
+`dim_product` does not need clearing — it is keyed by product and every replayed `product-updated`
+overwrites its row in place.
+
+Expect the figures to drop, and expect them to be near zero on an environment that predates
+`order-paid`: the event was never published before, so there is nothing to backfill. The first
+correct figure is the first order paid after the change shipped.
 
 ## Local dev
 

@@ -85,7 +85,12 @@ public class SagaService {
         // holding a payment credential for no reason.
         order.setPaymentMethodRef(null);
 
-        if (commit(order)) {
+        // Built after the status is set, so the event reports the order as PAID. It goes in with
+        // the status change: written separately, a crash between them would either report revenue
+        // for an order that never reached PAID, or take the money and never report it.
+        OutboxEntry paid = outboxEventFactory.orderPaid(order);
+
+        if (commit(order, paid)) {
             meterRegistry.counter(MetricNames.ORDERS_PAID).increment();
             LOG.infof("Payment captured, order paid orderId=%s providerRef=%s",
                     orderId, providerRef);

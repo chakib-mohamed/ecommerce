@@ -38,6 +38,7 @@ public class OutboxEventFactory {
     static final String TOPIC_RELEASE_STOCK = "release-stock";
     static final String TOPIC_ORDER_CANCELLED = "order-cancelled";
     static final String TOPIC_CAPTURE_PAYMENT = "capture-payment";
+    static final String TOPIC_ORDER_PAID = "order-paid";
 
     @Inject
     Jsonb jsonb;
@@ -89,7 +90,10 @@ public class OutboxEventFactory {
      * says an order was placed, this one says money was taken, and only this one is revenue.
      */
     public OutboxEntry orderPaid(Order order) {
-        throw new UnsupportedOperationException("not implemented - gate 3");
+        String orderId = order.id.toString();
+        // The same OrderDTO order-initiated carries, and for the same reason: the warehouse counts
+        // per line, so the lines have to travel with the event rather than be fetched back.
+        return build(orderId, TOPIC_ORDER_PAID, toDto(order, orderId));
     }
 
     public OutboxEntry orderCancelled(Order order, String reason) {
@@ -116,6 +120,11 @@ public class OutboxEventFactory {
         dto.setId(orderId);
         dto.setCreationDate(order.getCreationDate());
         dto.setPrice(order.getPrice());
+        // Read from the order rather than left to the DTO's field default: they agree today
+        // because there is one currency, and a published amount should not depend on that.
+        if (order.getCurrency() != null) {
+            dto.setCurrency(order.getCurrency());
+        }
         dto.setUserID(order.getUserID());
         dto.setStatus(order.getStatus() == null ? null
                 : the.chak.ecommerce.orders.boundary.dto.OrderStatus.valueOf(order.getStatus().name()));

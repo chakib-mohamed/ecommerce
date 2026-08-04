@@ -24,11 +24,17 @@ public class KafkaEventConsumer {
     @Inject
     IngestionService ingestionService;
 
-    /** Completed orders -- the only orders that reach this topic, and so the only ones counted. */
-    @Incoming("order-initiated")
+    /**
+     * Paid orders -- money actually taken, and so the only thing counted as revenue.
+     *
+     * <p>Deliberately not {@code order-initiated}, which announces a confirmation. Counting that
+     * would report an order whose card was later declined as revenue. An order is either paid or
+     * cancelled and never both, so nothing has to arrive later to take a counted sale back.
+     */
+    @Incoming("order-paid")
     @Retry(maxRetries = 3, delay = 200)
     public void consumeOrder(OrderDTO order) {
-        LOG.debugf("Received order event orderId=%s", order.getId());
+        LOG.debugf("Received paid order event orderId=%s", order.getId());
         ingestionService.ingestOrder(order);
     }
 
