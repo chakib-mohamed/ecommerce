@@ -78,6 +78,7 @@ class SagaPaymentStepTest {
         when(outboxEventFactory.capturePayment(any(Order.class), any(), any()))
                 .thenReturn(new OutboxEntry());
         when(outboxEventFactory.releaseStock(any(), any())).thenReturn(new OutboxEntry());
+        when(outboxEventFactory.orderPaid(any(Order.class))).thenReturn(new OutboxEntry());
 
         SagaService saga = new SagaService();
         saga.orderRepository = orderRepository;
@@ -193,6 +194,47 @@ class SagaPaymentStepTest {
 
         // then
         assertEquals(1.0, meterRegistry.get(MetricNames.ORDERS_PAID).counter().count(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Announces the payment so revenue can be counted")
+    void paymentCaptured_announcesTheSale() {
+        // given - analytics counts money taken, and this is the only event that says it was
+        orderAwaiting(OrderStatus.RESERVED, STEP_ID);
+
+        // when
+        service(1).onPaymentCaptured(ORDER_ID, STEP_ID, PROVIDER_REF);
+
+        // then
+        verify(outboxEventFactory).orderPaid(any(Order.class));
+    }
+
+    @Test
+    @DisplayName("Writes the sale in the same transaction as the status change")
+    void paymentCaptured_announcementCommitsWithTheStatus() {
+        // given - written separately, a crash between them would either report revenue for an order
+        // that never reached PAID, or take money and never report it
+        orderAwaiting(OrderStatus.RESERVED, STEP_ID);
+
+        // when
+        service(1).onPaymentCaptured(ORDER_ID, STEP_ID, PROVIDER_REF);
+
+        // then
+        verify(outbox).insertOne(any(ClientSession.class), any(OutboxEntry.class));
+    }
+
+    @Test
+    @DisplayName("Announces nothing when the capture's write loses a race")
+    void captureLosingTheRace_announcesNothing() {
+        // given - the winning write has already announced this sale; a second would be counted as
+        // a rewrite of the same rows at best, and double revenue at worst
+        orderAwaiting(OrderStatus.RESERVED, STEP_ID);
+
+        // when
+        service(0).onPaymentCaptured(ORDER_ID, STEP_ID, PROVIDER_REF);
+
+        // then
+        verify(outbox, never()).insertOne(any(ClientSession.class), any(OutboxEntry.class));
     }
 
     @Test

@@ -84,6 +84,14 @@ public class OutboxEventFactory {
                 orderId, stepId, order.getPrice(), order.getCurrency(), paymentMethod));
     }
 
+    /**
+     * Announces that the order has been paid for. Distinct from {@code order-initiated}: that one
+     * says an order was placed, this one says money was taken, and only this one is revenue.
+     */
+    public OutboxEntry orderPaid(Order order) {
+        throw new UnsupportedOperationException("not implemented - gate 3");
+    }
+
     public OutboxEntry orderCancelled(Order order, String reason) {
         String orderId = order.id.toString();
         return build(orderId, TOPIC_ORDER_CANCELLED,
