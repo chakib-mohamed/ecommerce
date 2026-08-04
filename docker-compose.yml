@@ -187,6 +187,49 @@ services:
         reservations:
           memory: 256M
 
+  # Charges orders through an external payment provider. Kafka-only: it consumes the saga's
+  # commands and replies on the outbox, so it is deliberately absent from the gateway routes -
+  # nothing outside the backend network ever calls it.
+  payment-service:
+    profiles: [backend]
+    build:
+      context: ./backend/payment-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8087:8080
+    environment:
+      - QUARKUS_PROFILE=prod
+      - PAYMENT_DB_URL=jdbc:postgresql://payment-postgres:5432/payment
+      - PAYMENT_DB_USER=postgres
+      - PAYMENT_DB_PASSWORD=postgres
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      # The URL alone decides mock or real. No flag, no fallback: pointing this at Stripe is a
+      # deliberate act, and a misconfiguration fails loudly instead of reporting charges never made.
+      - PAYMENT_STRIPE_URL=http://stripe-mock:12111
+      - PAYMENT_STRIPE_API_KEY=${PAYMENT_STRIPE_API_KEY:-sk_test_local}
+    depends_on:
+      payment-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      stripe-mock:
+        condition: service_started
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8080/q/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 256M
+
   price-service:
     profiles: [backend]
     build:
@@ -353,6 +396,38 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Payments get their own store: it holds the record of money taken, and nothing about
+  # reporting or the catalog should be able to lock or fill it.
+  payment-postgres:
+    profiles: [infra]
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=payment
+    ports:
+      - 5434:5432
+    networks:
+      - backend
+    volumes:
+      - payment_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Stripe's own mock. It validates requests against Stripe's published API spec, so it proves
+  # we speak the dialect - but it is stateless: it does not decline, does not time out, and does
+  # not honour idempotency keys. Those paths are covered by WireMock in the tests, not here.
+  stripe-mock:
+    profiles: [infra]
+    image: stripe/stripe-mock:latest
+    ports:
+      - 12111:12111
+    networks:
+      - backend
 
   localstack:
     profiles: [infra]
@@ -531,6 +606,7 @@ volumes:
   mongodb_data:
   postgres_data:
   analytics_postgres_data:
+  payment_postgres_data:
   prometheus_data:
   grafana_data:
   loki_data:

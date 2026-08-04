@@ -8,7 +8,7 @@
         infra observability backend front up down logs \
         build build-api build-front \
         dev-front dev-gateway \
-        dev-authenticate dev-products dev-featured dev-orders dev-price dev-analytics \
+        dev-authenticate dev-products dev-featured dev-orders dev-price dev-analytics dev-payment \
         e2e e2e-env e2e-up e2e-run e2e-down
 
 ## help: list available targets
@@ -36,6 +36,7 @@ help:
 	@echo "  make dev-orders       quarkus:dev on :8084"
 	@echo "  make dev-price        quarkus:dev on :8085"
 	@echo "  make dev-analytics    quarkus:dev on :8086"
+	@echo "  make dev-payment      quarkus:dev on :8087"
 	@echo ""
 	@echo "E2E targets:"
 	@echo "  make e2e              full cycle: build, bring up the stack, run the e2e suite, tear down"
@@ -135,6 +136,10 @@ dev-price:
 ## dev-analytics: analytics-service hot reload (:8086)
 dev-analytics:
 	cd backend && ./mvnw quarkus:dev -pl analytics-service -Dquarkus.http.port=8086
+
+## dev-payment: payment-service hot reload (:8087)
+dev-payment:
+	cd backend && ./mvnw quarkus:dev -pl payment-service -Dquarkus.http.port=8087
 
 # ----------------------------------------------------------------------------
 # E2E — browser tests against the real stack (see e2e/README.md)
