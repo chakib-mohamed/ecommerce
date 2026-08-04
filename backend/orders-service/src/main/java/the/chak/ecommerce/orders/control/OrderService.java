@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import the.chak.ecommerce.orders.control.exceptions.ConcurrentOrderModificationException;
+import the.chak.ecommerce.orders.control.exceptions.MissingPaymentMethodException;
 import the.chak.ecommerce.orders.control.exceptions.OrderNotMutableException;
 import the.chak.ecommerce.orders.control.exceptions.OrderPriceChangedException;
 import the.chak.ecommerce.orders.control.exceptions.ProductNotFoundException;
@@ -212,10 +213,21 @@ public class OrderService {
      * the business change. {@link OutboxRelay} drains the entry to the broker; this method only
      * nudges it awake after the commit.
      */
-    public Order confirmOrder(String orderId) {
+    /**
+     * Confirms the order and charges it to the given payment method.
+     *
+     * @param paymentMethod opaque single-use reference from the payment provider; never card data
+     */
+    public Order confirmOrder(String orderId, String paymentMethod) {
         Order order = orderRepository.findById(new org.bson.types.ObjectId(orderId));
         if (order == null) {
             return null;
+        }
+        // Before anything is written. Confirming reserves stock first, so an order that could never
+        // be paid for would take inventory out of sale and only fail once the capture found nothing
+        // to charge against.
+        if (paymentMethod == null || paymentMethod.isBlank()) {
+            throw new MissingPaymentMethodException();
         }
         // Guard before anything else: a second confirmation would write a second outbox entry and
         // publish the sale twice.
@@ -227,6 +239,11 @@ public class OrderService {
         assertPricesUnchanged(order);
 
         order.setStatus(OrderStatus.CONFIRMED);
+
+        // Held on the order because the capture is commanded only once the stock step succeeds,
+        // which is long after this call returns - so something has to keep it in between. Cleared
+        // the moment the capture resolves, and never put on a published event.
+        order.setPaymentMethodRef(paymentMethod);
 
         // Confirming opens the saga's first step. The command goes out in the same transaction as
         // the status write: sent separately it could be lost after the order had already moved,

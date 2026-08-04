@@ -62,8 +62,11 @@ class SagaServiceTest {
                 .thenAnswer(inv -> inv.getArgument(0, TransactionBody.class).execute());
         when(outboxEventFactory.orderCancelled(any(Order.class), any()))
                 .thenReturn(new OutboxEntry());
+        when(outboxEventFactory.capturePayment(any(Order.class), any(), any()))
+                .thenReturn(new OutboxEntry());
 
         SagaService saga = new SagaService();
+        saga.stepTimeout = java.time.Duration.ofMinutes(5);
         saga.orderRepository = orderRepository;
         saga.outboxRepository = outboxRepository;
         saga.outboxEventFactory = outboxEventFactory;
@@ -83,10 +86,9 @@ class SagaServiceTest {
         // when
         service(1).onStockReserved(ORDER_ID, STEP_ID);
 
-        // then
+        // then - what the reply then opens is SagaPaymentStepTest's subject; here it is only that
+        // the order moved
         assertEquals(OrderStatus.RESERVED, order.getStatus());
-        assertNull(order.getSagaStepId(), "the answered step is no longer outstanding");
-        assertNull(order.getStepDeadline(), "nothing is outstanding, so nothing can time out");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import the.chak.ecommerce.orders.control.events.CapturePaymentCommand;
 import the.chak.ecommerce.orders.control.events.ReserveStockCommand;
 import the.chak.ecommerce.orders.control.events.ReleaseStockCommand;
 import the.chak.ecommerce.orders.control.events.OrderCancelledEvent;
@@ -73,6 +74,8 @@ public class OutboxRelay extends AbstractOutboxRelay<OutboxEntry> {
                     jsonb.fromJson(entry.payload, ReleaseStockCommand.class), key, parent);
             case "order-cancelled" -> publisher.publishOrderCancelled(
                     jsonb.fromJson(entry.payload, OrderCancelledEvent.class), key, parent);
+            case "capture-payment" -> publisher.publishCapturePayment(
+                    jsonb.fromJson(entry.payload, CapturePaymentCommand.class), key, parent);
             default -> throw new IllegalStateException("Unknown outbox topic: " + entry.topic);
         };
     }

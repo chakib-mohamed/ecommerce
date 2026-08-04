@@ -1,0 +1,142 @@
+package the.chak.ecommerce.payment.control;
+
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import org.jboss.logging.Logger;
+import the.chak.ecommerce.payment.control.events.CapturePaymentCommand;
+import the.chak.ecommerce.payment.control.events.PaymentCapturedEvent;
+import the.chak.ecommerce.payment.control.events.PaymentFailedEvent;
+import the.chak.ecommerce.payment.control.events.RefundPaymentCommand;
+import the.chak.ecommerce.payment.entity.Payment;
+import the.chak.ecommerce.payment.entity.PaymentStatus;
+import the.chak.ecommerce.payment.repository.OutboxRepository;
+import the.chak.ecommerce.payment.repository.PaymentRepository;
+
+/**
+ * The saga's payment step, seen from this side: charge the buyer, record what happened, and say so.
+ *
+ * <p>The ordering is the whole design. The provider is called <b>outside</b> any transaction, because
+ * network I/O inside one holds a database lock open across a call that can hang - and because a
+ * transaction that rolls back cannot un-charge a card. Only the provider's answer crosses into the
+ * transaction, where the payment record and the reply are written together.
+ *
+ * <p>That leaves exactly one unrecoverable case, and it is deliberate rather than overlooked: the
+ * provider takes the money and the answer never arrives. Nothing is recorded, the command
+ * redelivers, and the idempotency key means the retry returns the original charge instead of making
+ * a second one. If the retry never happens the order times out with money taken, which is the case
+ * section 8 of the spec says must be alerted on rather than absorbed.
+ */
+@ApplicationScoped
+public class PaymentService {
+
+    private static final Logger LOG = Logger.getLogger(PaymentService.class);
+
+    @Inject
+    PaymentRepository paymentRepository;
+
+    @Inject
+    OutboxRepository outboxRepository;
+
+    @Inject
+    OutboxEventFactory outboxEventFactory;
+
+    @Inject
+    StripeGatewayClient gateway;
+
+    @Inject
+    OutboxRelay outboxRelay;
+
+    /**
+     * Charges the order and replies with the outcome.
+     *
+     * <p>Safe to redeliver: an attempt already recorded is replayed rather than charged again.
+     */
+    public void capture(CapturePaymentCommand command) {
+        Optional<Payment> alreadyAttempted =
+                paymentRepository.findAttempt(command.getOrderId(), command.getStepId());
+        if (alreadyAttempted.isPresent()) {
+            // The charge happened; it was the reply that was lost. Replaying it is not optional -
+            // staying silent leaves the order waiting on an answer that already exists.
+            Payment payment = alreadyAttempted.get();
+            LOG.infof("Capture redelivered, replaying the recorded outcome orderId=%s stepId=%s "
+                    + "status=%s", command.getOrderId(), command.getStepId(), payment.getStatus());
+            reply(payment);
+            outboxRelay.requestPoll();
+            return;
+        }
+
+        // Outside any transaction, deliberately: this is network I/O, and a transaction that rolled
+        // back could not un-charge the card anyway. A fault here propagates with nothing written,
+        // so the command redelivers and the idempotency key makes the retry the same charge.
+        ChargeResult result = gateway.charge(command.getStepId(), command.getAmount(),
+                command.getCurrency(), command.getPaymentMethod());
+
+        record(command, result);
+    }
+
+    /**
+     * Writes the outcome and the reply together.
+     *
+     * <p>One transaction, for the reason ADR-0002 exists: a charge recorded while its reply was
+     * lost would leave an order waiting on money that had already been taken.
+     */
+    @Transactional
+    void record(CapturePaymentCommand command, ChargeResult result) {
+        Payment payment = new Payment();
+        payment.setId(UUID.randomUUID());
+        payment.setOrderId(command.getOrderId());
+        payment.setStepId(command.getStepId());
+        payment.setAmount(command.getAmount());
+        payment.setCurrency(command.getCurrency());
+        payment.setCreatedAt(Instant.now());
+        payment.setStatus(result.captured() ? PaymentStatus.CAPTURED : PaymentStatus.FAILED);
+        payment.setProviderRef(result.providerRef());
+        payment.setFailureReason(result.failureReason());
+        // The payment method is deliberately not copied onto the record. The provider's own
+        // reference is what a refund needs; keeping the credential too would be retaining a way to
+        // charge the buyer again, for no reason.
+        paymentRepository.persist(payment);
+
+        reply(payment);
+
+        LOG.infof("Capture handled orderId=%s stepId=%s outcome=%s",
+                command.getOrderId(), command.getStepId(), payment.getStatus());
+
+        // Best-effort wake-up; if it is lost the scheduled tick still drains the row.
+        outboxRelay.requestPoll();
+    }
+
+    /** Returns the money for an order already charged. */
+    @Transactional
+    public void refund(RefundPaymentCommand command) {
+        Optional<Payment> captured = paymentRepository.findCapturedFor(command.getOrderId());
+        if (captured.isEmpty()) {
+            // Normal, not exceptional: compensating a saga that failed before the capture asks for
+            // a refund of a charge that was never made.
+            LOG.infof("Refund for an order with no charge orderId=%s - nothing to return",
+                    command.getOrderId());
+            return;
+        }
+        Payment payment = captured.get();
+        gateway.refund(command.getStepId(), payment.getProviderRef());
+        payment.setStatus(PaymentStatus.REFUNDED);
+        LOG.infof("Refunded orderId=%s providerRef=%s",
+                command.getOrderId(), payment.getProviderRef());
+    }
+
+    private void reply(Payment payment) {
+        if (payment.getStatus() == PaymentStatus.CAPTURED) {
+            outboxRepository.persist(outboxEventFactory.paymentCaptured(payment.getOrderId(),
+                    new PaymentCapturedEvent(payment.getOrderId(), payment.getStepId(),
+                            payment.getProviderRef())));
+        } else {
+            outboxRepository.persist(outboxEventFactory.paymentFailed(payment.getOrderId(),
+                    new PaymentFailedEvent(payment.getOrderId(), payment.getStepId(),
+                            payment.getFailureReason())));
+        }
+    }
+}

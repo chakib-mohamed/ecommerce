@@ -26,6 +26,9 @@ public final class MetricNames {
     /** Orders whose stock the catalog has confirmed it is holding. */
     public static final String ORDERS_RESERVED = "orders.reserved";
 
+    /** Counter - orders whose payment has been taken. This, not confirmation, is revenue. */
+    public static final String ORDERS_PAID = "orders.paid";
+
     /** Sagas abandoned because a step ran past its deadline. Alert on this: each one held stock. */
     public static final String SAGAS_TIMED_OUT = "orders.sagas.timed.out";
 

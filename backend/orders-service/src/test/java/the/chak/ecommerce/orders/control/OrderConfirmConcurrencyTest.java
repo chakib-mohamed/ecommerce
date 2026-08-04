@@ -34,6 +34,9 @@ import the.chak.ecommerce.orders.repository.OutboxRepository;
  */
 class OrderConfirmConcurrencyTest {
 
+    /** Opaque single-use reference; confirming requires one, and its value is never meaningful. */
+    private static final String PAYMENT_METHOD = "pm_card_visa";
+
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final OutboxRepository outboxRepository = mock(OutboxRepository.class);
     private final OutboxEventFactory outboxEventFactory = mock(OutboxEventFactory.class);
@@ -91,7 +94,7 @@ class OrderConfirmConcurrencyTest {
 
         // when / then
         assertThrows(ConcurrentOrderModificationException.class,
-                () -> service.confirmOrder(order.id.toString()));
+                () -> service.confirmOrder(order.id.toString(), PAYMENT_METHOD));
     }
 
     @Test
@@ -102,7 +105,7 @@ class OrderConfirmConcurrencyTest {
         Order order = initiatedOrder(5L);
 
         // when
-        Order confirmed = service.confirmOrder(order.id.toString());
+        Order confirmed = service.confirmOrder(order.id.toString(), PAYMENT_METHOD);
 
         // then
         assertEquals(6L, confirmed.getVersion());
@@ -117,7 +120,7 @@ class OrderConfirmConcurrencyTest {
         Order order = initiatedOrder(null);
 
         // when
-        Order confirmed = service.confirmOrder(order.id.toString());
+        Order confirmed = service.confirmOrder(order.id.toString(), PAYMENT_METHOD);
 
         // then
         assertEquals(1L, confirmed.getVersion());

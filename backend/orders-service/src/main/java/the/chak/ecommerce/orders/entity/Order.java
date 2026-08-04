@@ -38,6 +38,23 @@ public class Order {
     private java.time.Instant stepDeadline;
 
     /**
+     * The buyer's payment method, as an opaque single-use reference issued by the payment provider.
+     * Never a card number: card details are exchanged for this reference in the browser and never
+     * reach the platform.
+     *
+     * <p>It lives here only because the capture is commanded after the stock step succeeds, which is
+     * long after the confirm request has returned - so something has to hold it in between. Cleared
+     * as soon as the capture resolves, either way.
+     */
+    private String paymentMethodRef;
+
+    /**
+     * Why the order reached its current status, when it did not get there by the buyer's own action
+     * - a declined charge or stock that could not be supplied. Null when there is no such reason.
+     */
+    private String statusReason;
+
+    /**
      * Optimistic-locking counter. Bumped on each guarded write and used as a condition on that
      * write, so a second concurrent update matches nothing rather than silently overwriting.
      * Null on orders written before this field existed.

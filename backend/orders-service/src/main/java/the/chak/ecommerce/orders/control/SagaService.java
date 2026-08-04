@@ -1,5 +1,7 @@
 package the.chak.ecommerce.orders.control;
 
+import java.time.Instant;
+import java.util.UUID;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.Filters;
@@ -38,6 +40,9 @@ public class SagaService {
     /** Recorded on the cancellation so the reason survives past the log line. */
     static final String REASON_OUT_OF_STOCK = "OUT_OF_STOCK";
 
+    /** Recorded when the charge failed and the provider gave no reason of its own. */
+    static final String REASON_PAYMENT_FAILED = "PAYMENT_FAILED";
+
     @Inject
     OrderRepository orderRepository;
 
@@ -59,21 +64,91 @@ public class SagaService {
     @Inject
     MeterRegistry meterRegistry;
 
-    /** The catalog is holding the order's lines: the order moves on to RESERVED. */
+    /** How long a saga step is worth waiting for before the sweep gives up on it. */
+    @org.eclipse.microprofile.config.inject.ConfigProperty(
+            name = "orders.saga.step-timeout", defaultValue = "PT5M")
+    java.time.Duration stepTimeout;
+
+    /** The money has been taken: the order moves on to PAID. */
+    public void onPaymentCaptured(String orderId, String stepId, String providerRef) {
+        Order order = currentStep(orderId, stepId, OrderStatus.PAID);
+        if (order == null) {
+            // Includes the case where the sweep already gave up and cancelled: the order cannot
+            // un-cancel itself, and money taken against it is resolved by reconciliation against
+            // the provider reference, not by the saga.
+            return;
+        }
+        order.setStatus(OrderStatus.PAID);
+        order.setSagaStepId(null);
+        order.setStepDeadline(null);
+        // The reference is single-use and has done its job. Keeping it past the charge would be
+        // holding a payment credential for no reason.
+        order.setPaymentMethodRef(null);
+
+        if (commit(order)) {
+            meterRegistry.counter(MetricNames.ORDERS_PAID).increment();
+            LOG.infof("Payment captured, order paid orderId=%s providerRef=%s",
+                    orderId, providerRef);
+        }
+    }
+
+    /**
+     * The charge did not go through: the order is cancelled and its stock given back.
+     *
+     * <p>Unlike a stock refusal this failure comes after something was taken, so it must compensate.
+     */
+    public void onPaymentFailed(String orderId, String stepId, String reason) {
+        Order order = currentStep(orderId, stepId, OrderStatus.CANCELLED);
+        if (order == null) {
+            return;
+        }
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setStatusReason(reason == null ? REASON_PAYMENT_FAILED : reason);
+        order.setSagaStepId(null);
+        order.setStepDeadline(null);
+        order.setPaymentMethodRef(null);
+
+        // The stock step succeeded, so something is being held and has to be given back. Nothing
+        // else will do it: the step is answered, so the deadline sweep never looks at this order
+        // again.
+        OutboxEntry release = outboxEventFactory.releaseStock(orderId, stepId);
+        OutboxEntry cancelled = outboxEventFactory.orderCancelled(order, order.getStatusReason());
+
+        if (commit(order, release, cancelled)) {
+            meterRegistry.counter(MetricNames.ORDERS_CANCELLED).increment();
+            LOG.infof("Payment failed, order cancelled and stock released orderId=%s reason=%s",
+                    orderId, order.getStatusReason());
+        }
+    }
+
+    /**
+     * The catalog is holding the order's lines: the order moves on to RESERVED, and payment becomes
+     * the next step.
+     *
+     * <p>RESERVED is a waypoint, not a resting place. Clearing the step here would leave an order
+     * holding stock with no deadline, and the sweep only ever looks at orders that have one - so
+     * nothing in the system would ever free it.
+     */
     public void onStockReserved(String orderId, String stepId) {
         Order order = currentStep(orderId, stepId, OrderStatus.RESERVED);
         if (order == null) {
             return;
         }
         order.setStatus(OrderStatus.RESERVED);
-        // The step is answered. Payment is the next step and does not exist yet, so nothing is
-        // outstanding and there is no deadline to keep - see phase 8.
-        order.setSagaStepId(null);
-        order.setStepDeadline(null);
 
-        if (commit(order)) {
+        // A fresh id, not the one stock just answered: reusing it would make a redelivered stock
+        // reply look current again and be applied a second time.
+        String paymentStepId = UUID.randomUUID().toString();
+        order.setSagaStepId(paymentStepId);
+        order.setStepDeadline(Instant.now().plus(stepTimeout));
+
+        OutboxEntry capture = outboxEventFactory.capturePayment(
+                order, paymentStepId, order.getPaymentMethodRef());
+
+        if (commit(order, capture)) {
             meterRegistry.counter(MetricNames.ORDERS_RESERVED).increment();
-            LOG.infof("Stock reserved, order advanced orderId=%s", orderId);
+            LOG.infof("Stock reserved, payment requested orderId=%s stepId=%s",
+                    orderId, paymentStepId);
         }
     }
 

@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import the.chak.ecommerce.orders.control.events.CapturePaymentCommand;
 import the.chak.ecommerce.orders.control.events.ReserveStockCommand;
 import the.chak.ecommerce.orders.control.events.ReleaseStockCommand;
 import the.chak.ecommerce.orders.control.events.OrderCancelledEvent;
@@ -41,6 +42,10 @@ public class KafkaOrderEventPublisher {
     @Inject
     @Channel("order-cancelled")
     Emitter<OrderCancelledEvent> orderCancelledEmitter;
+
+    @Inject
+    @Channel("capture-payment")
+    Emitter<CapturePaymentCommand> capturePaymentEmitter;
 
     /**
      * Publishes an {@code order-initiated} event with the given Kafka message key, parenting the
@@ -94,6 +99,14 @@ public class KafkaOrderEventPublisher {
             ReleaseStockCommand command, String key, Context parent) {
         CompletableFuture<Void> ack = new CompletableFuture<>();
         releaseStockEmitter.send(keyedMessage(command, key, parent, ack));
+        return ack;
+    }
+
+    /** Deliberately logs no payload: this is the one command carrying a payment credential. */
+    public CompletableFuture<Void> publishCapturePayment(
+            CapturePaymentCommand command, String key, Context parent) {
+        CompletableFuture<Void> ack = new CompletableFuture<>();
+        capturePaymentEmitter.send(keyedMessage(command, key, parent, ack));
         return ack;
     }
 

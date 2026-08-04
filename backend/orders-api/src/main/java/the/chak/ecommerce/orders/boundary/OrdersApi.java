@@ -12,6 +12,7 @@ import jakarta.ws.rs.core.Response;
 import java.util.List;
 import org.eclipse.microprofile.rest.client.annotation.RegisterClientHeaders;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import the.chak.ecommerce.orders.boundary.dto.ConfirmOrderRequest;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
@@ -43,7 +44,8 @@ public interface OrdersApi {
 
     @POST
     @Path("/{orderID}/confirm")
-    Response confirmOrder(@PathParam("orderID") String orderID);
+    Response confirmOrder(@PathParam("orderID") String orderID,
+            @Valid ConfirmOrderRequest confirmOrderRequest);
 
     @POST
     @Path("/{orderID}/cancel")

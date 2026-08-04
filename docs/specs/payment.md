@@ -82,8 +82,14 @@ with the capture and is never parsed, logged, or persisted beyond the life of th
 **Consequences that constrain the implementation:**
 
 - The token arrives on the confirm request and travels to payment-service in the `capture-payment`
-  command. It is **not** written to the order aggregate, and **not** stored on the payment record
-  after the capture resolves.
+  command. It is **not** stored on the payment record, and **not** put on any other event -
+  `order-initiated` in particular, which every downstream consumer reads.
+- It **is** held on the order between confirm and capture, and cleared the moment the capture
+  resolves either way. This is not a weakening of the rule above, it is a consequence of the saga's
+  shape: the capture is commanded only once the stock step succeeds, which is long after the confirm
+  request returned, so something has to hold the token in the meantime. The order aggregate is the
+  only thing that already lives for exactly that span. What is excluded is card data, and the token
+  is not card data - it is opaque, single-use, and useless once spent.
 - Tokens are single-use and short-lived at the gateway. A capture retried long after the token was
   issued will be refused by the gateway, which is correct: the saga's step deadline should be
   shorter than the token's lifetime, or a slow saga fails at the gateway rather than at the deadline.
@@ -204,8 +210,9 @@ These need answering before implementation, not during.
 3. **Does the frontend collect the token?** This spec assumes it does. No frontend work is planned,
    so until that lands there is no source of real tokens and the flow is only exercisable against
    the stub.
-4. **Where does the token enter the API?** It has to reach `POST /orders/{id}/confirm`, which
-   currently takes no body. That is an OpenAPI change and needs gate 2 before any code.
+**Settled since this was written:** the token enters at `POST /orders/{id}/confirm`, in a required
+body carrying `payment_method`; the contract also gained `status_reason` on the order so the failure
+reason above has somewhere to be read from. Both landed at gate 2.
 
 ---
 

@@ -2,6 +2,7 @@ package the.chak.ecommerce.orders.boundary;
 
 import static java.util.stream.Collectors.toList;
 import java.util.List;
+import the.chak.ecommerce.orders.boundary.dto.ConfirmOrderRequest;
 import the.chak.ecommerce.orders.boundary.dto.OrderRequest;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
@@ -76,7 +77,7 @@ public class OrdersResource implements OrdersApi {
         return Response.ok().status(200).build();
     }
 
-    public Response confirmOrder(String orderID) {
+    public Response confirmOrder(String orderID, ConfirmOrderRequest confirmOrderRequest) {
         var existing = orderService.findById(orderID);
         if (existing.isEmpty()) {
             return Response.status(404).build();
@@ -86,7 +87,8 @@ public class OrdersResource implements OrdersApi {
         if (!userId.equals(order.getUserID())) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
-        Order confirmed = orderService.confirmOrder(orderID);
+        Order confirmed = orderService.confirmOrder(orderID,
+                confirmOrderRequest == null ? null : confirmOrderRequest.getPaymentMethod());
         return Response.ok(confirmed).status(200).build();
     }
 

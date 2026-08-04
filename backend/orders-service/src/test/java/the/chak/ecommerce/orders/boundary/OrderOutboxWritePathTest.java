@@ -54,6 +54,9 @@ import the.chak.ecommerce.orders.repository.OutboxRepository;
 @Tag("integration")
 class OrderOutboxWritePathTest {
 
+    /** Confirming requires a payment method reference; its value is never meaningful here. */
+    private static final String CONFIRM_BODY = "{\"payment_method\":\"pm_card_visa\"}";
+
     @InjectMock
     ProductsApiClient productsApiClient;
 
@@ -90,7 +93,7 @@ class OrderOutboxWritePathTest {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
             // when
-            given().when().post("/orders/" + orderId + "/confirm")
+            given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + orderId + "/confirm")
                     .then().statusCode(200);
 
             // then - the order is committed as CONFIRMED

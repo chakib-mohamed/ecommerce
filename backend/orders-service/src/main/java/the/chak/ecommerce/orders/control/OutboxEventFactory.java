@@ -10,6 +10,7 @@ import jakarta.json.bind.Jsonb;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
 import the.chak.ecommerce.orders.entity.Order;
+import the.chak.ecommerce.orders.control.events.CapturePaymentCommand;
 import the.chak.ecommerce.orders.control.events.OrderCancelledEvent;
 import the.chak.ecommerce.orders.control.events.ReleaseStockCommand;
 import the.chak.ecommerce.orders.control.events.ReserveStockCommand;
@@ -36,6 +37,7 @@ public class OutboxEventFactory {
     static final String TOPIC_RESERVE_STOCK = "reserve-stock";
     static final String TOPIC_RELEASE_STOCK = "release-stock";
     static final String TOPIC_ORDER_CANCELLED = "order-cancelled";
+    static final String TOPIC_CAPTURE_PAYMENT = "capture-payment";
 
     @Inject
     Jsonb jsonb;
@@ -70,6 +72,16 @@ public class OutboxEventFactory {
 
     public OutboxEntry releaseStock(String orderId, String stepId) {
         return build(orderId, TOPIC_RELEASE_STOCK, new ReleaseStockCommand(orderId, stepId));
+    }
+
+    /**
+     * Asks for the order to be charged. Carries the payment method reference, which is why this
+     * command's payload is the one thing in the outbox that is not safe to log.
+     */
+    public OutboxEntry capturePayment(Order order, String stepId, String paymentMethod) {
+        String orderId = order.id.toString();
+        return build(orderId, TOPIC_CAPTURE_PAYMENT, new CapturePaymentCommand(
+                orderId, stepId, order.getPrice(), order.getCurrency(), paymentMethod));
     }
 
     public OutboxEntry orderCancelled(Order order, String reason) {

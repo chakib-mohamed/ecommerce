@@ -53,6 +53,9 @@ import the.chak.ecommerce.products.boundary.dto.PromotionDto;
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
+    /** Opaque single-use reference; confirming requires one, and its value is never meaningful. */
+    private static final String PAYMENT_METHOD = "pm_card_visa";
+
     @InjectMocks
     OrderService orderService;
 
@@ -233,7 +236,7 @@ class OrderServiceTest {
         when(orderRepository.findById(any(ObjectId.class))).thenReturn(null);
 
         // when
-        Order result = orderService.confirmOrder(fakeId);
+        Order result = orderService.confirmOrder(fakeId, PAYMENT_METHOD);
 
         // then
         assertNull(result);
@@ -247,7 +250,7 @@ class OrderServiceTest {
         when(orderRepository.findById(any(ObjectId.class))).thenReturn(null);
 
         // when
-        orderService.confirmOrder(fakeId);
+        orderService.confirmOrder(fakeId, PAYMENT_METHOD);
 
         // then
         assertNull(meterRegistry.find("orders.confirmed").counter());
@@ -269,7 +272,7 @@ class OrderServiceTest {
 
         // when / then
         assertThrows(IllegalOrderTransitionException.class,
-                () -> orderService.confirmOrder(order.id.toString()));
+                () -> orderService.confirmOrder(order.id.toString(), PAYMENT_METHOD));
     }
 
     @Test
@@ -283,7 +286,7 @@ class OrderServiceTest {
 
         // when / then
         assertThrows(IllegalOrderTransitionException.class,
-                () -> orderService.confirmOrder(order.id.toString()));
+                () -> orderService.confirmOrder(order.id.toString(), PAYMENT_METHOD));
     }
 
     @Test
@@ -297,7 +300,7 @@ class OrderServiceTest {
 
         // when
         assertThrows(IllegalOrderTransitionException.class,
-                () -> orderService.confirmOrder(order.id.toString()));
+                () -> orderService.confirmOrder(order.id.toString(), PAYMENT_METHOD));
 
         // then - a refused confirmation is not a confirmation
         assertNull(meterRegistry.find("orders.confirmed").counter());

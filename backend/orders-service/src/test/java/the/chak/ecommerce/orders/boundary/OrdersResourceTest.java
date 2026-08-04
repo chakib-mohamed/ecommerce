@@ -48,6 +48,9 @@ import the.chak.ecommerce.products.boundary.dto.ProductDto;
 @Tag("integration")
 class OrdersResourceTest {
 
+    /** Confirming requires a payment method reference; its value is never meaningful here. */
+    private static final String CONFIRM_BODY = "{\"payment_method\":\"pm_card_visa\"}";
+
     @InjectMock
     ProductsApiClient productsApiClient;
 
@@ -199,7 +202,7 @@ class OrdersResourceTest {
         String orderId = order.id.toString();
 
         // when
-        var response = given().when().post("/orders/" + orderId + "/confirm");
+        var response = given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + orderId + "/confirm");
 
         // then
         response.then().statusCode(200).body("status", is(OrderStatus.CONFIRMED.name()));
@@ -378,7 +381,7 @@ class OrdersResourceTest {
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
     @DisplayName("Returns 404 when confirming an order that does not exist")
     void confirmOrder_unknownOrder_returns404() {
-        given().when().post("/orders/" + new ObjectId() + "/confirm").then().statusCode(404);
+        given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + new ObjectId() + "/confirm").then().statusCode(404);
     }
 
     @Test
@@ -388,7 +391,7 @@ class OrdersResourceTest {
     void confirmOrder_otherUsersOrder_returns403() {
         Order order = persistedOrder("owner", OrderStatus.INITIATED);
 
-        given().when().post("/orders/" + order.id + "/confirm").then().statusCode(403);
+        given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + order.id + "/confirm").then().statusCode(403);
     }
 
     @Test
@@ -398,9 +401,24 @@ class OrdersResourceTest {
     void confirmOrder_alreadyConfirmed_returns409() {
         Order order = persistedOrder("owner", OrderStatus.CONFIRMED);
 
-        given().when().post("/orders/" + order.id + "/confirm")
+        given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + order.id + "/confirm")
                 .then().statusCode(409)
                 .body("error_code", is("ILLEGAL_ORDER_TRANSITION"));
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 400 when confirming an order with no payment method")
+    void confirmOrder_withoutABody_returns400() {
+        // given - a confirm sent with no body at all, which reaches the resource as a null request
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+
+        // when / then - accepted, this order would reserve stock and only fail at the charge,
+        // holding inventory for a payment that was never possible
+        given().contentType("application/json").when().post("/orders/" + order.id + "/confirm")
+                .then().statusCode(400)
+                .body("error_code", is("MISSING_PAYMENT_METHOD"));
     }
 
     // --cancel ---------------------------------------------------------------

@@ -42,6 +42,9 @@ import the.chak.ecommerce.orders.repository.OrderRepository;
 @Tag("integration")
 class OrderInitiatedWireFormatTest {
 
+    /** Confirming requires a payment method reference; its value is never meaningful here. */
+    private static final String CONFIRM_BODY = "{\"payment_method\":\"pm_card_visa\"}";
+
     @InjectMock
     ProductsApiClient productsApiClient;
 
@@ -71,7 +74,7 @@ class OrderInitiatedWireFormatTest {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
             // when - confirming the order publishes it onto order-initiated
-            given().when().post("/orders/" + orderId + "/confirm")
+            given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + orderId + "/confirm")
                     .then().statusCode(200);
 
             // then - the wire payload uses snake_case field names, never camelCase
