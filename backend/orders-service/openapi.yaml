@@ -269,8 +269,9 @@ paths:
     post:
       summary: Confirm an order
       description: >-
-        Commits the order so it can be fulfilled. Confirming an order that is already confirmed
-        has no further effect and is reported as a conflict.
+        Commits the order so it can be fulfilled, and requests payment for it using the supplied
+        payment method. Confirming an order that is already confirmed has no further effect and is
+        reported as a conflict.
       operationId: confirmOrder
       parameters:
         - name: orderID
@@ -278,13 +279,28 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmOrderRequest'
       responses:
         '200':
-          description: Order confirmed
+          description: >-
+            The order has been committed and payment has been requested. This does not mean payment
+            has completed: the order goes on to reach its final state on its own, and the outcome —
+            including a declined payment — is reported by the order's status and status_reason.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDTO'
+        '400':
+          description: No payment method was supplied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: The order belongs to someone else
           content:
@@ -445,6 +461,25 @@ components:
             - DELIVERED
             - CANCELLED
             - REFUNDED
+        status_reason:
+          type: string
+          description: >-
+            Why the order reached its current status, when it did not get there by the buyer's own
+            action — a declined payment or an item that could not be supplied, for example. Present
+            only when there is such a reason to give.
+
+    ConfirmOrderRequest:
+      type: object
+      required:
+        - payment_method
+      properties:
+        payment_method:
+          type: string
+          description: >-
+            A single-use reference to the payment method the order is to be charged to, obtained by
+            the client directly from the payment provider. Card details are never sent to this API
+            and are never held by the platform. The reference is short-lived and cannot be reused
+            for a second order.
 
     OrderRequest:
       type: object
