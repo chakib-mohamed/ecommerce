@@ -5,6 +5,12 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+# Alerting rules are evaluated here and visible on Prometheus's own Alerts page and in Grafana.
+# There is no Alertmanager in this stack, so nothing is *delivered* anywhere - see
+# docs/specs/functional-metrics.md for what that means and what routing would take.
+rule_files:
+  - /etc/prometheus/rules/*.rules.yml
+
 scrape_configs:
   - job_name: prometheus
     static_configs:
@@ -48,3 +54,8 @@ scrape_configs:
     metrics_path: /q/metrics
     static_configs:
       - targets: ["analytics-service:8080"]
+
+  - job_name: payment-service
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["payment-service:8080"]

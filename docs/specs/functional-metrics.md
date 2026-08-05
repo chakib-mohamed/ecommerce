@@ -68,6 +68,15 @@ the exact control method (and failure branch) verified against the current code.
 | orders | `order_value_amount` | summary | — | `OrderService.saveOrder` — records `order.getPrice()` (set from the pricing call) |
 | orders | `orders_confirmed_total` | counter | — | `OrderService.confirmOrder` |
 | orders | `checkouts_total` | counter | `outcome=success\|failure` | `CartService.checkout` — failure = `CartNotFoundException` / `CartEmptyException` |
+| orders | `orders_cancelled_total` | counter | — | `OrderService.cancelOrder`, and `SagaService` on a stock refusal or a failed charge |
+| orders | `orders_reserved_total` | counter | — | `SagaService.onStockReserved` |
+| orders | `orders_paid_total` | counter | — | `SagaService.onPaymentCaptured` — this, not confirmation, is revenue |
+| orders | `orders_sagas_timed_out_total` | counter | — | `SagaDeadlineSweep.abandon` — **alerted on**; each one held stock |
+| payment | `payments_captured_total` | counter | — | `PaymentService.record` on the captured branch |
+| payment | `payments_declined_total` | counter | — | `PaymentService.record` on the refused branch |
+| payment | `payments_gateway_faults_total` | counter | — | `PaymentService.capture` — **alerted on**; the provider gave no usable answer |
+| payment | `payments_redelivered_total` | counter | — | `PaymentService.capture` — answered from the local record, charged nothing |
+| payment | `payments_refunded_total` | counter | — | `PaymentService.refund` |
 | price | `pricing_calculations_total` | counter | `outcome=success\|failure` | `PricingService.calculate` — failure = `InvalidOrderException` |
 | price | `pricing_discount_amount` | summary | — | `ApplyPromotionsService.applyPromotion` — recorded per applied discount |
 | price | `pricing_price_updates_total` | counter | `outcome=success\|failure` | `PriceService.update` — failure = `InvalidPriceException` |
@@ -103,6 +112,28 @@ the exact control method (and failure branch) verified against the current code.
   Prometheus-native; no HTTP JSON is involved.
 
 ---
+
+## Alerting
+
+Rules live in `observability/rules/*.rules.yml`, mounted into Prometheus and evaluated every 30s.
+They are visible on Prometheus's Alerts page and in Grafana.
+
+**Nothing delivers them.** There is no Alertmanager in the stack, so a firing alert waits for
+somebody to look at a dashboard. That is a deliberate stopping point rather than an oversight:
+adding Alertmanager is easy, but *where alerts should go* — an inbox, a channel, a pager, and who
+is on the other end — is a decision this repo cannot make for itself.
+
+| Alert | Fires on | Why it is worth waking up for |
+|---|---|---|
+| `SagaStepTimedOut` | any `orders_sagas_timed_out_total` increase | Each abandoned step held stock out of sale, and the buyer was told their order was cancelled for a timeout that was nobody's fault |
+| `OrdersConfirmedButNonePaid` | confirmations flowing, payments at zero for 15m | The saga is broken past `RESERVED`; every order is reserving stock and none complete |
+| `PaymentGatewayFault` | any `payments_gateway_faults_total` increase | The worst case in `payment.md` §8 — the money may have moved and the order was cancelled anyway. Only reconciliation recovers it |
+| `PaymentsMostlyDeclined` | >80% declines over 15m, min 10 declines | A wrong or expired provider key looks exactly like this |
+| `CapturesRepeatedlyRedelivered` | >5 redeliveries in 15m | The charge is safe, but a reply is not getting through and orders are waiting |
+| `ServiceNotScraped` | `up == 0` for 5m | Every alert above is silent while its service is unscraped, and silence reads as health |
+
+Two rules deliberately do **not** alert on volume being unusual. A busy day and a broken provider
+must not look the same, or the alerts get muted — and a muted alert protects nothing.
 
 ## Verification
 

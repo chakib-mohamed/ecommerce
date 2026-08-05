@@ -1,6 +1,7 @@
 package the.chak.ecommerce.payment.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -47,6 +48,8 @@ class PaymentServiceTest {
     private final OutboxEventFactory outboxEventFactory = mock(OutboxEventFactory.class);
     private final StripeGatewayClient gateway = mock(StripeGatewayClient.class);
     private final OutboxRelay outboxRelay = mock(OutboxRelay.class);
+    private final io.micrometer.core.instrument.simple.SimpleMeterRegistry meterRegistry =
+            new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
 
     private PaymentService service() {
         when(outboxEventFactory.paymentCaptured(any(), any())).thenReturn(new OutboxEvent());
@@ -60,6 +63,7 @@ class PaymentServiceTest {
         service.outboxEventFactory = outboxEventFactory;
         service.gateway = gateway;
         service.outboxRelay = outboxRelay;
+        service.meterRegistry = meterRegistry;
         return service;
     }
 
@@ -262,6 +266,82 @@ class PaymentServiceTest {
         verify(outboxEventFactory).paymentFailed(eq(ORDER_ID), any(PaymentFailedEvent.class));
     }
 
+    // -- what an operator can see -------------------------------------------
+
+    @Test
+    @DisplayName("Counts a charge the provider accepted")
+    void capture_captured_isCounted() {
+        // given
+        when(gateway.charge(any(), any(), any(), any())).thenReturn(ChargeResult.captured(PROVIDER_REF));
+
+        // when
+        service().capture(captureCommand());
+
+        // then
+        assertEquals(1.0, meterRegistry.get(MetricNames.PAYMENTS_CAPTURED).counter().count(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Counts a refusal separately from a fault")
+    void capture_declined_isCountedAsADecline() {
+        // given - a decline is a normal answer; conflating it with a fault would make an ordinary
+        // Tuesday look like an outage
+        when(gateway.charge(any(), any(), any(), any()))
+                .thenReturn(ChargeResult.declined("card_declined"));
+
+        // when
+        service().capture(captureCommand());
+
+        // then
+        assertEquals(1.0, meterRegistry.get(MetricNames.PAYMENTS_DECLINED).counter().count(), 0.001);
+        assertNull(meterRegistry.find(MetricNames.PAYMENTS_GATEWAY_FAULTS).counter());
+    }
+
+    @Test
+    @DisplayName("Counts a provider that did not answer, because nobody knows if money moved")
+    void capture_gatewayFault_isCounted() {
+        // given - the worst case in the spec: the charge may have gone through, and the saga will
+        // cancel the order anyway. A log line alone is not something anyone is watching
+        when(gateway.charge(any(), any(), any(), any()))
+                .thenThrow(new PaymentGatewayException("timeout"));
+
+        // when
+        assertThrows(PaymentGatewayException.class, () -> service().capture(captureCommand()));
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get(MetricNames.PAYMENTS_GATEWAY_FAULTS).counter().count(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Still lets the command redeliver after counting a fault")
+    void capture_gatewayFault_stillPropagates() {
+        // given - counting must not swallow it; the rethrow is what makes the retry happen
+        when(gateway.charge(any(), any(), any(), any()))
+                .thenThrow(new PaymentGatewayException("timeout"));
+
+        // when / then
+        assertThrows(PaymentGatewayException.class, () -> service().capture(captureCommand()));
+        verify(paymentRepository, never()).persist(any(Payment.class));
+    }
+
+    @Test
+    @DisplayName("Counts a redelivered capture without counting a second charge")
+    void capture_redelivered_isCountedAsARedelivery() {
+        // given - counting it as a capture would inflate the charge rate with messages that
+        // charged nothing
+        when(paymentRepository.findAttempt(ORDER_ID, STEP_ID))
+                .thenReturn(Optional.of(capturedPayment()));
+
+        // when
+        service().capture(captureCommand());
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get(MetricNames.PAYMENTS_REDELIVERED).counter().count(), 0.001);
+        assertNull(meterRegistry.find(MetricNames.PAYMENTS_CAPTURED).counter());
+    }
+
     // -- refunds --------------------------------------------------------------
 
     @Test
@@ -289,6 +369,7 @@ class PaymentServiceTest {
 
         // then
         assertEquals(PaymentStatus.REFUNDED, payment.getStatus());
+        assertEquals(1.0, meterRegistry.get(MetricNames.PAYMENTS_REFUNDED).counter().count(), 0.001);
     }
 
     @Test

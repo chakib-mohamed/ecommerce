@@ -1,0 +1,117 @@
+# Alerting rules for the order lifecycle and its saga.
+#
+# Every rule here fires on something that costs money or inventory and is otherwise silent. None of
+# them alert on a metric being merely unusual - a busy day and a broken payment provider must not
+# look the same, or the alerts get muted and then they protect nothing.
+#
+# There is no Alertmanager in this stack. These are evaluated by Prometheus and visible on its
+# Alerts page and in Grafana, but nothing routes them to a person. Adding that is a decision about
+# where alerts should go, not a technical gap - see docs/specs/functional-metrics.md.
+
+groups:
+  - name: order-saga
+    interval: 30s
+    rules:
+      # The sweep is the only thing that frees stock held by a stalled saga, and every order it
+      # gives up on had inventory reserved for it. The code comment on the metric says "alert on
+      # this"; this is that alert. Deliberately fires on a single occurrence: one stuck order is
+      # already stock removed from sale for a buyer who is being told their order was cancelled.
+      - alert: SagaStepTimedOut
+        expr: increase(orders_sagas_timed_out_total[10m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "A saga step was abandoned past its deadline"
+          description: >-
+            {{ $value | printf "%.0f" }} saga step(s) timed out in the last 10 minutes. Each one
+            held stock that the sweep has now released, and each order was cancelled for a timeout
+            rather than anything the buyer did. Look for a participant that stopped replying -
+            products-service or payment-service - or an outbox row that hit its retry cap.
+
+      # Confirmations arriving with no payments completing means the saga is broken somewhere past
+      # RESERVED. Rated rather than absolute so a quiet period is not an alert, and held for 15m so
+      # a slow minute is not either.
+      - alert: OrdersConfirmedButNonePaid
+        expr: |
+          sum(rate(orders_confirmed_total[15m])) > 0
+          and sum(rate(orders_paid_total[15m])) == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Orders are being confirmed but none are reaching PAID"
+          description: >-
+            Buyers are committing orders and none are completing payment. Stock is being reserved
+            for every one of them. Check payment-service, its provider, and whether capture-payment
+            is being consumed at all.
+
+  - name: payment
+    interval: 30s
+    rules:
+      # The worst case in docs/specs/payment.md section 8: the provider did not answer, so nobody
+      # knows whether the money moved, and the saga will cancel the order regardless. The spec is
+      # explicit that this needs an alert rather than silence, because the only way back is
+      # reconciliation against the provider's own records.
+      - alert: PaymentGatewayFault
+        expr: increase(payments_gateway_faults_total[10m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The payment provider did not answer"
+          description: >-
+            {{ $value | printf "%.0f" }} capture attempt(s) got no usable answer in the last 10
+            minutes. Each may have taken the buyer's money against an order that has since been
+            cancelled. Reconcile by provider reference before assuming nothing was charged.
+
+      # Declines are normal and this does not alert on them happening - only on nearly every card
+      # failing, which is what a misconfigured key or a provider incident looks like from here.
+      # Needs a floor on volume so two declines out of three at 4am is not a page.
+      - alert: PaymentsMostlyDeclined
+        expr: |
+          sum(rate(payments_declined_total[15m]))
+            / clamp_min(sum(rate(payments_declined_total[15m]))
+                        + sum(rate(payments_captured_total[15m])), 0.001) > 0.8
+          and sum(rate(payments_declined_total[15m])) * 900 >= 10
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Over 80% of card charges are being declined"
+          description: >-
+            Most captures are being refused. A wrong or expired provider key looks exactly like
+            this, as does a provider-side incident. Buyers are having orders cancelled that they
+            expected to complete.
+
+      # A capture that keeps redelivering is a reply that never reaches the orchestrator. The charge
+      # is safe - the local record and the idempotency key both prevent a second one - but the order
+      # is waiting and will eventually be cancelled for a timeout despite the money being taken.
+      - alert: CapturesRepeatedlyRedelivered
+        expr: increase(payments_redelivered_total[15m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Capture commands are being redelivered repeatedly"
+          description: >-
+            {{ $value | printf "%.0f" }} captures in 15 minutes were answered from the local record
+            rather than by charging. The charge is not at risk, but a reply is not getting through:
+            check payment-service's outbox relay and the payment-captured topic.
+
+  - name: scrape-health
+    interval: 30s
+    rules:
+      # An alert on a metric that stops being reported is worth as much as the metric. Every rule
+      # above is silent if the service it watches is not being scraped, and a missing target is
+      # indistinguishable from a healthy quiet one.
+      - alert: ServiceNotScraped
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus cannot scrape {{ $labels.job }}"
+          description: >-
+            {{ $labels.job }} has been unreachable for 5 minutes. Every alert that depends on its
+            metrics is silent for as long as this lasts.

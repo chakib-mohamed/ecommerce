@@ -50,6 +50,9 @@ public class PaymentService {
     @Inject
     OutboxRelay outboxRelay;
 
+    @Inject
+    io.micrometer.core.instrument.MeterRegistry meterRegistry;
+
     /**
      * Charges the order and replies with the outcome.
      *
@@ -65,6 +68,7 @@ public class PaymentService {
             LOG.infof("Capture redelivered, replaying the recorded outcome orderId=%s stepId=%s "
                     + "status=%s", command.getOrderId(), command.getStepId(), payment.getStatus());
             reply(payment);
+            meterRegistry.counter(MetricNames.PAYMENTS_REDELIVERED).increment();
             outboxRelay.requestPoll();
             return;
         }
@@ -72,8 +76,17 @@ public class PaymentService {
         // Outside any transaction, deliberately: this is network I/O, and a transaction that rolled
         // back could not un-charge the card anyway. A fault here propagates with nothing written,
         // so the command redelivers and the idempotency key makes the retry the same charge.
-        ChargeResult result = gateway.charge(command.getStepId(), command.getAmount(),
-                command.getCurrency(), command.getPaymentMethod());
+        ChargeResult result;
+        try {
+            result = gateway.charge(command.getStepId(), command.getAmount(),
+                    command.getCurrency(), command.getPaymentMethod());
+        } catch (PaymentGatewayException e) {
+            // Counted and rethrown, not handled. The rethrow is what leaves the command to
+            // redeliver; the count is what makes this visible, because from here nobody knows
+            // whether the money moved and the saga will cancel the order regardless.
+            meterRegistry.counter(MetricNames.PAYMENTS_GATEWAY_FAULTS).increment();
+            throw e;
+        }
 
         record(command, result);
     }
@@ -103,6 +116,9 @@ public class PaymentService {
 
         reply(payment);
 
+        meterRegistry.counter(result.captured()
+                ? MetricNames.PAYMENTS_CAPTURED : MetricNames.PAYMENTS_DECLINED).increment();
+
         LOG.infof("Capture handled orderId=%s stepId=%s outcome=%s",
                 command.getOrderId(), command.getStepId(), payment.getStatus());
 
@@ -124,6 +140,7 @@ public class PaymentService {
         Payment payment = captured.get();
         gateway.refund(command.getStepId(), payment.getProviderRef());
         payment.setStatus(PaymentStatus.REFUNDED);
+        meterRegistry.counter(MetricNames.PAYMENTS_REFUNDED).increment();
         LOG.infof("Refunded orderId=%s providerRef=%s",
                 command.getOrderId(), payment.getProviderRef());
     }
