@@ -92,6 +92,22 @@
                     </systemProperties>
                 </configuration>
             </plugin>
+            <!--
+              Publishes the test sources as their own artifact, so the saga's wire contracts
+              (src/test/resources/contracts) are readable by the services at both ends of each
+              message. A test-jar rather than main resources: these are fixtures, and they have no
+              business on a runtime classpath.
+            -->
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
