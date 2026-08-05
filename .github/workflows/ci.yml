@@ -58,13 +58,13 @@ jobs:
             echo "Not a pull request -> verifying every service."
             services=$(printf '%s\n' authenticate-service featured-products-service \
               price-service orders-service products-service analytics-service \
-              ecommerce-api-gateway)
+              payment-service ecommerce-api-gateway)
           elif ! git fetch --no-tags origin "${{ github.base_ref }}" >/dev/null 2>&1; then
             # Never silently narrow the run because the base ref was unreachable.
             echo "::warning::Could not fetch base ref '${{ github.base_ref }}' -> verifying every service."
             services=$(printf '%s\n' authenticate-service featured-products-service \
               price-service orders-service products-service analytics-service \
-              ecommerce-api-gateway)
+              payment-service ecommerce-api-gateway)
           else
             base=$(git merge-base FETCH_HEAD HEAD)
             echo "Diffing against $base"
@@ -115,6 +115,69 @@ jobs:
         if: steps.select.outputs.services != ''
         working-directory: .
         run: python3 .github/scripts/verify-coverage-gate.py
+
+  # Prometheus config and alerting rules. These reach production through a volume mount and
+  # are read by nothing else, so without this step the only thing that ever parses them is
+  # Prometheus itself, at startup, in a container nobody is watching.
+  #
+  # The failure being prevented is silent and points the wrong way: Prometheus logs an error
+  # for a rule file it cannot load and then *keeps running*. The alerts simply never fire, and
+  # an alert that never fires is indistinguishable from a system with nothing wrong.
+  #
+  # Note what this does NOT check: promtool validates that an expression is well-formed PromQL,
+  # not that the metrics it names are published by anything. `increase(a_metric_that_never_
+  # existed[10m]) > 0` passes here cleanly. That half is covered by the MetricNamesOnTheWireTest
+  # classes in orders-service and payment-service, which pin the rendered Prometheus names
+  # against a real Micrometer registry. Neither check catches the other's failure.
+  observability-config:
+    runs-on: ubuntu-latest                         # Docker preinstalled
+    steps:
+      - uses: actions/checkout@v5
+
+      # Validated with the *same* Prometheus version the stack runs, read from the compose
+      # file rather than pinned twice: a bump there must not leave CI checking against a
+      # different parser than the one that actually loads the files.
+      - name: Check Prometheus config and alerting rules
+        run: |
+          set -euo pipefail
+          image=$(grep -m1 'image: prom/prometheus:' docker-compose.yml | awk '{print $2}')
+          echo "Validating with $image"
+
+          # Mounted at the paths docker-compose.yml uses, so `rule_files:` resolves exactly as
+          # it will at runtime — this also catches a broken glob or a moved rules directory.
+          out=$(docker run --rm \
+            -v "$PWD/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+            -v "$PWD/observability/rules:/etc/prometheus/rules:ro" \
+            --entrypoint promtool "$image" \
+            check config /etc/prometheus/prometheus.yml 2>&1)
+          echo "$out"
+
+          # `check config` passes with exit 0 when the glob matches nothing at all, dropping the
+          # "N rule files found" line entirely. That is the same clean pass as a healthy run, so
+          # the count has to be asserted or this whole job would greenlight silently-unloaded
+          # alerts — the precise thing it exists to prevent.
+          # Every YAML in the directory is counted, not just the ones matching the glob. A new
+          # rules file named `payment.yml` instead of `payment.rules.yml` would otherwise be
+          # ignored by both Prometheus and this check, and agree with itself while doing it.
+          expected=$(find observability/rules -type f \( -name '*.yml' -o -name '*.yaml' \) | wc -l)
+          found=$(sed -n 's/.*SUCCESS: \([0-9]*\) rule files found.*/\1/p' <<<"$out" | head -1)
+          : "${found:=0}"
+          echo "Rule files on disk: $expected; picked up by Prometheus: $found"
+          if [ "$expected" -eq 0 ]; then
+            echo "::error::No rule files found under observability/rules."
+            exit 1
+          fi
+          if [ "$found" -ne "$expected" ]; then
+            echo "::error::Prometheus loaded $found rule file(s) but $expected exist under" \
+                 "observability/rules. Every file there must match the rule_files glob in" \
+                 "observability/prometheus.yml (*.rules.yml) - alerts in an unloaded file never fire."
+            exit 1
+          fi
+
+      # The rules and the scrape config reach Prometheus via volume mounts declared here, so a
+      # compose file that no longer parses breaks them too.
+      - name: Check the compose file parses
+        run: docker compose --profile "*" config --quiet
 
   # Full-stack browser suite (e2e/) — boots the real docker-compose stack (6 JVM
   # services + Postgres/Mongo/Kafka/Redis/Zookeeper + the built frontend image),
