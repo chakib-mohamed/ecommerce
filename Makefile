@@ -93,7 +93,7 @@ build-api:
 	docker compose --profile "*" build \
 		products-service authenticate-service orders-service \
 		featured-products-service price-service api-gateway \
-		analytics-service
+		analytics-service payment-service
 
 ## build-front: build the frontend image (single in-image build)
 build-front:
