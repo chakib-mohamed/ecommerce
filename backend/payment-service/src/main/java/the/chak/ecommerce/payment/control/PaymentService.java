@@ -51,6 +51,9 @@ public class PaymentService {
     OutboxRelay outboxRelay;
 
     @Inject
+    TransactionBoundary transaction;
+
+    @Inject
     io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
     /**
@@ -59,16 +62,9 @@ public class PaymentService {
      * <p>Safe to redeliver: an attempt already recorded is replayed rather than charged again.
      */
     public void capture(CapturePaymentCommand command) {
-        Optional<Payment> alreadyAttempted =
-                paymentRepository.findAttempt(command.getOrderId(), command.getStepId());
-        if (alreadyAttempted.isPresent()) {
-            // The charge happened; it was the reply that was lost. Replaying it is not optional -
-            // staying silent leaves the order waiting on an answer that already exists.
-            Payment payment = alreadyAttempted.get();
-            LOG.infof("Capture redelivered, replaying the recorded outcome orderId=%s stepId=%s "
-                    + "status=%s", command.getOrderId(), command.getStepId(), payment.getStatus());
-            reply(payment);
-            meterRegistry.counter(MetricNames.PAYMENTS_REDELIVERED).increment();
+        // Its own transaction. This runs on a Kafka consumer thread, where nothing is active until
+        // something starts it: without this the entity manager cannot be touched at all.
+        if (transaction.call(() -> replayIfAlreadyAttempted(command))) {
             outboxRelay.requestPoll();
             return;
         }
@@ -88,7 +84,32 @@ public class PaymentService {
             throw e;
         }
 
-        record(command, result);
+        ChargeResult outcome = result;
+        transaction.run(() -> record(command, outcome));
+        // After the commit, not inside it: a relay woken while the row is still uncommitted finds
+        // nothing and goes back to sleep. Best-effort either way - the scheduled tick still drains.
+        outboxRelay.requestPoll();
+    }
+
+    /**
+     * Replays the outcome of a capture already attempted, if there is one.
+     *
+     * @return whether this command was a redelivery and has now been answered
+     */
+    private boolean replayIfAlreadyAttempted(CapturePaymentCommand command) {
+        Optional<Payment> alreadyAttempted =
+                paymentRepository.findAttempt(command.getOrderId(), command.getStepId());
+        if (alreadyAttempted.isEmpty()) {
+            return false;
+        }
+        // The charge happened; it was the reply that was lost. Replaying it is not optional -
+        // staying silent leaves the order waiting on an answer that already exists.
+        Payment payment = alreadyAttempted.get();
+        LOG.infof("Capture redelivered, replaying the recorded outcome orderId=%s stepId=%s "
+                + "status=%s", command.getOrderId(), command.getStepId(), payment.getStatus());
+        reply(payment);
+        meterRegistry.counter(MetricNames.PAYMENTS_REDELIVERED).increment();
+        return true;
     }
 
     /**
@@ -97,7 +118,8 @@ public class PaymentService {
      * <p>One transaction, for the reason ADR-0002 exists: a charge recorded while its reply was
      * lost would leave an order waiting on money that had already been taken.
      */
-    @Transactional
+    // Not @Transactional: capture() calls this directly, and an interceptor does not run on a call
+    // that never leaves the bean. The transaction is opened by the caller, where it is visible.
     void record(CapturePaymentCommand command, ChargeResult result) {
         Payment payment = new Payment();
         payment.setId(UUID.randomUUID());
@@ -121,9 +143,6 @@ public class PaymentService {
 
         LOG.infof("Capture handled orderId=%s stepId=%s outcome=%s",
                 command.getOrderId(), command.getStepId(), payment.getStatus());
-
-        // Best-effort wake-up; if it is lost the scheduled tick still drains the row.
-        outboxRelay.requestPoll();
     }
 
     /** Returns the money for an order already charged. */

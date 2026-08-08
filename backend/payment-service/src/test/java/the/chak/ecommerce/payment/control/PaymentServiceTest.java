@@ -43,6 +43,19 @@ class PaymentServiceTest {
     private static final String PAYMENT_METHOD = "pm_card_visa";
     private static final BigDecimal AMOUNT = new BigDecimal("49.99");
 
+    /** A boundary that just runs the work: no container here, and none of these tests need one. */
+    private static final TransactionBoundary INLINE_TRANSACTION = new TransactionBoundary() {
+        @Override
+        public <T> T call(java.util.function.Supplier<T> work) {
+            return work.get();
+        }
+
+        @Override
+        public void run(Runnable work) {
+            work.run();
+        }
+    };
+
     private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
     private final OutboxRepository outboxRepository = mock(OutboxRepository.class);
     private final OutboxEventFactory outboxEventFactory = mock(OutboxEventFactory.class);
@@ -63,6 +76,10 @@ class PaymentServiceTest {
         service.outboxEventFactory = outboxEventFactory;
         service.gateway = gateway;
         service.outboxRelay = outboxRelay;
+        // Runs the work inline. There is no transaction manager here, and these tests are about
+        // what capture does, not where its transactions begin - that boundary is asserted by
+        // TransactionBoundaryTest and by the end-to-end suite, which is what caught its absence.
+        service.transaction = INLINE_TRANSACTION;
         service.meterRegistry = meterRegistry;
         return service;
     }
