@@ -285,6 +285,66 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns only the orders in the requested states when searching with a status filter")
+    void searchOrders_withStatuses_returnsOnlyOrdersInThoseStates() {
+        // given - the same buyer, the same product, one paid for and one abandoned before payment
+        Order paid = orderContaining("prod_filtered", "user_status_filter", OrderStatus.PAID);
+        orderRepository.persist(paid);
+        Order neverPaid =
+                orderContaining("prod_filtered", "user_status_filter", OrderStatus.INITIATED);
+        orderRepository.persist(neverPaid);
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_status_filter\",\"product_id\":\"prod_filtered\","
+                        + "\"statuses\":[\"PAID\",\"SHIPPED\",\"DELIVERED\"]}")
+                .when().post("/orders/search");
+
+        // then - the abandoned one must not be counted. This is what stands between "placed an
+        // order" and "bought it": an unconfirmed order costs nothing and can be made at will, so
+        // anything trusting this count is trusting something anyone can mint.
+        response.then().statusCode(200)
+                .body("x", is(1))
+                .body("y.size()", is(1))
+                .body("y[0].status", is("PAID"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns orders in every state when searching without a status filter")
+    void searchOrders_withoutStatuses_returnsEveryState() {
+        // given
+        orderRepository.persist(orderContaining("prod_unfiltered", "user_no_filter",
+                OrderStatus.PAID));
+        orderRepository.persist(orderContaining("prod_unfiltered", "user_no_filter",
+                OrderStatus.INITIATED));
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_no_filter\"}")
+                .when().post("/orders/search");
+
+        // then - order history shows a buyer everything they placed, so the filter has to be
+        // opt-in. This passes today and is here to stay passing.
+        response.then().statusCode(200)
+                .body("x", is(2));
+    }
+
+    private static Order orderContaining(String productId, String userId, OrderStatus status) {
+        the.chak.ecommerce.orders.entity.ProductVO product =
+                new the.chak.ecommerce.orders.entity.ProductVO();
+        product.setProductID(productId);
+        Order order = new Order();
+        order.setUserID(userId);
+        order.setStatus(status);
+        order.setProducts(List.of(product));
+        return order;
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
     @DisplayName("Returns 400 with VALIDATION_ERROR when searching with a blank user id")
     void searchOrders_blankUserId_returns400() {
         // given
