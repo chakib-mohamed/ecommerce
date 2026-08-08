@@ -13,7 +13,24 @@ import type { AppDispatch, RootState } from "../../store";
 import { clearCart } from "../../store/StoreCart/store-cart-slice";
 
 const WRAP = "max-w-[980px] mx-auto px-6";
-const PAY_METHODS = ["Visa", "Mastercard", "Amex", "Apple Pay", "PayPal"];
+
+/**
+ * The methods a buyer can pay with, and the opaque reference sent for each.
+ *
+ * PLACEHOLDER. These are the payment provider's own *test* references, and they stand in for a
+ * step this app does not have yet: real checkout collects the card in a provider-hosted field and
+ * gets a single-use reference back, so the details never touch our code. Until that exists these
+ * let the order reach the provider without a card number ever existing here - which is the rule
+ * that matters - but they are not a way to take real money, and every buyer sends the same one.
+ *
+ * Replacing this means adding the provider's client library and a publishable key; nothing else
+ * here changes, because a reference is all that is ever sent.
+ */
+const PAY_METHODS = [
+  { label: "Visa", reference: "pm_card_visa" },
+  { label: "Mastercard", reference: "pm_card_mastercard" },
+  { label: "Amex", reference: "pm_card_amex" },
+] as const;
 
 interface FieldRowProps {
   label: string;
@@ -70,10 +87,18 @@ const Checkout: React.FC = () => {
   const total = subtotal + shipping;
 
   const [f, setF] = useState({ email: "", name: "", addr: "", city: "", zip: "" });
+  const [payMethod, setPayMethod] = useState<string>("");
   const [placing, setPlacing] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setF({ ...f, [k]: e.target.value });
-  const ready = f.email.includes("@") && f.name.trim() !== "" && f.addr.trim() !== "" && f.city.trim() !== "";
+  // A payment method is required, not optional: committing the order asks for payment in the same
+  // step, and the request is rejected without one.
+  const ready =
+    f.email.includes("@") &&
+    f.name.trim() !== "" &&
+    f.addr.trim() !== "" &&
+    f.city.trim() !== "" &&
+    payMethod !== "";
 
   const isAuthenticated = Boolean(user) && user !== "anonymous";
 
@@ -95,10 +120,18 @@ const Checkout: React.FC = () => {
           price: it.product.price,
         })),
       });
+      // Creating the order only prices it; it is not committed and no payment is requested until
+      // this call. Anything thrown here leaves the order uncommitted rather than half-paid, so the
+      // cart is deliberately not cleared until it succeeds - the buyer keeps what they were buying.
+      await service.confirmOrder(order.id, payMethod);
       dispatch(clearCart());
       navigate("/confirm", { state: { total: money(total), orderId: order.id } });
     } catch {
-      // The API client surfaces failures via a toast (and bounces to login on 401).
+      // The API client surfaces failures via a toast (and bounces to login on 401). Staying put
+      // is the honest outcome: nothing was charged, and the confirmation page would claim
+      // otherwise. Retrying places a second order rather than committing the first - the order id
+      // is not kept for a retry - which is a wart worth closing once this page has somewhere to
+      // report a payment outcome.
     } finally {
       setPlacing(false);
     }
@@ -163,21 +196,41 @@ const Checkout: React.FC = () => {
                 <div>
                   <div className="text-sm font-semibold mb-1.5">Secure payment</div>
                   <p className="text-muted text-[13px] leading-relaxed m-0">
-                    You'll be redirected to our payment provider to complete checkout safely. We
-                    never store your card details.
+                    Your payment is handled by our payment provider. We never see or store your
+                    card details.
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2.5 mt-4 flex-wrap">
-                {PAY_METHODS.map((m) => (
-                  <span
-                    key={m}
-                    className="px-[11px] py-[5px] bg-surface border border-line rounded-full text-xs text-ink-2 font-medium"
-                  >
-                    {m}
-                  </span>
-                ))}
-              </div>
+              <fieldset className="border-0 p-0 m-0 mt-4">
+                <legend className="sr-only">Payment method</legend>
+                <div className="flex gap-2.5 flex-wrap">
+                  {PAY_METHODS.map((m) => {
+                    const selected = payMethod === m.reference;
+                    return (
+                      <label
+                        key={m.reference}
+                        className={[
+                          "px-[11px] py-[5px] border rounded-full text-xs font-medium cursor-pointer",
+                          "inline-flex items-center gap-2 transition-colors",
+                          selected
+                            ? "bg-accent-soft border-accent text-accent-deep"
+                            : "bg-surface border-line text-ink-2",
+                        ].join(" ")}
+                      >
+                        <input
+                          type="radio"
+                          name="payment-method"
+                          value={m.reference}
+                          checked={selected}
+                          onChange={() => setPayMethod(m.reference)}
+                          className="accent-[var(--accent)]"
+                        />
+                        {m.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
             </div>
           </Step>
 

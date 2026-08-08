@@ -21,9 +21,15 @@ const Confirm: React.FC = () => {
       <h1 className="display text-[46px] mb-3 reveal" style={{ animationDelay: "60ms" }}>
         Thank you!
       </h1>
+      {/*
+        Placing the order and paying for it are not the same moment. The order is committed here
+        and payment has been asked for; the answer comes back afterwards and can be a refusal. Say
+        that plainly rather than promising a receipt this page has no way to know was earned.
+      */}
       <p className="text-[17px] text-ink-2 reveal" style={{ animationDelay: "120ms" }}>
-        Your order {orderNo && <b>{orderNo}</b>} is confirmed. We've sent a receipt to your email
-        and you'll get tracking when it ships.
+        Your order {orderNo && <b>{orderNo}</b>} is placed and we're taking payment now. It usually
+        settles within a few seconds - your orders page shows where it got to, and we'll email you
+        once it's paid for.
       </p>
       {total && (
         <div
