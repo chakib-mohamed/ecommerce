@@ -331,6 +331,28 @@ class OrdersResourceTest {
                 .body("x", is(2));
     }
 
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Applies the status filter when searching without a product id")
+    void searchOrders_statusesWithoutProductId_stillFilters() {
+        // given - the filters are assembled by string concatenation, so each one has to compose
+        // with whichever others are present; this is the combination the other tests do not cover
+        orderRepository.persist(orderContaining("prod_a", "user_status_only", OrderStatus.PAID));
+        orderRepository.persist(
+                orderContaining("prod_b", "user_status_only", OrderStatus.CANCELLED));
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_status_only\",\"statuses\":[\"PAID\"]}")
+                .when().post("/orders/search");
+
+        // then
+        response.then().statusCode(200)
+                .body("x", is(1))
+                .body("y[0].status", is("PAID"));
+    }
+
     private static Order orderContaining(String productId, String userId, OrderStatus status) {
         the.chak.ecommerce.orders.entity.ProductVO product =
                 new the.chak.ecommerce.orders.entity.ProductVO();

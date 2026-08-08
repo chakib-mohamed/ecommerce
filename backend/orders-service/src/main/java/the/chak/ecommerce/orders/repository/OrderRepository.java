@@ -24,6 +24,12 @@ public class OrderRepository implements PanacheMongoRepository<Order> {
             query += (query.isEmpty() ? "" : "and ") + "products.productID = :productID ";
             params.put("productID", search.productID());
         }
+        if (search.statuses() != null && !search.statuses().isEmpty()) {
+            // Names, not the enum values: the field is stored as a string, and matching against
+            // enum constants leaves the query silently returning nothing.
+            query += (query.isEmpty() ? "" : "and ") + "status in :statuses ";
+            params.put("statuses", search.statuses().stream().map(Enum::name).toList());
+        }
 
         var panacheQuery = find(query, params);
 

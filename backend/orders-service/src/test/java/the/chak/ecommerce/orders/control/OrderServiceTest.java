@@ -28,6 +28,7 @@ import jakarta.json.bind.config.PropertyNamingStrategy;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -221,6 +222,51 @@ class OrderServiceTest {
         // then
         assertEquals(1L, result.getX());
         assertEquals(1, result.getY().size());
+    }
+
+    @Test
+    @DisplayName("Passes the requested states through to the search")
+    void searchOrders_withStatuses_translatesThemForThePersistenceLayer() {
+        // given - the boundary and the entity have their own copies of this enum
+        SearchOrdersCommand cmd = new SearchOrdersCommand();
+        cmd.setUserID("user-1");
+        cmd.setStatuses(List.of(
+                the.chak.ecommerce.orders.boundary.dto.OrderStatus.PAID,
+                the.chak.ecommerce.orders.boundary.dto.OrderStatus.DELIVERED));
+        when(orderRepository.search(any(OrderSearch.class)))
+                .thenReturn(new PagedResult<>(0L, List.of()));
+
+        // when
+        orderService.searchOrders(cmd);
+
+        // then
+        ArgumentCaptor<OrderSearch> search = ArgumentCaptor.forClass(OrderSearch.class);
+        verify(orderRepository).search(search.capture());
+        assertEquals(
+                List.of(the.chak.ecommerce.orders.entity.OrderStatus.PAID,
+                        the.chak.ecommerce.orders.entity.OrderStatus.DELIVERED),
+                search.getValue().statuses());
+    }
+
+    @Test
+    @DisplayName("Treats an empty list of states as no filter at all")
+    void searchOrders_withEmptyStatuses_doesNotFilter() {
+        // given - an empty list is not "match nothing"; a caller that sends one is saying it does
+        // not care, and returning nothing would hide every order they own
+        SearchOrdersCommand cmd = new SearchOrdersCommand();
+        cmd.setUserID("user-1");
+        cmd.setStatuses(List.of());
+        when(orderRepository.search(any(OrderSearch.class)))
+                .thenReturn(new PagedResult<>(0L, List.of()));
+
+        // when
+        orderService.searchOrders(cmd);
+
+        // then
+        ArgumentCaptor<OrderSearch> search = ArgumentCaptor.forClass(OrderSearch.class);
+        verify(orderRepository).search(search.capture());
+        assertTrue(search.getValue().statuses().isEmpty(),
+                "an empty filter must reach the repository as no filter");
     }
 
     // --confirmOrder -------------------------------------------------------

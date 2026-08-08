@@ -200,10 +200,29 @@ public class OrderService {
         OrderSearch search = new OrderSearch(
                 searchOrdersCommand.getUserID(),
                 searchOrdersCommand.getProductID(),
+                toEntityStatuses(searchOrdersCommand.getStatuses()),
                 searchOrdersCommand.getOffset(),
                 searchOrdersCommand.getLimit());
         PagedResult<Order> result = orderRepository.search(search);
         return new Tuple<>(result.total(), result.items());
+    }
+
+    /**
+     * Maps the requested states onto the entity's own enum.
+     *
+     * <p>By name, and only for names the entity actually has: the two enums are separate types that
+     * happen to agree, and a state added to one and not the other must not turn into a filter that
+     * matches nothing while looking like it matched.
+     */
+    private static List<the.chak.ecommerce.orders.entity.OrderStatus> toEntityStatuses(
+            List<the.chak.ecommerce.orders.boundary.dto.OrderStatus> statuses) {
+        if (statuses == null || statuses.isEmpty()) {
+            return List.of();
+        }
+        return statuses.stream()
+                .map(Enum::name)
+                .map(the.chak.ecommerce.orders.entity.OrderStatus::valueOf)
+                .toList();
     }
 
     /**
