@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Overview
 
-Microservices-based ecommerce platform. Backend has 7 services: one Spring Boot API Gateway plus 6 Quarkus services. Frontend is React 18 + TypeScript + Vite.
+Microservices-based ecommerce platform. Backend has 8 services: one Spring Boot API Gateway plus 7 Quarkus services. Frontend is React 18 + TypeScript + Vite.
 
 ### Architecture
 
@@ -25,10 +25,25 @@ Framework versions live in the poms — the gateway is the only Spring Boot serv
 | orders-service            | 8084 | MongoDB    |                                          |
 | price-service             | 8085 | MongoDB    |                                          |
 | analytics-service         | 8086 | PostgreSQL | Kafka consumer; read-model warehouse     |
+| payment-service           | 8087 | PostgreSQL | Kafka only — no gateway route; charges via Stripe |
 
-Shared API modules: `products-api` and `orders-api` (DTOs only, no runtime).
+Shared API modules: `products-api` and `orders-api` (DTOs only, no runtime). `outbox-common` is
+shared runtime code — the relay base class and trace propagation — plus the saga's wire-contract
+fixtures, published as a test-jar so they stay off every runtime classpath.
 
-All traffic goes through the gateway at `/api/**`. Two Docker Compose networks: `frontend` (gateway + frontend) and `backend` (all internal services).
+Ports in the table are **host** ports, published by the compose mapping. Every service listens on
+**8080 inside its container**; setting a service's `quarkus.http.port` to its host port instead
+publishes nothing, fails the healthcheck, and leaves Prometheus scraping a dead port.
+
+All traffic goes through the gateway at `/api/**`, except payment-service, which has no HTTP API
+and is reached only over Kafka. Two Docker Compose networks: `frontend` (gateway + frontend) and
+`backend` (all internal services).
+
+**Adding a service means editing lists that do not reference each other**, and nothing checks them:
+`docker-compose.yml` (including `KAFKA_BOOTSTRAP_SERVERS` for anything using Kafka), the image list
+in `make build-api`, the two fallback service lists in `.github/workflows/ci.yml`, the mapping in
+`.github/scripts/affected-services.sh`, the Prometheus scrape config, and this table. payment-service
+was missing from four of them at once.
 
 ### Build & Run
 
@@ -41,7 +56,7 @@ See `frontend/CLAUDE.md` for frontend dev commands.
 
 ### Observability
 
-Distributed tracing, metrics, and logs across all 7 backend services, via **OTel Collector + Jaeger +
+Distributed tracing, metrics, and logs across all 8 backend services, via **OTel Collector + Jaeger +
 Prometheus + Loki + Grafana** under the `observability` Compose profile (`make observability`, also
 folded into `make up`). One request is one connected trace across the gateway, downstream HTTP calls,
 and Kafka. **`X-Request-ID` is retired** — the gateway echoes the trace id back as `X-Trace-Id`.

@@ -5,7 +5,7 @@ description: The local tracing, metrics, and log-aggregation stack (OTel Collect
 
 # Observability
 
-Distributed tracing, metrics, and logs across all 7 backend services. The local stack — **OTel
+Distributed tracing, metrics, and logs across all 8 backend services. The local stack — **OTel
 Collector + Jaeger + Prometheus + Loki + Grafana** — runs under the `observability` Docker Compose
 profile (`make observability`, also folded into `make up`).
 
@@ -32,14 +32,21 @@ profile (`make observability`, also folded into `make up`).
   (Loki `derivedFields` → Jaeger) and trace → log (Jaeger `tracesToLogsV2` → Loki). Console/stdout
   logging is unchanged (`make logs` still works). **`X-Request-ID` is retired** — the gateway echoes
   the trace id back as an `X-Trace-Id` response header. Spec: `docs/specs/log-aggregation.md`.
-- Beyond the auto-instrumented RED/JVM/Kafka signals, the four business-owning Quarkus services
-  (`authenticate`, `products`, `orders`, `price`) record curated **functional/business meters** in
-  their control layer (orders/revenue, auth success/failure, catalog mutations, pricing/discounts),
-  surfaced on the *Ecommerce Business KPIs* dashboard.
+- Beyond the auto-instrumented RED/JVM/Kafka signals, the business-owning Quarkus services
+  (`authenticate`, `products`, `orders`, `price`, `payment`) record curated **functional/business
+  meters** in their control layer (orders/revenue, auth success/failure, catalog mutations,
+  pricing/discounts, captures/declines/gateway faults), surfaced on the *Ecommerce Business KPIs*
+  dashboard. Full catalog: `docs/specs/functional-metrics.md`.
+- **Alerting rules** live in `observability/rules/*.rules.yml`, loaded via `rule_files` in
+  `observability/prometheus.yml` and validated in CI by the `observability-config` job. They are
+  evaluated and visible in Prometheus and Grafana, but **there is no Alertmanager**, so nothing is
+  delivered to a person. Rules are written against the *rendered* Prometheus names (dots become
+  underscores, counters gain `_total`); `MetricNamesOnTheWireTest` in orders-service and
+  payment-service pins those names, because an alert on a metric that does not exist never fires.
 
 ## Per-service wiring
 
-All 6 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
+All 7 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
 (metrics); the gateway uses `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`.
 
 - **Tracing** — OTLP endpoint `http://otel-collector:4317`, sampler `quarkus.otel.traces.sampler=always_on`

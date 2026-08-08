@@ -16,7 +16,7 @@ foreground**, each in its own terminal:
 
 ```bash
 make infra            # dependencies (db/kafka/etc.) in Docker
-make dev-gateway      # gateway on :8080, Spring `dev` profile → routes to localhost:8081-8085
+make dev-gateway      # gateway on :8080, Spring `dev` profile → routes to localhost:8081-8086
 make dev-products     # the service you're working on: quarkus:dev, live reload
 make dev-front        # optional: Vite on :3000, proxies /api → :8080
 ```
@@ -33,6 +33,11 @@ just fail at the gateway.
 | `dev-orders`        | 8084 | `/api/orders/**`, `/api/cart/**` |
 | `dev-price`         | 8085 | `/api/prices/**`, `/api/pricing/**` |
 | `dev-analytics`     | 8086 | `/api/analytics/**` |
+| `dev-payment`       | 8087 | none — Kafka only, never routed through the gateway |
+
+payment-service has no gateway route by design: it consumes the saga's commands and replies on its
+outbox, so nothing outside the backend network calls it. Running it needs Kafka, which means
+`make infra` rather than the service alone.
 
 Run `make help` for the full target list. The gateway is Spring Boot — see
 `ecommerce-api-gateway/CLAUDE.md`.
