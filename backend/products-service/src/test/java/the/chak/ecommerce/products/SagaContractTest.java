@@ -6,6 +6,7 @@ import jakarta.json.bind.Jsonb;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import the.chak.ecommerce.outbox.contract.EventContracts;
+import the.chak.ecommerce.products.boundary.CustomJsonbConfigCustomizer;
 import the.chak.ecommerce.products.control.events.ReleaseStockCommand;
 import the.chak.ecommerce.products.control.events.ReserveStockCommand;
 import the.chak.ecommerce.products.control.events.StockRejectedEvent;
@@ -24,7 +25,11 @@ import the.chak.ecommerce.products.control.events.StockReservedEvent;
  */
 class SagaContractTest {
 
-    private final Jsonb jsonb = EventContracts.wireJsonb();
+    // The service's own configuration, not a copy of it: a contract checked against a
+    // hand-built config passes even when the service is configured some other way, which
+    // is precisely how payment-service shipped reading and writing camelCase.
+    private final Jsonb jsonb =
+            EventContracts.configuredBy(new CustomJsonbConfigCustomizer()::customize);
 
     /** A fixture has to survive a round-trip through this service's class unchanged. */
     private void assertHonours(String topic, Class<?> type) {

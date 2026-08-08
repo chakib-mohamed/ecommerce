@@ -33,7 +33,28 @@ public final class EventContracts {
     private EventContracts() {
     }
 
-    /** JSON-B configured exactly as the services configure it, so fixtures are read as published. */
+    /**
+     * JSON-B built by the service's own configuration, so the contract is checked against what the
+     * service actually does rather than against what it is assumed to do.
+     *
+     * <p>Pass the service's {@code JsonbConfigCustomizer::customize}. That indirection is the whole
+     * point: a hand-rolled config here tests the shape of the DTOs under a configuration nobody
+     * guarantees is in force. payment-service shipped with no customizer at all, so its runtime
+     * JSON-B was camelCase - every {@code payment_method} arriving null, every reply published in
+     * a shape orders-service could not read - while a contract test built on its own config passed.
+     */
+    public static Jsonb configuredBy(java.util.function.Consumer<JsonbConfig> serviceConfig) {
+        JsonbConfig config = new JsonbConfig();
+        serviceConfig.accept(config);
+        return JsonbBuilder.create(config);
+    }
+
+    /**
+     * The naming rules the platform's conventions require, independent of any service.
+     *
+     * <p>Used to assert that a service's own configuration <em>is</em> these rules; for reading
+     * fixtures, prefer {@link #configuredBy} so the service's real configuration is what is tested.
+     */
     public static Jsonb wireJsonb() {
         return JsonbBuilder.create(new JsonbConfig()
                 .withPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CASE_WITH_UNDERSCORES)

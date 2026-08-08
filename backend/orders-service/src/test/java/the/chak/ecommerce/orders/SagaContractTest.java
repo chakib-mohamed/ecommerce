@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import jakarta.json.bind.Jsonb;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import the.chak.ecommerce.orders.boundary.CustomJsonbConfigCustomizer;
 import the.chak.ecommerce.orders.control.events.CapturePaymentCommand;
 import the.chak.ecommerce.orders.control.events.PaymentCapturedEvent;
 import the.chak.ecommerce.orders.control.events.PaymentFailedEvent;
@@ -30,7 +31,11 @@ import the.chak.ecommerce.outbox.contract.EventContracts;
  */
 class SagaContractTest {
 
-    private final Jsonb jsonb = EventContracts.wireJsonb();
+    // The service's own configuration, not a copy of it: a contract checked against a
+    // hand-built config passes even when the service is configured some other way, which
+    // is precisely how payment-service shipped reading and writing camelCase.
+    private final Jsonb jsonb =
+            EventContracts.configuredBy(new CustomJsonbConfigCustomizer()::customize);
 
     /** A fixture has to survive a round-trip through this service's class unchanged. */
     private void assertHonours(String topic, Class<?> type) {
