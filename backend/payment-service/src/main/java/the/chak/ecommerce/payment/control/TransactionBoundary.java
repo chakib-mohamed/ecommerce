@@ -13,14 +13,16 @@ import jakarta.enterprise.context.ApplicationScoped;
  * The transaction has to wrap the database work on either side of that call and nothing else, so
  * the boundary is stated here rather than implied by an annotation.
  *
- * <p>Annotations were not an option regardless. {@code @Transactional} is applied by an
- * interceptor, and an interceptor only runs when the call arrives through the bean's proxy - a
- * method calling its own sibling with {@code this} silently gets no transaction at all. That is
- * exactly what happened here: {@code record} was annotated, called from {@code capture}, and never
- * ran in a transaction once in production.
+ * <p>Annotating the two halves would work too. ArC intercepts by subclassing, so - unlike Spring's
+ * proxy-based AOP - a call to a non-private sibling through {@code this} <em>is</em> intercepted;
+ * products-service's {@code deleteReview -> removeReview} has always relied on that. What an
+ * annotation cannot express is the requirement pointing the other way: that the provider is called
+ * with <em>no</em> transaction open. Nothing about the code says so, adding {@code @Transactional}
+ * to {@code capture} would quietly undo it, and it is forbidden by convention (backend/CLAUDE.md:
+ * no network I/O inside a transaction).
  *
- * <p>Being an injected collaborator also keeps {@link PaymentService} testable without a container:
- * a test supplies a boundary that simply runs the work.
+ * <p>Being an injected collaborator is what lets {@link TransactionBoundaryTest} assert both
+ * directions, and it keeps {@link PaymentService} testable without a container.
  */
 @ApplicationScoped
 public class TransactionBoundary {

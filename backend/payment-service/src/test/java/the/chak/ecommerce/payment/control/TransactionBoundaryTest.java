@@ -21,12 +21,12 @@ import the.chak.ecommerce.payment.repository.PaymentRepository;
 /**
  * Where {@link PaymentService#capture} opens a transaction, and where it must not.
  *
- * <p>Both halves of this were wrong in a way no other test could see. The database work ran with
- * no transaction at all - {@code @Transactional} sat on a method called from inside the same bean,
- * where the interceptor never runs - so every capture failed on a Kafka consumer thread with
+ * <p>The database work ran with no transaction at all: {@code capture} was not annotated - it must
+ * not be, see below - and its first repository call sat directly in that unannotated method. On a
+ * Kafka consumer thread nothing is active until something starts one, so every capture failed with
  * "neither a transaction nor a CDI request context is active", took the channel down, and left
- * every confirmed order to time out. Nothing caught it because the unit tests hold no container
- * and the integration tests were not exercising capture through a real context.
+ * every confirmed order to time out. Nothing caught it because these unit tests hold no container
+ * and payment-service has no test that exercises capture through a real one.
  *
  * <p>The other half matters just as much and fails far more quietly: the call to the payment
  * provider must stay <em>outside</em> any transaction. It is network I/O with a ten-second
@@ -157,7 +157,7 @@ class TransactionBoundaryTest {
         // then
         assertTrue(openDuringLookup[0],
                 "the redelivery check ran with nothing active; this is the exact call that threw "
-                        + "in production");
+                        + "in production, on a consumer thread with no context of its own");
         assertEquals(1, boundary.opened(), "a redelivery should open one transaction, not two");
     }
 

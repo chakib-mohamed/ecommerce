@@ -118,8 +118,8 @@ public class PaymentService {
      * <p>One transaction, for the reason ADR-0002 exists: a charge recorded while its reply was
      * lost would leave an order waiting on money that had already been taken.
      */
-    // Not @Transactional: capture() calls this directly, and an interceptor does not run on a call
-    // that never leaves the bean. The transaction is opened by the caller, where it is visible.
+    // Not @Transactional: the caller opens the transaction, so the boundary sits next to the
+    // provider call it has to stay clear of rather than out of sight on this method.
     void record(CapturePaymentCommand command, ChargeResult result) {
         Payment payment = new Payment();
         payment.setId(UUID.randomUUID());
