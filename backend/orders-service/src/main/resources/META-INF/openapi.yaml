@@ -447,20 +447,12 @@ components:
         user_id:
           type: string
         status:
-          type: string
+          allOf:
+            - $ref: '#/components/schemas/OrderStatus'
           description: >-
             Where the order currently sits. Only an order still in INITIATED can be changed or
             removed; after that, use the cancel operation. CANCELLED, DELIVERED and REFUNDED are
             final.
-          enum:
-            - INITIATED
-            - CONFIRMED
-            - RESERVED
-            - PAID
-            - SHIPPED
-            - DELIVERED
-            - CANCELLED
-            - REFUNDED
         status_reason:
           type: string
           description: >-
@@ -518,6 +510,19 @@ components:
           format: double
           description: Active promotion discount percentage; omitted if no active promotion
 
+    OrderStatus:
+      type: string
+      description: The states an order can be in over its life.
+      enum:
+        - INITIATED
+        - CONFIRMED
+        - RESERVED
+        - PAID
+        - SHIPPED
+        - DELIVERED
+        - CANCELLED
+        - REFUNDED
+
     SearchOrdersCommand:
       type: object
       required:
@@ -530,6 +535,13 @@ components:
           description: >-
             When provided, narrows results to orders containing this product —
             used to check whether a buyer has purchased a given product.
+        statuses:
+          type: array
+          description: >-
+            When provided, narrows results to orders currently in one of these
+            states. Omit it to search every order regardless of state.
+          items:
+            $ref: '#/components/schemas/OrderStatus'
         offset:
           type: integer
           minimum: 0
