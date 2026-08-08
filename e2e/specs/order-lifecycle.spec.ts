@@ -98,4 +98,62 @@ test.describe('Order lifecycle', () => {
 
     expect(await statusOf(), 'the order was cancelled rather than paid').toBe('PAID');
   });
+
+  test('a confirm whose answer is lost does not place a second order', async ({ page, request }) => {
+    const token = readAccessToken();
+    const ordersFor = async (): Promise<Array<{ id: string; status: string }>> => {
+      const res = await request.post('/api/orders/search', {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { user_id: RETAIL_USER.email, offset: 0, limit: 100 },
+      });
+      return ((await res.json()) as { y: Array<{ id: string; status: string }> }).y;
+    };
+    const before = (await ordersFor()).length;
+
+    await page.goto('/browse');
+    await page.getByRole('button', { name: 'Add to cart' }).first().click({ force: true });
+
+    await page.goto('/checkout');
+    await page.getByPlaceholder('you@email.com').fill(RETAIL_USER.email);
+    await page.getByPlaceholder('Your name').fill('E2E Lost Answer');
+    await page.getByPlaceholder('Street address').fill('123 Test Street');
+    await page.getByPlaceholder('City').fill('Springfield');
+    await page.getByPlaceholder('ZIP').fill('12345');
+    await page.getByRole('radio', { name: 'Visa' }).check();
+
+    // The failure this is about: the server receives the confirm and commits the order, and the
+    // answer never arrives. From the browser it is indistinguishable from the request never
+    // landing - which is why the naive response is to try again, and why trying again used to
+    // create a second order that was separately reserved and separately charged.
+    let swallowedOne = false;
+    await page.route('**/api/orders/*/confirm', async (route) => {
+      if (swallowedOne) {
+        await route.continue();
+        return;
+      }
+      swallowedOne = true;
+      await route.fetch();
+      await route.abort('failed');
+    });
+
+    const placeOrder = page.getByRole('button', { name: /Place order/ });
+    await placeOrder.click();
+
+    // Still on checkout with the cart intact: nothing was cleared on a failure the page could not
+    // interpret, so the buyer can try again.
+    await expect(page).toHaveURL(/\/checkout$/);
+    await expect(placeOrder).toBeEnabled();
+
+    await placeOrder.click();
+
+    // Second attempt lands on the confirmation page: the order was already committed, and being
+    // told so is not a failure.
+    await expect(page).toHaveURL(/\/confirm$/, { timeout: 15_000 });
+
+    const after = await ordersFor();
+    expect(after.length - before,
+      'the retry placed a second order - two orders means two reservations and two charges for '
+      + 'one basket, and no idempotency key can catch that because they are legitimately different '
+      + 'orders').toBe(1);
+  });
 });

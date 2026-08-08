@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/UI/Button/Button";
@@ -89,6 +89,17 @@ const Checkout: React.FC = () => {
   const [f, setF] = useState({ email: "", name: "", addr: "", city: "", zip: "" });
   const [payMethod, setPayMethod] = useState<string>("");
   const [placing, setPlacing] = useState(false);
+
+  /**
+   * The order this page has already created, if an earlier attempt got that far.
+   *
+   * Held against the basket it was priced for. An order is a snapshot of what was in the cart at
+   * the moment it was made, so if the buyer changes the cart and tries again, confirming the old
+   * one would commit and charge the basket they just changed away from. A different basket means a
+   * different order.
+   */
+  const placed = useRef<{ orderId: string; forCart: string } | null>(null);
+  const cartSignature = items.map((it) => `${it.product.id}x${it.qty}`).join("|");
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setF({ ...f, [k]: e.target.value });
   // A payment method is required, not optional: committing the order asks for payment in the same
@@ -112,26 +123,45 @@ const Checkout: React.FC = () => {
     }
     setPlacing(true);
     try {
-      const order = await service.createOrder({
-        products: items.map((it) => ({
-          product_id: it.product.id,
-          title: it.product.name,
-          qty: it.qty,
-          price: it.product.price,
-        })),
-      });
+      // Reuse the order from a previous attempt rather than making another. Creating a second one
+      // is what turns a lost response into two orders and two charges: they are separate orders,
+      // so nothing downstream can tell they were meant to be one, and the provider's idempotency
+      // key cannot help - it is per saga step, and these are two legitimate steps.
+      let orderId = placed.current?.forCart === cartSignature ? placed.current.orderId : null;
+      if (!orderId) {
+        const order = await service.createOrder({
+          products: items.map((it) => ({
+            product_id: it.product.id,
+            title: it.product.name,
+            qty: it.qty,
+            price: it.product.price,
+          })),
+        });
+        orderId = order.id;
+        placed.current = { orderId, forCart: cartSignature };
+      }
+
       // Creating the order only prices it; it is not committed and no payment is requested until
-      // this call. Anything thrown here leaves the order uncommitted rather than half-paid, so the
-      // cart is deliberately not cleared until it succeeds - the buyer keeps what they were buying.
-      await service.confirmOrder(order.id, payMethod);
+      // this call. The cart is deliberately not cleared until it succeeds - the buyer keeps what
+      // they were buying.
+      try {
+        await service.confirmOrder(orderId, payMethod);
+      } catch (error) {
+        // Refused because this order is already committed: the first attempt did reach the server
+        // and its answer was lost. The order is fine and is being paid for, so this is the success
+        // path, not the failure one.
+        if (!service.isAlreadyCommitted(error)) {
+          throw error;
+        }
+      }
+
+      placed.current = null;
       dispatch(clearCart());
-      navigate("/confirm", { state: { total: money(total), orderId: order.id } });
+      navigate("/confirm", { state: { total: money(total), orderId } });
     } catch {
-      // The API client surfaces failures via a toast (and bounces to login on 401). Staying put
-      // is the honest outcome: nothing was charged, and the confirmation page would claim
-      // otherwise. Retrying places a second order rather than committing the first - the order id
-      // is not kept for a retry - which is a wart worth closing once this page has somewhere to
-      // report a payment outcome.
+      // The API client surfaces failures via a toast (and bounces to login on 401). Staying put is
+      // the honest outcome: nothing was charged, and the confirmation page would say otherwise.
+      // The order id is kept, so trying again commits that order instead of placing a new one.
     } finally {
       setPlacing(false);
     }
