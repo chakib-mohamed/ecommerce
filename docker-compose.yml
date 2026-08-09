@@ -93,9 +93,12 @@ services:
       - QUARKUS_DATASOURCE_PASSWORD=postgres
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - JWT_PUBLIC_KEY
-      # The seeded dev catalog (Liquibase 004) loads under every profile; this lets the
-      # matching default images load too, so the storefront shows real photos locally.
-      - PRODUCTS_SEED_IMAGES_ENABLED=true
+      # This is a development stack, so it asks for the demo catalogue by default. `make up-bare`
+      # runs it without any demo data - closer to a real deployment - by setting both variables
+      # below. The application's own default is the safe one (schema only), so forgetting either
+      # leaves you with less data, never with unexpected data.
+      - LIQUIBASE_CONTEXTS=${LIQUIBASE_CONTEXTS:-dev,seed}
+      - PRODUCTS_SEED_IMAGES_ENABLED=${SEED_DEMO_DATA:-true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -335,6 +338,10 @@ services:
       - backend
     volumes:
       - ./backend/dev-scripts/mongodb:/seed:ro
+    environment:
+      # Demo data is for development. The replica set is still initiated when this is false - that
+      # is infrastructure the services need, not sample content.
+      - SEED_DEMO_DATA=${SEED_DEMO_DATA:-true}
     # One-shot: wait for mongod, initiate the replica set (idempotent), wait for primary, then
     # seed once (only when the data is empty, so re-running `up` never wipes existing data).
     restart: "no"
@@ -349,6 +356,10 @@ services:
         mongosh --host mongodb:27017 --quiet --eval 'try { rs.status(); print("rs already initiated"); } catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongodb:27017"}]}); print("rs initiated"); }'
         echo "mongo-init: waiting for primary..."
         until mongosh --host mongodb:27017 --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; do sleep 1; done
+        if [ "$${SEED_DEMO_DATA:-true}" != "true" ]; then
+          echo "mongo-init: SEED_DEMO_DATA=$${SEED_DEMO_DATA} - replica set ready, no demo data seeded"
+          exit 0
+        fi
         seeded=$$(mongosh --host mongodb:27017 --quiet --eval 'db.getSiblingDB("price-service").prices.countDocuments()')
         if [ "$$seeded" = "0" ]; then
           echo "mongo-init: seeding..."
@@ -357,7 +368,10 @@ services:
         else
           echo "mongo-init: already seeded ($$seeded prices), skipping"
         fi
-        echo "mongo-init: seeding test users (idempotent upsert)..."
+        # These are demo accounts with passwords committed to this repository, and the upsert puts
+        # them back on every start - deleting one does not keep it gone. They exist for local work
+        # and the e2e suite; anything reachable by anyone else must run with SEED_DEMO_DATA=false.
+        echo "mongo-init: seeding demo users (idempotent upsert)..."
         mongosh --host mongodb:27017 /seed/03-users.js
         echo "mongo-init: done"
 

@@ -1,6 +1,6 @@
 -- liquibase formatted sql
 
--- changeset chakib:004-rich-dev-data
+-- changeset chakib:004-rich-dev-data context:seed
 
 -- wipe flat data from changeset 002
 DELETE FROM product_promotion;

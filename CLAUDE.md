@@ -51,6 +51,19 @@ Run `make help` for the full target list (including the `dev-*` hot-reload targe
 The `kubernetes/` manifests are stale (they reference a removed `eureka-server`) and are
 not wired into the Makefile — the K8s path is a separate follow-up.
 
+**Demo data is opt-in, and the Compose stack opts in.** `make up` seeds the demo catalogue and two
+demo accounts (`admin@ecommerce.test` / `retail@ecommerce.test`, passwords committed in
+`backend/dev-scripts/mongodb/03-users.js`) because this stack is for development and the e2e suite
+needs them. `make up-bare` runs the same stack with neither: an empty catalogue and no accounts.
+
+The two are controlled separately — `LIQUIBASE_CONTEXTS` for the catalogue, `SEED_DEMO_DATA` for
+images and accounts — because Compose cannot derive one from the other, which is why `up-bare`
+exists rather than a bare variable. **The applications' own defaults are the safe ones**: the seed
+changesets are tagged `context:seed` and the default context asks only for schema, so a deployment
+that sets nothing gets no demo data. Note the direction of the danger — Liquibase applies *every*
+changeset when no context is set at runtime, so the guard is the application always naming one,
+not the tag by itself.
+
 See `backend/CLAUDE.md` for backend build commands, testing conventions, and framework specifics.
 See `frontend/CLAUDE.md` for frontend dev commands.
 

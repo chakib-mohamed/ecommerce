@@ -65,8 +65,16 @@ backend:
 front:
 	docker compose --profile infra --profile backend --profile frontend --profile observability up -d
 
-## up: bring up the full stack (incl. observability)
+## up: bring up the full stack (incl. observability), with the demo catalogue and demo accounts
 up:
+	docker compose --profile infra --profile backend --profile frontend --profile observability up -d
+
+## up-bare: the same stack with no demo data — empty catalogue, no demo accounts
+# Both variables have to agree, so this target is the way to set them: the catalogue is chosen by a
+# Liquibase context and the rest by a boolean, and there is no way to derive one from the other in
+# Compose. Getting only one of them right leaves less data than expected, never more.
+up-bare:
+	LIQUIBASE_CONTEXTS=prod SEED_DEMO_DATA=false \
 	docker compose --profile infra --profile backend --profile frontend --profile observability up -d
 
 ## down: stop & remove every container across all profiles
