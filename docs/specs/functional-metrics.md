@@ -76,7 +76,6 @@ the exact control method (and failure branch) verified against the current code.
 | payment | `payments_declined_total` | counter | — | `PaymentService.record` on the refused branch |
 | payment | `payments_gateway_faults_total` | counter | — | `PaymentService.capture` — **alerted on**; the provider gave no usable answer |
 | payment | `payments_redelivered_total` | counter | — | `PaymentService.capture` — answered from the local record, charged nothing |
-| payment | `payments_refunded_total` | counter | — | `PaymentService.refund` |
 | price | `pricing_calculations_total` | counter | `outcome=success\|failure` | `PricingService.calculate` — failure = `InvalidOrderException` |
 | price | `pricing_discount_amount` | summary | — | `ApplyPromotionsService.applyPromotion` — recorded per applied discount |
 | price | `pricing_price_updates_total` | counter | `outcome=success\|failure` | `PriceService.update` — failure = `InvalidPriceException` |

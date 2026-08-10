@@ -34,6 +34,12 @@ one, but the reactor has no such module and Compose has no such service.
 - Multiple gateways or gateway failover. One configured gateway.
 - Partial captures, instalments, or authorise-now-capture-later. One capture per order.
 - Stored cards or repeat billing. Each order carries its own token.
+- **Refunds.** This service captures and reports; it does not return money. A half-built refund
+  path existed here and was removed rather than left to look finished: nothing produced its
+  command, it wrote no reply so the order could never have left `PAID`, and no consumer reversed
+  the counted revenue. `providerRef` is still recorded, which is what any future refund would need.
+  `REFUNDED` remains a state in the order lifecycle and in the published contract, unreachable —
+  as `SHIPPED` and `DELIVERED` also are.
 
 ---
 
@@ -56,8 +62,8 @@ saga step asked for it. That record is what makes redelivery safe.
 |---|---|
 | `orderId` | what the charge is for |
 | `stepId` | which saga attempt asked; the idempotency key |
-| `providerRef` | the gateway's own identifier, for refunds and reconciliation |
-| `status` | `CAPTURED`, `FAILED`, `REFUNDED` |
+| `providerRef` | the gateway's own identifier, for reconciliation and any future refund |
+| `status` | `CAPTURED`, `FAILED` |
 | `amount`, `currency` | what was charged, for reconciliation against the order |
 | `failureReason` | shown to the buyer when a charge is declined |
 
@@ -123,7 +129,6 @@ the gateway still refuses to double-charge.
 | `capture-payment` | orders -> payment | `orderId`, `stepId`, `amount`, `currency`, `paymentToken` |
 | `payment-captured` | payment -> orders | `orderId`, `stepId`, `providerRef` |
 | `payment-failed` | payment -> orders | `orderId`, `stepId`, `reason` |
-| `refund-payment` | orders -> payment | `orderId`, `stepId` |
 
 Keyed by `orderId`, like every other saga message, so one order's messages keep their order.
 
@@ -141,7 +146,6 @@ single call.
 | Call | Purpose |
 |---|---|
 | `POST /v1/payment_intents` | capture, with `confirm=true` |
-| `POST /v1/refunds` | refund, by `payment_intent` |
 
 | Setting | Meaning |
 |---|---|
@@ -193,7 +197,6 @@ WireMock proves we handle what Stripe says back.
 | Reply lost after capture | Redelivered command finds the local record, replies with the original outcome; no second charge |
 | Capture redelivered | Gateway returns the original charge for the same idempotency key |
 | Token already used or expired | Gateway refuses; treated as a decline |
-| Refund after `PAID` | `refund-payment` to the gateway by `providerRef`; stock restocked; order `REFUNDED` |
 
 ---
 

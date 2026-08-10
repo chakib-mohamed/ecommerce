@@ -6,7 +6,6 @@ import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 import the.chak.ecommerce.payment.control.events.CapturePaymentCommand;
-import the.chak.ecommerce.payment.control.events.RefundPaymentCommand;
 
 /**
  * Kafka entry point for the saga's payment commands.
@@ -28,13 +27,5 @@ public class PaymentCommandConsumer {
         LOG.infof("Capture-payment command received orderId=%s stepId=%s",
                 command.getOrderId(), command.getStepId());
         paymentService.capture(command);
-    }
-
-    @Incoming("refund-payment")
-    @Retry(maxRetries = 3, delay = 200)
-    public void consumeRefund(RefundPaymentCommand command) {
-        LOG.infof("Refund-payment command received orderId=%s stepId=%s",
-                command.getOrderId(), command.getStepId());
-        paymentService.refund(command);
     }
 }

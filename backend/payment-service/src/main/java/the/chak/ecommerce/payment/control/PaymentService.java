@@ -5,12 +5,10 @@ import java.util.Optional;
 import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
 import the.chak.ecommerce.payment.control.events.CapturePaymentCommand;
 import the.chak.ecommerce.payment.control.events.PaymentCapturedEvent;
 import the.chak.ecommerce.payment.control.events.PaymentFailedEvent;
-import the.chak.ecommerce.payment.control.events.RefundPaymentCommand;
 import the.chak.ecommerce.payment.entity.Payment;
 import the.chak.ecommerce.payment.entity.PaymentStatus;
 import the.chak.ecommerce.payment.repository.OutboxRepository;
@@ -143,25 +141,6 @@ public class PaymentService {
 
         LOG.infof("Capture handled orderId=%s stepId=%s outcome=%s",
                 command.getOrderId(), command.getStepId(), payment.getStatus());
-    }
-
-    /** Returns the money for an order already charged. */
-    @Transactional
-    public void refund(RefundPaymentCommand command) {
-        Optional<Payment> captured = paymentRepository.findCapturedFor(command.getOrderId());
-        if (captured.isEmpty()) {
-            // Normal, not exceptional: compensating a saga that failed before the capture asks for
-            // a refund of a charge that was never made.
-            LOG.infof("Refund for an order with no charge orderId=%s - nothing to return",
-                    command.getOrderId());
-            return;
-        }
-        Payment payment = captured.get();
-        gateway.refund(command.getStepId(), payment.getProviderRef());
-        payment.setStatus(PaymentStatus.REFUNDED);
-        meterRegistry.counter(MetricNames.PAYMENTS_REFUNDED).increment();
-        LOG.infof("Refunded orderId=%s providerRef=%s",
-                command.getOrderId(), payment.getProviderRef());
     }
 
     private void reply(Payment payment) {

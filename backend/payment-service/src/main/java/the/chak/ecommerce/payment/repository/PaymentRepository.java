@@ -19,10 +19,4 @@ public class PaymentRepository implements PanacheRepositoryBase<Payment, UUID> {
     public Optional<Payment> findAttempt(String orderId, String stepId) {
         return find("orderId = ?1 and stepId = ?2", orderId, stepId).firstResultOptional();
     }
-
-    /** The charge made for an order, whichever attempt made it - what a refund goes by. */
-    public Optional<Payment> findCapturedFor(String orderId) {
-        return find("orderId = ?1 and status = ?2", orderId,
-                the.chak.ecommerce.payment.entity.PaymentStatus.CAPTURED).firstResultOptional();
-    }
 }

@@ -60,17 +60,6 @@ public class StripeGatewayClient {
                 "Payment provider returned " + status + " creating an intent");
     }
 
-    /** Returns the money for a charge the provider already made. */
-    public void refund(String idempotencyKey, String providerRef) {
-        HttpResponse<String> response = send("/v1/refunds", idempotencyKey,
-                "payment_intent=" + enc(providerRef));
-        if (response.statusCode() != 200) {
-            throw new PaymentGatewayException(
-                    "Payment provider returned " + response.statusCode() + " refunding "
-                            + providerRef);
-        }
-    }
-
     private HttpResponse<String> send(String path, String idempotencyKey, String body) {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url + path))

@@ -19,7 +19,6 @@ import org.mockito.ArgumentCaptor;
 import the.chak.ecommerce.payment.control.events.CapturePaymentCommand;
 import the.chak.ecommerce.payment.control.events.PaymentCapturedEvent;
 import the.chak.ecommerce.payment.control.events.PaymentFailedEvent;
-import the.chak.ecommerce.payment.control.events.RefundPaymentCommand;
 import the.chak.ecommerce.payment.entity.OutboxEvent;
 import the.chak.ecommerce.payment.entity.Payment;
 import the.chak.ecommerce.payment.entity.PaymentStatus;
@@ -358,50 +357,6 @@ class PaymentServiceTest {
                 meterRegistry.get(MetricNames.PAYMENTS_REDELIVERED).counter().count(), 0.001);
         assertNull(meterRegistry.find(MetricNames.PAYMENTS_CAPTURED).counter());
     }
-
-    // -- refunds --------------------------------------------------------------
-
-    @Test
-    @DisplayName("Refunds the charge the order actually paid")
-    void refund_refundsByProviderReference() {
-        // given
-        when(paymentRepository.findCapturedFor(ORDER_ID)).thenReturn(Optional.of(capturedPayment()));
-
-        // when
-        service().refund(new RefundPaymentCommand(ORDER_ID, STEP_ID));
-
-        // then
-        verify(gateway).refund(any(), eq(PROVIDER_REF));
-    }
-
-    @Test
-    @DisplayName("Marks the payment refunded")
-    void refund_recordsTheRefund() {
-        // given
-        Payment payment = capturedPayment();
-        when(paymentRepository.findCapturedFor(ORDER_ID)).thenReturn(Optional.of(payment));
-
-        // when
-        service().refund(new RefundPaymentCommand(ORDER_ID, STEP_ID));
-
-        // then
-        assertEquals(PaymentStatus.REFUNDED, payment.getStatus());
-        assertEquals(1.0, meterRegistry.get(MetricNames.PAYMENTS_REFUNDED).counter().count(), 0.001);
-    }
-
-    @Test
-    @DisplayName("Refunds nothing when the order was never charged")
-    void refund_withNoCharge_doesNothing() {
-        // given - a cancellation before the capture, say; there is no money to give back
-        when(paymentRepository.findCapturedFor(ORDER_ID)).thenReturn(Optional.empty());
-
-        // when / then - must not throw: a refund for an uncharged order is a normal outcome of
-        // compensating a saga that failed before payment
-        service().refund(new RefundPaymentCommand(ORDER_ID, STEP_ID));
-        verify(gateway, never()).refund(any(), any());
-    }
-
-    // -- helpers ------------------------------------------------------------
 
     private static CapturePaymentCommand captureCommand() {
         return new CapturePaymentCommand(ORDER_ID, STEP_ID, AMOUNT, "EUR", PAYMENT_METHOD);

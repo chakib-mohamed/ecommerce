@@ -123,9 +123,10 @@ old confirmation-derived rows survive and are indistinguishable from real revenu
 The plan lists refunds as reversing counted rows. They cannot be, yet.
 
 `REFUNDED` appears in `OrderStateMachine`'s transition table and nowhere else: no code moves an
-order into it, no event announces it, and payment-service's `refund` is reachable only from a
-`refund-payment` command that nothing currently sends. There is no refund to observe, so a reversal
-path here would be untestable code written against an imagined event.
+order into it and no event announces it. payment-service had a `refund` method reachable only from
+a command nothing sent, and it has since been removed - it wrote no reply, so an order could not
+have left `PAID` even had the command arrived. There is no refund to observe, so a reversal path
+here would be untestable code written against an imagined event.
 
 When the refund flow is built it fits this design without changing it: full-order refunds only
 (lifecycle spec section 10.5), so reversal is a delete by order id - which

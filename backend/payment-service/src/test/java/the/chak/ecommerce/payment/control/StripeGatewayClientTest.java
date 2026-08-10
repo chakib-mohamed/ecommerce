@@ -144,25 +144,6 @@ class StripeGatewayClientTest {
         assertThrows(PaymentGatewayException.class,
                 () -> client().charge(STEP_ID, new BigDecimal("10.50"), "EUR", PAYMENT_METHOD));
     }
-
-    @Test
-    @DisplayName("Refunds by the provider's own reference")
-    void refund_sendsThePaymentIntent() {
-        // given
-        stripe.stubFor(post(urlPathEqualTo("/v1/refunds"))
-                .willReturn(aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("{\"id\":\"re_1\",\"status\":\"succeeded\"}")));
-
-        // when
-        client().refund(STEP_ID, "pi_123");
-
-        // then
-        stripe.verify(postRequestedFor(urlPathEqualTo("/v1/refunds"))
-                .withRequestBody(com.github.tomakehurst.wiremock.client.WireMock
-                        .containing("payment_intent=pi_123")));
-    }
-
     // -- helpers ------------------------------------------------------------
 
     private static com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder okIntent(

@@ -28,7 +28,4 @@ public final class MetricNames {
 
     /** Counter - captures answered from the local record rather than by charging again. */
     public static final String PAYMENTS_REDELIVERED = "payments.redelivered";
-
-    /** Counter - charges returned to the buyer. */
-    public static final String PAYMENTS_REFUNDED = "payments.refunded";
 }
