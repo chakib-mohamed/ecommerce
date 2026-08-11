@@ -171,6 +171,15 @@ e2e-run:
 e2e-down:
 	docker compose --profile "*" down
 
-## e2e: full cycle — build, bring up, run, tear down (always tears down, even on failure)
+## e2e: full cycle — build, bring up, run, tear down (always tears down, even on failure).
+## On failure the service logs are captured *before* teardown: this recipe always tears down, so
+## anything that reads `docker compose logs` afterwards - CI's own on-failure step did - finds no
+## containers and collects an empty file. That is a diagnostic that looks present and reports
+## nothing, exactly when it is needed.
 e2e: build e2e-up
-	$(MAKE) e2e-run; status=$$?; $(MAKE) e2e-down; exit $$status
+	$(MAKE) e2e-run; status=$$?; \
+	if [ $$status -ne 0 ]; then \
+	  echo "e2e failed - capturing service logs before teardown"; \
+	  docker compose --profile "*" logs --no-color --timestamps > compose-logs.txt 2>&1 || true; \
+	fi; \
+	$(MAKE) e2e-down; exit $$status

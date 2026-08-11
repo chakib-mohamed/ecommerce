@@ -292,16 +292,18 @@ jobs:
           path: e2e/playwright-report/
           retention-days: 14
 
-      - name: Dump service logs on failure
-        if: failure()
-        run: docker compose --profile "*" logs --no-color > compose-logs.txt
-
+      # `make e2e` writes compose-logs.txt itself, before it tears the stack down. This step used
+      # to run `docker compose logs` here instead, which always ran *after* that teardown and so
+      # collected an empty file - a 148-byte artifact from the one run that most needed reading.
+      # If the file is missing the upload warns rather than failing the job, so a run that died
+      # before the suite started still reports its real error.
       - name: Upload service logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: compose-logs
           path: compose-logs.txt
+          if-no-files-found: warn
 
   # Dependency vulnerability gate: one Trivy fs scan over the whole repo covers
   # both the Maven backend (backend/**/pom.xml) and the npm frontend
