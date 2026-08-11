@@ -190,24 +190,44 @@ jobs:
       # An alerting block that names an Alertmanager nothing runs is worse than none: the rules
       # evaluate, the Alerts page looks healthy, and the notifications go nowhere. Neither promtool
       # nor amtool checks across that seam, because each only ever sees one side of it.
+      #
+      # Reads the compose file directly rather than asking `docker compose config --services`.
+      # That command needs `--profile "*"` to see profile-gated services at all, and whether the
+      # glob is honoured depends on the Compose version the runner image happens to ship - this
+      # check passed and then failed on identical files for exactly that reason. The service names
+      # are top-level keys; parsing them needs no Docker and cannot drift with the runner.
       - name: Check Prometheus and Alertmanager agree on where alerts go
         run: |
-          set -euo pipefail
-          target=$(python3 -c "
-          import yaml
-          cfg = yaml.safe_load(open('observability/prometheus.yml'))
-          ams = cfg.get('alerting', {}).get('alertmanagers', [])
-          targets = [t for am in ams for sc in am.get('static_configs', []) for t in sc.get('targets', [])]
-          assert len(targets) == 1, f'expected exactly one alertmanager target, got {targets}'
-          print(targets[0])
-          ")
-          echo "prometheus.yml sends alerts to: $target"
-          host=${target%%:*}
-          if ! docker compose --profile "*" config --services | grep -qx "$host"; then
-            echo "::error::prometheus.yml sends alerts to '$host', which is not a service in" \
-                 "docker-compose.yml. Alerts would evaluate and be delivered nowhere."
-            exit 1
-          fi
+          python3 - <<'PY'
+          import sys, yaml
+
+          prom = yaml.safe_load(open('observability/prometheus.yml'))
+          ams = prom.get('alerting', {}).get('alertmanagers', [])
+          targets = [t for am in ams
+                     for sc in am.get('static_configs', [])
+                     for t in sc.get('targets', [])]
+          if len(targets) != 1:
+              sys.exit(f'::error::expected exactly one alertmanager target in prometheus.yml, '
+                       f'got {targets}. Alerts go nowhere with none, and this check cannot say '
+                       f'where with several.')
+
+          host = targets[0].split(':')[0]
+          services = yaml.safe_load(open('docker-compose.yml')).get('services', {})
+          print(f'prometheus.yml sends alerts to: {targets[0]}')
+
+          if host not in services:
+              sys.exit(f"::error::prometheus.yml sends alerts to '{host}', which is not a service "
+                       f"in docker-compose.yml. Alerts would evaluate and be delivered nowhere.")
+
+          # A service that exists but sits in no profile the observability stack turns on would
+          # never be started by `make observability`, which is the same failure wearing a disguise.
+          profiles = services[host].get('profiles', [])
+          if 'observability' not in profiles:
+              sys.exit(f"::error::service '{host}' is not in the observability profile "
+                       f"(profiles: {profiles}), so `make observability` never starts it.")
+
+          print(f"OK  '{host}' is a compose service in the observability profile")
+          PY
 
       # The rules and the scrape config reach Prometheus via volume mounts declared here, so a
       # compose file that no longer parses breaks them too.
