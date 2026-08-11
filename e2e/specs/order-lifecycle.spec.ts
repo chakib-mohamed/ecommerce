@@ -99,16 +99,18 @@ test.describe('Order lifecycle', () => {
     expect(await statusOf(), 'the order was cancelled rather than paid').toBe('PAID');
   });
 
-  test('a confirm whose answer is lost does not place a second order', async ({ page, request }) => {
-    const token = readAccessToken();
-    const ordersFor = async (): Promise<Array<{ id: string; status: string }>> => {
-      const res = await request.post('/api/orders/search', {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { user_id: RETAIL_USER.email, offset: 0, limit: 100 },
-      });
-      return ((await res.json()) as { y: Array<{ id: string; status: string }> }).y;
-    };
-    const before = (await ordersFor()).length;
+  test('a confirm whose answer is lost does not place a second order', async ({ page }) => {
+    // Counted from this page's own requests rather than from the orders in the database. The
+    // database is shared: the suite runs fully parallel and other specs place orders for this same
+    // buyer, so a before/after count measures them too and fails for reasons that have nothing to
+    // do with this. What is actually being asserted is that the browser did not ask for a second
+    // order, and the browser is right here.
+    let ordersCreated = 0;
+    page.on('request', (req) => {
+      if (req.method() === 'POST' && new URL(req.url()).pathname.endsWith('/api/orders')) {
+        ordersCreated += 1;
+      }
+    });
 
     await page.goto('/browse');
     await page.getByRole('button', { name: 'Add to cart' }).first().click({ force: true });
@@ -150,8 +152,7 @@ test.describe('Order lifecycle', () => {
     // told so is not a failure.
     await expect(page).toHaveURL(/\/confirm$/, { timeout: 15_000 });
 
-    const after = await ordersFor();
-    expect(after.length - before,
+    expect(ordersCreated,
       'the retry placed a second order - two orders means two reservations and two charges for '
       + 'one basket, and no idempotency key can catch that because they are legitimately different '
       + 'orders').toBe(1);

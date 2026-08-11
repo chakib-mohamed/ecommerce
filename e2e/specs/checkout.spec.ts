@@ -24,6 +24,11 @@ test('adds a product to cart, completes checkout, and lands on /confirm with a r
   await page.getByPlaceholder('City').fill('Springfield');
   await page.getByPlaceholder('ZIP').fill('12345');
 
+  // Committing the order asks for payment in the same step, so a method has to be chosen before
+  // the button is live. Without this the order can never be placed, and the assertion below is
+  // what says so - it is how this spec caught the payment step being made mandatory.
+  await page.getByRole('radio', { name: 'Visa' }).check();
+
   const placeOrderButton = page.getByRole('button', { name: /Place order/ });
   await expect(placeOrderButton).toBeEnabled();
 
