@@ -76,7 +76,10 @@ test.describe('Product reviews', () => {
         {
           message: `order ${orderId} never reached PAID, so the reviewer is not a verified purchaser`,
           timeout: 60_000,
-          intervals: [1_000],
+          // Every tick is a real search against orders-service, and products-service checks
+          // purchase eligibility through that same endpoint under a 2s deadline. Polling once a
+          // second competes with the thing this setup exists to enable.
+          intervals: [2_000],
         },
       )
       .toBe('PAID');
