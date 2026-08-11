@@ -179,6 +179,29 @@ jobs:
       - name: Check the compose file parses
         run: docker compose --profile "*" config --quiet
 
+  # The e2e specs are TypeScript that nothing compiles: Playwright transpiles each
+  # file as it runs it and never reports a type error, and the suite below only
+  # runs behind a label. So a spec can be broken for every unlabelled PR on main
+  # and say nothing until someone opts in. This job is seconds long, needs no
+  # Docker and no browsers, and runs always - it is the only thing that reads
+  # e2e/tsconfig.json, which was failing on a missing DOM lib when it was added.
+  e2e-typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: e2e/.nvmrc
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'      # types only; the suite below installs them
+      - run: npm run typecheck
+
   # Full-stack browser suite (e2e/) — boots the real docker-compose stack (6 JVM
   # services + Postgres/Mongo/Kafka/Redis/Zookeeper + the built frontend image),
   # so it's meaningfully slower than the jobs above. Not run on every PR by
