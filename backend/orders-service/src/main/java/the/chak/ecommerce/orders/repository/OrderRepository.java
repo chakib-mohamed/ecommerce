@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import io.quarkus.mongodb.panache.PanacheMongoRepository;
 import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import the.chak.ecommerce.orders.entity.Order;
 
@@ -31,7 +32,12 @@ public class OrderRepository implements PanacheMongoRepository<Order> {
             params.put("statuses", search.statuses().stream().map(Enum::name).toList());
         }
 
-        var panacheQuery = find(query, params);
+        // Newest first, and above all *deterministic*. Without a sort Mongo returns natural order,
+        // which paging then slices: the same order can appear on two pages of one walk, or on
+        // none, because nothing pins a record to a position between the two queries. That it
+        // usually came back insertion-ordered is an accident of how the collection happens to be
+        // stored, not something the driver promises.
+        var panacheQuery = find(query, Sort.by("creationDate", Sort.Direction.Descending), params);
 
         if (search.limit() != null && search.offset() != null) {
             panacheQuery.page(Page.of(search.offset(), search.limit()));

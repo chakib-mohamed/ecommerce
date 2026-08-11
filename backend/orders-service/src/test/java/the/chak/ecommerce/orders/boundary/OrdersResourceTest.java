@@ -549,6 +549,46 @@ class OrdersResourceTest {
                 .body("error_code", is("ILLEGAL_ORDER_TRANSITION"));
     }
 
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns a buyer's orders newest first when searching")
+    void searchOrders_returnsNewestFirst() {
+        // given - persisted oldest first, so insertion order and the expected order disagree. A
+        // search with no sort returns natural order, which here means insertion order, so this
+        // fails on exactly the query that has no sort rather than passing by luck.
+        Order oldest = new Order();
+        oldest.setUserID("user_ordering");
+        oldest.setStatus(OrderStatus.INITIATED);
+        oldest.setCreationDate(LocalDateTime.now().minusDays(2));
+        orderRepository.persist(oldest);
+
+        Order middle = new Order();
+        middle.setUserID("user_ordering");
+        middle.setStatus(OrderStatus.INITIATED);
+        middle.setCreationDate(LocalDateTime.now().minusDays(1));
+        orderRepository.persist(middle);
+
+        Order newest = new Order();
+        newest.setUserID("user_ordering");
+        newest.setStatus(OrderStatus.INITIATED);
+        newest.setCreationDate(LocalDateTime.now());
+        orderRepository.persist(newest);
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_ordering\"}")
+                .when().post("/orders/search");
+
+        // then - and the ordering matters beyond presentation: the history is paged, and paging an
+        // unordered result can show one order on two pages and another on none.
+        response.then().statusCode(200)
+                .body("x", is(3))
+                .body("y[0].id", is(newest.id.toString()))
+                .body("y[1].id", is(middle.id.toString()))
+                .body("y[2].id", is(oldest.id.toString()));
+    }
+
     private Order persistedOrder(String userId, OrderStatus status) {
         Order order = new Order();
         order.setCreationDate(LocalDateTime.now());

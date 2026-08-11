@@ -56,6 +56,20 @@ test.describe('Order history', () => {
     const requestBody = response.request().postDataJSON() as { user_id: string };
     expect(requestBody.user_id).toBe(RETAIL_USER.email);
 
-    await expect(page.getByText(`Order #${placedOrderId.slice(-6)}`)).toBeVisible();
+    // Paged through rather than asserted on the first screen. The history shows five at a time and
+    // this buyer is shared: checkout and the lifecycle specs place their own orders for the same
+    // account, in parallel, at times this spec does not control. Asserting on page one made the
+    // result depend on how many of those happened to land first - it passed while the suite was
+    // small and would have started failing on a spec that never touched this page.
+    const card = page.getByText(`Order #${placedOrderId.slice(-6)}`);
+    const next = page.getByRole('button', { name: /Next/ });
+    for (;;) {
+      if (await card.isVisible()) break;
+      if (!(await next.isVisible()) || !(await next.isEnabled())) {
+        throw new Error(`order ${placedOrderId} is not on any page of the buyer's history`);
+      }
+      await Promise.all([waitForApiCall(page, 'POST', /\/orders\/search$/), next.click()]);
+    }
+    await expect(card).toBeVisible();
   });
 });
