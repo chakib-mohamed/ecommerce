@@ -4,9 +4,10 @@
 # them alert on a metric being merely unusual - a busy day and a broken payment provider must not
 # look the same, or the alerts get muted and then they protect nothing.
 #
-# There is no Alertmanager in this stack. These are evaluated by Prometheus and visible on its
-# Alerts page and in Grafana, but nothing routes them to a person. Adding that is a decision about
-# where alerts should go, not a technical gap - see docs/specs/functional-metrics.md.
+# These are evaluated by Prometheus and handed to Alertmanager, which groups them, suppresses the
+# ones a bigger failure already explains, and delivers them - see observability/alertmanager.yml.
+# The `severity` label on each rule is what picks the route, so it is load-bearing rather than
+# documentation: a rule that sets no severity takes the default path.
 
 groups:
   - name: order-saga

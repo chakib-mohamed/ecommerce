@@ -590,6 +590,43 @@ services:
       retries: 5
       start_period: 10s
 
+  # Takes firing alerts off Prometheus's Alerts page and actually does something with them:
+  # groups them, suppresses the ones a bigger failure already explains, and delivers them.
+  # Configuration and the routing tree: observability/alertmanager.yml.
+  alertmanager:
+    profiles: [observability]
+    image: prom/alertmanager:v0.27.0
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - 9093:9093
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Where alerts land by default, so the delivery path is verifiable rather than assumed:
+  # `docker compose logs alert-sink` shows the full payload of everything Alertmanager sent.
+  # A configured receiver that quietly discards its alerts looks exactly like a working one,
+  # which is the failure this whole change exists to remove - so the default is one that leaves
+  # a trace. Replace it with a real destination in alertmanager.yml when there is one to name.
+  alert-sink:
+    profiles: [observability]
+    image: mendhak/http-https-echo:31
+    environment:
+      - HTTP_PORT=8080
+      - DISABLE_REQUEST_LOGS=false
+    networks:
+      - backend
+
   grafana:
     profiles: [observability]
     image: grafana/grafana:11.4.0
@@ -627,5 +664,6 @@ volumes:
   analytics_postgres_data:
   payment_postgres_data:
   prometheus_data:
+  alertmanager_data:
   grafana_data:
   loki_data:

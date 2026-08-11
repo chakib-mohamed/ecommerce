@@ -70,9 +70,15 @@ See `frontend/CLAUDE.md` for frontend dev commands.
 ### Observability
 
 Distributed tracing, metrics, and logs across all 8 backend services, via **OTel Collector + Jaeger +
-Prometheus + Loki + Grafana** under the `observability` Compose profile (`make observability`, also
-folded into `make up`). One request is one connected trace across the gateway, downstream HTTP calls,
-and Kafka. **`X-Request-ID` is retired** — the gateway echoes the trace id back as `X-Trace-Id`.
+Prometheus + Alertmanager + Loki + Grafana** under the `observability` Compose profile
+(`make observability`, also folded into `make up`). One request is one connected trace across the
+gateway, downstream HTTP calls, and Kafka. **`X-Request-ID` is retired** — the gateway echoes the
+trace id back as `X-Trace-Id`.
+
+Alerts are delivered, not just evaluated: Alertmanager groups and routes them, and the default
+receiver posts to a local sink so the path is verifiable. **The push destination is deliberately
+unset** — Slack and email receivers are written and commented in `observability/alertmanager.yml`,
+and both read their credential from a mounted file, never a committed value.
 
 Dashboard URLs, sampling behavior, the log↔trace pivot, and the per-service wiring live in the
 `observability` skill. Specs: `docs/specs/observability.md`, `docs/specs/functional-metrics.md`,

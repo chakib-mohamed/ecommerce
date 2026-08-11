@@ -14,7 +14,8 @@ profile (`make observability`, also folded into `make up`).
 | UI | URL | Purpose |
 |----|-----|---------|
 | Jaeger | http://localhost:16686 | traces |
-| Prometheus | http://localhost:9090 | metrics + targets |
+| Prometheus | http://localhost:9090 | metrics + targets (rule state on *Alerts*) |
+| Alertmanager | http://localhost:9093 | firing alerts after grouping/inhibition; silences |
 | Loki | http://localhost:3100 | log store (query via Grafana Explore; `/ready` health) |
 | Grafana | http://localhost:3000 | dashboards + log search (anon admin; *Ecommerce Overview* + *Ecommerce Business KPIs* auto-provisioned) |
 
@@ -38,11 +39,18 @@ profile (`make observability`, also folded into `make up`).
   pricing/discounts, captures/declines/gateway faults), surfaced on the *Ecommerce Business KPIs*
   dashboard. Full catalog: `docs/specs/functional-metrics.md`.
 - **Alerting rules** live in `observability/rules/*.rules.yml`, loaded via `rule_files` in
-  `observability/prometheus.yml` and validated in CI by the `observability-config` job. They are
-  evaluated and visible in Prometheus and Grafana, but **there is no Alertmanager**, so nothing is
-  delivered to a person. Rules are written against the *rendered* Prometheus names (dots become
-  underscores, counters gain `_total`); `MetricNamesOnTheWireTest` in orders-service and
-  payment-service pins those names, because an alert on a metric that does not exist never fires.
+  `observability/prometheus.yml` and validated in CI by the `observability-config` job. Rules are
+  written against the *rendered* Prometheus names (dots become underscores, counters gain
+  `_total`); `MetricNamesOnTheWireTest` in orders-service and payment-service pins those names,
+  because an alert on a metric that does not exist never fires.
+- **Delivery** is Alertmanager (`observability/alertmanager.yml`), which groups by
+  `alertname` + `job`, routes `severity: critical` to its own receiver on a 1h repeat, and
+  suppresses alerts a `ServiceNotScraped` already explains. The `severity` label on a rule picks
+  the route, so it is load-bearing. The default receiver posts to the `alert-sink` container —
+  `docker compose logs alert-sink` shows the payload of everything delivered, which is how you
+  tell a working receiver from one that silently discards. **Swapping in Slack or email** is one
+  receiver block in `alertmanager.yml`; both read their credential from a mounted file, because a
+  webhook URL committed here is a credential leaked to everyone who can read the repo.
 
 ## Per-service wiring
 

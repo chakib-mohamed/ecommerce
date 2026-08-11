@@ -15,7 +15,7 @@
 help:
 	@echo "Run targets:"
 	@echo "  make infra            infra containers only (db/kafka/etc.)"
-	@echo "  make observability    tracing/metrics stack (jaeger/prometheus/grafana)"
+	@echo "  make observability    tracing/metrics stack (jaeger/prometheus/alertmanager/grafana)"
 	@echo "  make backend          infra + backend services"
 	@echo "  make front            full stack (infra + backend + frontend)"
 	@echo "  make up               full stack (infra + backend + frontend)"
@@ -53,7 +53,7 @@ help:
 infra:
 	docker compose --profile infra up -d
 
-## observability: bring up the tracing/metrics stack only (jaeger/prometheus/grafana)
+## observability: bring up the tracing/metrics stack only (jaeger/prometheus/alertmanager/grafana)
 observability:
 	docker compose --profile observability up -d
 

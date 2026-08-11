@@ -117,10 +117,40 @@ the exact control method (and failure branch) verified against the current code.
 Rules live in `observability/rules/*.rules.yml`, mounted into Prometheus and evaluated every 30s.
 They are visible on Prometheus's Alerts page and in Grafana.
 
-**Nothing delivers them.** There is no Alertmanager in the stack, so a firing alert waits for
-somebody to look at a dashboard. That is a deliberate stopping point rather than an oversight:
-adding Alertmanager is easy, but *where alerts should go* — an inbox, a channel, a pager, and who
-is on the other end — is a decision this repo cannot make for itself.
+### Delivery
+
+Prometheus hands firing alerts to **Alertmanager** (`observability/alertmanager.yml`), which decides
+what happens to them next. Three things it does that Prometheus alone does not:
+
+- **Grouping** by `alertname` + `job`, so one broken service produces one notification rather than
+  one per instance, batched on a 30s wait and a 5m interval.
+- **Severity routing.** `severity: critical` takes its own receiver and repeats hourly; everything
+  else repeats every four hours. The label on the rule is what selects the route — a rule that sets
+  no severity silently takes the default path, which is why every rule above sets one.
+- **Inhibition.** A `ServiceNotScraped` suppresses the other alerts for that same `job`, because a
+  service that is not being scraped makes every rule reading its metrics meaningless, and the
+  symptoms otherwise bury the cause. This matches on `job`, so it covers `SagaStepTimedOut`,
+  `PaymentGatewayFault` and `CapturesRepeatedlyRedelivered` — the rules whose expressions keep the
+  label. It cannot cover `OrdersConfirmedButNonePaid` or `PaymentsMostlyDeclined`, which aggregate
+  with `sum()` and drop every label including `job`. That is a property of those expressions.
+
+**Where alerts go is still parametrized, and that is the remaining decision.** The default receiver
+posts the full payload to a local `alert-sink` container, so the path is verifiable —
+`docker compose logs alert-sink` shows exactly what was delivered. That default exists because a
+receiver that quietly discards its alerts is indistinguishable from a working one, which was the
+failure this replaced.
+
+Pointing them at a real destination is one receiver block in `observability/alertmanager.yml`; the
+Slack and email forms are written out there, commented, ready to uncomment. Both read their
+credential from a file mounted at `/etc/alertmanager/secrets/` rather than an inline value — a
+webhook URL or SMTP password committed to this repository is a credential handed to everyone who
+can read it.
+
+Both halves are validated in CI by the `observability-config` job: `amtool check-config` parses the
+Alertmanager config, and a cross-check asserts that the Alertmanager `prometheus.yml` points at is
+actually a service in `docker-compose.yml`. Neither tool checks that seam on its own, and a
+misspelled hostname there produces a stack where every rule evaluates, the Alerts page looks
+healthy, and nothing is ever delivered.
 
 | Alert | Fires on | Why it is worth waking up for |
 |---|---|---|

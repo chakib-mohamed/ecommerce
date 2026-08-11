@@ -1,0 +1,100 @@
+# Alertmanager: what happens to a rule once it fires.
+#
+# Prometheus decides *whether* an alert is firing. Everything after that - grouping, silencing,
+# who gets told and how often - happens here. Before this existed the rules were evaluated and
+# then waited for somebody to open a dashboard, which meant the ones that matter most (money
+# taken, stock held) were the ones nobody was looking at.
+#
+# The delivery destination is deliberately a local sink by default. Swapping in Slack, email or
+# PagerDuty is one receiver block - see the notes on `critical-alerts` below - and it is left
+# undone on purpose: it needs a credential, and a webhook URL committed to a repository is a
+# credential leaked to everyone who can read it.
+
+global:
+  # How long a firing alert can go unrefreshed by Prometheus before Alertmanager assumes the
+  # rule stopped evaluating and marks it resolved. Longer than the 30s rule interval by a wide
+  # margin, so a slow evaluation cycle does not look like a recovery.
+  resolve_timeout: 5m
+
+route:
+  # Grouped by what the alert is and which service it came from, so one broken service produces
+  # one notification rather than one per instance.
+  group_by: ['alertname', 'job']
+
+  # Wait for the rest of a burst before sending, then batch further updates for that group.
+  group_wait: 30s
+  group_interval: 5m
+
+  # An unacknowledged alert is re-sent this often. Deliberately long: a warning that repeats every
+  # few minutes gets muted, and a muted alert protects nothing.
+  repeat_interval: 4h
+
+  receiver: default-alerts
+
+  routes:
+    # Anything the rules marked critical costs money or takes stock out of sale while it lasts,
+    # so it repeats four times as often and is routed somewhere that can be paged separately.
+    - matchers:
+        - severity = "critical"
+      receiver: critical-alerts
+      repeat_interval: 1h
+
+inhibit_rules:
+  # A service that is not being scraped makes every rule that reads its metrics silent, and
+  # `ServiceNotScraped` already says so. Without this, a service going down also fires whatever
+  # its last scraped samples happen to imply, and the real cause is buried among the symptoms.
+  #
+  # This matches on `job`, so it covers the alerts whose expressions keep the label:
+  # SagaStepTimedOut, PaymentGatewayFault and CapturesRepeatedlyRedelivered. It does *not* cover
+  # OrdersConfirmedButNonePaid or PaymentsMostlyDeclined - both aggregate with sum(), which drops
+  # every label including `job`, so there is nothing left to match them on. That is a property of
+  # those expressions, not something this rule can fix.
+  - source_matchers:
+      - alertname = "ServiceNotScraped"
+    target_matchers:
+      - alertname != "ServiceNotScraped"
+    equal: ['job']
+
+  # A critical alert supersedes a warning about the same thing on the same service.
+  - source_matchers:
+      - severity = "critical"
+    target_matchers:
+      - severity = "warning"
+    equal: ['alertname', 'job']
+
+receivers:
+  # Both receivers post the full alert payload to a local sink container, so the delivery path is
+  # real and verifiable rather than configured-and-assumed:
+  #
+  #     docker compose logs alert-sink
+  #
+  # That is the whole point of having a default at all - a receiver that silently discards alerts
+  # is indistinguishable from having no Alertmanager, which is the state this replaced.
+  - name: default-alerts
+    webhook_configs:
+      - url: http://alert-sink:8080/alerts/warning
+        send_resolved: true
+
+  - name: critical-alerts
+    webhook_configs:
+      - url: http://alert-sink:8080/alerts/critical
+        send_resolved: true
+
+    # To route these to a real destination, add one of the following alongside (or instead of) the
+    # webhook above and restart Alertmanager. Both read their credential from a mounted file
+    # rather than an inline value, so nothing secret ends up in this repository:
+    #
+    # slack_configs:
+    #   - channel: '#ecommerce-alerts'
+    #     api_url_file: /etc/alertmanager/secrets/slack-webhook-url
+    #     title: '{{ .CommonLabels.alertname }} ({{ .CommonLabels.job }})'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ "\n" }}{{ end }}'
+    #     send_resolved: true
+    #
+    # email_configs:
+    #   - to: 'oncall@example.com'
+    #     from: 'alertmanager@example.com'
+    #     smarthost: 'smtp.example.com:587'
+    #     auth_username: 'alertmanager@example.com'
+    #     auth_password_file: /etc/alertmanager/secrets/smtp-password
+    #     send_resolved: true
