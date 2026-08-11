@@ -78,6 +78,7 @@ public class SagaService {
             // the provider reference, not by the saga.
             return;
         }
+        OrderStatus previousStatus = order.getStatus();
         order.setStatus(OrderStatus.PAID);
         order.setSagaStepId(null);
         order.setStepDeadline(null);
@@ -92,8 +93,13 @@ public class SagaService {
 
         if (commit(order, paid)) {
             meterRegistry.counter(MetricNames.ORDERS_PAID).increment();
-            LOG.infof("Payment captured, order paid orderId=%s providerRef=%s",
-                    orderId, providerRef);
+            // providerRef stays out of this line on purpose - docs/specs/payment.md forbids it at
+            // INFO, and INFO is what ships to log aggregation. It is not lost: payment-service
+            // persists it against the same orderId and stepId, which is where reconciliation
+            // reads it from anyway.
+            LOG.infof("Payment captured, order paid orderId=%s stepId=%s from=%s to=%s",
+                    orderId, stepId, previousStatus, order.getStatus());
+            LOG.debugf("Capture provider reference orderId=%s providerRef=%s", orderId, providerRef);
         }
     }
 
@@ -107,6 +113,7 @@ public class SagaService {
         if (order == null) {
             return;
         }
+        OrderStatus previousStatus = order.getStatus();
         order.setStatus(OrderStatus.CANCELLED);
         order.setStatusReason(reason == null ? REASON_PAYMENT_FAILED : reason);
         order.setSagaStepId(null);
@@ -121,8 +128,9 @@ public class SagaService {
 
         if (commit(order, release, cancelled)) {
             meterRegistry.counter(MetricNames.ORDERS_CANCELLED).increment();
-            LOG.infof("Payment failed, order cancelled and stock released orderId=%s reason=%s",
-                    orderId, order.getStatusReason());
+            LOG.infof("Payment failed, order cancelled and stock released orderId=%s reason=%s "
+                            + "from=%s to=%s",
+                    orderId, order.getStatusReason(), previousStatus, order.getStatus());
         }
     }
 
@@ -139,6 +147,7 @@ public class SagaService {
         if (order == null) {
             return;
         }
+        OrderStatus previousStatus = order.getStatus();
         order.setStatus(OrderStatus.RESERVED);
 
         // A fresh id, not the one stock just answered: reusing it would make a redelivered stock
@@ -152,8 +161,8 @@ public class SagaService {
 
         if (commit(order, capture)) {
             meterRegistry.counter(MetricNames.ORDERS_RESERVED).increment();
-            LOG.infof("Stock reserved, payment requested orderId=%s stepId=%s",
-                    orderId, paymentStepId);
+            LOG.infof("Stock reserved, payment requested orderId=%s stepId=%s from=%s to=%s",
+                    orderId, paymentStepId, previousStatus, order.getStatus());
         }
     }
 
@@ -168,6 +177,7 @@ public class SagaService {
         if (order == null) {
             return;
         }
+        OrderStatus previousStatus = order.getStatus();
         order.setStatus(OrderStatus.CANCELLED);
         order.setSagaStepId(null);
         order.setStepDeadline(null);
@@ -176,7 +186,8 @@ public class SagaService {
                 reason == null ? REASON_OUT_OF_STOCK : reason);
         if (commit(order, cancelled)) {
             meterRegistry.counter(MetricNames.ORDERS_CANCELLED).increment();
-            LOG.infof("Stock rejected, order cancelled orderId=%s reason=%s", orderId, reason);
+            LOG.infof("Stock rejected, order cancelled orderId=%s reason=%s from=%s to=%s",
+                    orderId, reason, previousStatus, order.getStatus());
         }
     }
 

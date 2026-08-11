@@ -77,6 +77,7 @@ public class SagaDeadlineSweep {
             return;
         }
 
+        OrderStatus previousStatus = order.getStatus();
         order.setStatus(OrderStatus.CANCELLED);
         order.setSagaStepId(null);
         order.setStepDeadline(null);
@@ -90,8 +91,9 @@ public class SagaDeadlineSweep {
         // could release the stock without ever announcing the cancellation, or the reverse.
         if (sagaService.commitOrder(order, release, cancelled)) {
             meterRegistry.counter(MetricNames.SAGAS_TIMED_OUT).increment();
-            LOG.warnf("Saga step timed out, order cancelled and stock released orderId=%s stepId=%s",
-                    orderId, stepId);
+            LOG.warnf("Saga step timed out, order cancelled and stock released orderId=%s "
+                            + "stepId=%s from=%s to=%s",
+                    orderId, stepId, previousStatus, order.getStatus());
         }
     }
 }

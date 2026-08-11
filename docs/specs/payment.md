@@ -221,17 +221,34 @@ reason above has somewhere to be read from. Both landed at gate 2.
 
 ## 10. Convention compliance checklist
 
-- [ ] BCE layering: gateway client and capture logic in `control/`, DTOs in `boundary/dto/`, event
+Checked off after implementation, naming what enforces each rather than a reading of the code.
+
+- [x] BCE layering: gateway client and capture logic in `control/`, DTOs in `boundary/dto/`, event
       payloads in `control/events/` (`architecture-conventions.md`)
-- [ ] Blocking JAX-RS and synchronous Panache only; no reactive stack
+      — enforced by `BceArchitectureTest`
+- [x] Blocking JAX-RS and synchronous Panache only; no reactive stack
       (`architecture-conventions.md`)
-- [ ] JSON: snake_case, nulls omitted, ISO-8601 dates, on HTTP and on events
+- [x] JSON: snake_case, nulls omitted, ISO-8601 dates, on HTTP and on events
       (`json-serialization-conventions.md`)
-- [ ] Exceptions: declines are `FunctionalException` with an `errorCode`; gateway faults propagate as
-      technical errors (`exception-handling-conventions.md`)
-- [ ] No network I/O inside a transaction - the gateway call happens outside, and only its result
+      — `CustomJsonbConfigCustomizer`, pinned by the shared saga contract fixtures. Without the
+      customizer JSON-B falls back to camelCase and every message is silently wrong in both
+      directions, with no field failing loudly — they are simply absent
+- [x] ~~Exceptions: declines are `FunctionalException` with an `errorCode`~~; gateway faults
+      propagate as technical errors (`exception-handling-conventions.md`)
+      — **half of this does not apply as written.** payment-service has no HTTP API, so a decline
+      never becomes an HTTP status: it is a recorded outcome that is replied as `payment-failed`,
+      and orders-service turns it into the order's `status_reason`. A `FunctionalException` here
+      would have no mapper and no caller to receive it. Gateway faults do propagate untouched, so
+      the command redelivers — that half stands
+- [x] No network I/O inside a transaction - the gateway call happens outside, and only its result
       enters one (`persistence-conventions.md`)
-- [ ] Reply written to the outbox in the same transaction as the payment record (ADR-0002)
-- [ ] Logging: no token, no `providerRef` at INFO, no amount without currency
+      — enforced by `TransactionalRulesArchTest`, and the ordering is asserted directly by
+      `TransactionBoundaryTest` in both directions
+- [x] Reply written to the outbox in the same transaction as the payment record (ADR-0002)
+- [x] Logging: no token, no `providerRef` at INFO, no amount without currency
       (`logging-conventions.md`)
-- [ ] New service wired into Compose, the CI service mapping, and the observability stack
+      — this one was violated on the *other* side: orders-service logged `providerRef` at INFO on
+      capture. It is at DEBUG now
+- [x] New service wired into Compose, the CI service mapping, and the observability stack
+      — it was missing from four separate lists at once, none of which reference each other. See
+      the root `CLAUDE.md` for the full set that has to agree

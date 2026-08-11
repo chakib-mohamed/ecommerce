@@ -350,18 +350,32 @@ overcount every checkout that aborts and is retried.
 
 ## 11. Convention compliance checklist
 
-- [ ] BCE layering: state machine and saga coordination live in `control/`; DTOs in `boundary/dto/`;
+Checked off after implementation, against what enforces each — not against a reading of the code.
+Most of these are held by a build gate rather than by review, which is the point: a checklist nothing
+enforces is back to being unchecked the next time someone edits the file.
+
+- [x] BCE layering: state machine and saga coordination live in `control/`; DTOs in `boundary/dto/`;
       event payloads in `control/events/` (`docs/conventions/architecture-conventions.md`)
-- [ ] JSON: snake_case, nulls omitted, ISO-8601 dates — including on all new events
+      — enforced by `BceArchitectureTest`
+- [x] JSON: snake_case, nulls omitted, ISO-8601 dates — including on all new events
       (`docs/conventions/json-serialization-conventions.md`)
-- [ ] Exceptions: illegal transitions are `FunctionalException` with an `errorCode`, mapped by the
+      — enforced by the shared saga wire-contract fixtures, which both ends parse
+- [x] Exceptions: illegal transitions are `FunctionalException` with an `errorCode`, mapped by the
       existing `GlobalExceptionHandler`; no try-catch in resources
       (`docs/conventions/exception-handling-conventions.md`)
-- [ ] Persistence: `@Transactional` on control-layer mutating methods only; no network I/O inside a
+      — `IllegalOrderTransitionException` → `409` `ILLEGAL_ORDER_TRANSITION`, asserted end to end
+- [x] Persistence: `@Transactional` on control-layer mutating methods only; no network I/O inside a
       transaction — the outbox carries every cross-service call
       (`docs/conventions/persistence-conventions.md`)
-- [ ] Testing: unit tests for every transition in §3.1 including the illegal ones; Testcontainers
+      — enforced by `TransactionalRulesArchTest`
+- [x] Testing: unit tests for every transition in §3.1 including the illegal ones; Testcontainers
       integration tests for the crash windows in §9 (`docs/conventions/testing-conventions.md`)
-- [ ] Logging: state transitions logged with `orderId` and both states; correlation via MDC
+      — §3.1 is covered exhaustively and parameterized off the table itself, so a state added to the
+      enum without a table entry is tested as illegal. Of §9, the checkout crash window and the two
+      `409` cases run against real Mongo; the lost reply, the poison record and the deadline are
+      unit tests, because what they assert is which writes are issued and in what transaction
+- [x] Logging: state transitions logged with `orderId` and both states; correlation via MDC
       (`docs/conventions/logging-conventions.md`)
-- [ ] An ADR records the orchestration-over-choreography decision (§4.1) once approved
+      — every transition names `from` and `to`, including the ones that are refused or discarded
+- [x] An ADR records the orchestration-over-choreography decision (§4.1) once approved
+      — `docs/adr/0011-orchestrated-saga-over-the-outbox.md`

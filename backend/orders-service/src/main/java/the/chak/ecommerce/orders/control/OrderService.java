@@ -251,6 +251,7 @@ public class OrderService {
         // Guard before anything else: a second confirmation would write a second outbox entry and
         // publish the sale twice.
         stateMachine.assertCanTransition(order.getStatus(), OrderStatus.CONFIRMED);
+        OrderStatus previousStatus = order.getStatus();
 
         // Deliberately outside the transaction below: persistence-conventions.md forbids network
         // I/O inside one, and this reads the live catalog. Only its verdict crosses into the
@@ -303,7 +304,8 @@ public class OrderService {
             });
         }
         meterRegistry.counter(MetricNames.ORDERS_CONFIRMED).increment();
-        LOG.infof("Order confirmed orderId=%s userId=%s", order.getId(), order.getUserID());
+        LOG.infof("Order confirmed orderId=%s userId=%s from=%s to=%s",
+                order.getId(), order.getUserID(), previousStatus, order.getStatus());
 
         // Best-effort wake-up; if it is lost the scheduled tick still drains the entry.
         outboxRelay.requestPoll();
@@ -325,10 +327,12 @@ public class OrderService {
             return null;
         }
         stateMachine.assertCanTransition(order.getStatus(), OrderStatus.CANCELLED);
+        OrderStatus previousStatus = order.getStatus();
         order.setStatus(OrderStatus.CANCELLED);
         orderRepository.persistOrUpdate(order);
         meterRegistry.counter(MetricNames.ORDERS_CANCELLED).increment();
-        LOG.infof("Order cancelled orderId=%s userId=%s", order.getId(), order.getUserID());
+        LOG.infof("Order cancelled orderId=%s userId=%s from=%s to=%s",
+                order.getId(), order.getUserID(), previousStatus, order.getStatus());
         return order;
     }
 
