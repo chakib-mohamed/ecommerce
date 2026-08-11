@@ -33,14 +33,53 @@ test.describe('Product reviews', () => {
     const product = products[0];
     productId = product.uuid;
 
+    // The order has to be *paid for*, not merely placed. Placing one costs nothing and can be
+    // abandoned, which is why the backend gate counts only PAID/SHIPPED/DELIVERED - so a beforeAll
+    // that stops at INITIATED establishes nothing this spec needs.
+    //
+    // It stopped at INITIATED until now, and the tests below still passed: the order-lifecycle
+    // spec drives *the same first product* to PAID for *this same buyer*, in parallel, and this
+    // spec was silently riding on it. Green, and asserting nothing about its own setup - run this
+    // file alone and it fails.
     const token = readAccessToken(RETAIL_USER);
-    const res = await request.post('/api/orders', {
-      headers: { Authorization: `Bearer ${token}` },
+    const auth = { Authorization: `Bearer ${token}` };
+
+    const created = await request.post('/api/orders', {
+      headers: auth,
       data: {
         products: [{ product_id: product.uuid, title: product.title, qty: 1, price: product.price }],
       },
     });
-    expect(res.ok()).toBe(true);
+    expect(created.ok(), `could not place the order this spec needs: ${created.status()}`).toBe(true);
+    const orderId = ((await created.json()) as { id: string }).id;
+
+    const confirmed = await request.post(`/api/orders/${orderId}/confirm`, {
+      headers: auth,
+      data: { payment_method: 'pm_card_visa' },
+    });
+    expect(confirmed.status(), 'the order was not committed, so it can never be paid').toBe(200);
+
+    // Confirm returns once payment has been *requested*. Reaching PAID takes the stock step, the
+    // capture and the reply back, across three services and a broker - so this waits for the
+    // status rather than assuming it.
+    await expect
+      .poll(
+        async () => {
+          const res = await request.post('/api/orders/search', {
+            headers: auth,
+            data: { user_id: RETAIL_USER.email, offset: 0, limit: 50 },
+          });
+          if (!res.ok()) return `search failed: ${res.status()}`;
+          const body = (await res.json()) as { y: Array<{ id: string; status: string }> };
+          return body.y.find((o) => o.id === orderId)?.status ?? 'not found';
+        },
+        {
+          message: `order ${orderId} never reached PAID, so the reviewer is not a verified purchaser`,
+          timeout: 60_000,
+          intervals: [1_000],
+        },
+      )
+      .toBe('PAID');
   });
 
   test.describe('anonymous visitor', () => {
