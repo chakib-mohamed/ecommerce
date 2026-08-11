@@ -62,13 +62,28 @@ test.describe('Order history', () => {
     // result depend on how many of those happened to land first - it passed while the suite was
     // small and would have started failing on a spec that never touched this page.
     const card = page.getByText(`Order #${placedOrderId.slice(-6)}`);
+    const pager = page.getByText(/^Page \d+ of \d+$/);
     const next = page.getByRole('button', { name: /Next/ });
+
+    // Nothing below may run before the list has actually rendered. isVisible() is a snapshot with
+    // no auto-wait, so asking it mid-fetch answers "no" about a page that has not been drawn yet -
+    // and a false "no" here does not fail, it clicks straight past the page the order was on.
+    await expect(page.getByText(/^Order #/).first()).toBeVisible();
+
     for (;;) {
       if (await card.isVisible()) break;
-      if (!(await next.isVisible()) || !(await next.isEnabled())) {
+      if ((await next.count()) === 0 || !(await next.isEnabled())) {
         throw new Error(`order ${placedOrderId} is not on any page of the buyer's history`);
       }
-      await Promise.all([waitForApiCall(page, 'POST', /\/orders\/search$/), next.click()]);
+
+      const before = await pager.textContent();
+      await next.click();
+      // The search response arriving is not the same as the new page being on screen: the state
+      // update and re-render come after it. Waiting on the response let the next iteration read
+      // the *previous* page's cards, conclude the order was not there, and skip a page - which is
+      // exactly how this test started flaking. The pager's own label is the signal that the
+      // re-render happened, because it is rendered from the same state as the cards.
+      await expect(pager).not.toHaveText(before ?? '');
     }
     await expect(card).toBeVisible();
   });
