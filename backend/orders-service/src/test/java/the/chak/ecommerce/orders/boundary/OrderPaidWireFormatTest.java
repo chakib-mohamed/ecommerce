@@ -30,6 +30,7 @@ import the.chak.ecommerce.orders.control.ProductsApiClient;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.entity.OrderStatus;
 import the.chak.ecommerce.orders.control.OutboxEventFactory;
+import the.chak.ecommerce.orders.control.OutboxRelay;
 import the.chak.ecommerce.orders.repository.OrderRepository;
 import the.chak.ecommerce.orders.repository.OutboxRepository;
 
@@ -56,6 +57,9 @@ class OrderPaidWireFormatTest {
     @Inject
     OutboxEventFactory outboxEventFactory;
 
+    @Inject
+    OutboxRelay outboxRelay;
+
     @ConfigProperty(name = "kafka.bootstrap.servers")
     String bootstrapServers;
 
@@ -78,6 +82,11 @@ class OrderPaidWireFormatTest {
             // answer, and neither runs here. What is under test is the serialization between the
             // outbox and the broker, which is the same either way.
             outboxRepository.persist(outboxEventFactory.orderPaid(order));
+            // Nudge the relay, exactly as every writer does after committing. Tests set
+            // orders.outbox.poll-interval to 24h, so the scheduled tick never arrives here and an
+            // entry nobody asks for sits until some other test's poll happens to drain it - which
+            // is how this first ran: published 20s late, by an accident of what else was running.
+            outboxRelay.requestPoll();
 
             // then - the wire payload uses snake_case field names, never camelCase
             String wire = awaitWire(consumer, "wire_user", Duration.ofSeconds(20));
