@@ -33,7 +33,25 @@ public class OrdersApiClient {
     private static final List<OrderStatus> PURCHASED =
             List.of(OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED);
 
-    @Timeout(2000)
+    /**
+     * Five seconds, not two.
+     *
+     * <p>Two was the value this was written with rather than one anybody chose, and it is tighter
+     * than the call can honour: this is a cross-service HTTP round trip that a freshly started
+     * JVM makes for the first time - class loading, REST client initialisation, connection pool,
+     * and a database query on the other side. It exceeded two seconds often enough to be caught in
+     * CI, and a buyer submitting the first review after a deployment hits exactly the same window.
+     *
+     * <p>What they see when it expires is the reason this matters: the timeout propagates as a
+     * technical error, so the answer to "may I review this?" arrives as a 500. The status is
+     * arguably honest - the system genuinely does not know - but it is not a good answer, and
+     * whether an unknown verdict should read as a refusal instead is a contract question rather
+     * than a tuning one.
+     *
+     * <p>Still bounded, and deliberately: the point of a deadline here is that a review submission
+     * fails quickly when orders-service is unreachable rather than hanging on it.
+     */
+    @Timeout(5000)
     @CircuitBreaker
     public boolean hasPurchased(String reviewer, String productId) {
         SearchOrdersCommand command = new SearchOrdersCommand();

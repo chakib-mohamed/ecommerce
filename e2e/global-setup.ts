@@ -1,7 +1,7 @@
 import { chromium, request as playwrightRequest, type FullConfig } from '@playwright/test';
 import fs from 'node:fs';
 import { loginAs } from './fixtures/auth';
-import { waitUntilTheStackCanSell } from './fixtures/smoke';
+import { waitUntilTheStackIsReady } from './fixtures/smoke';
 import {
   ADMIN_USER,
   RETAIL_USER,
@@ -75,7 +75,8 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     await browser.close();
   }
 
-  // Last, and with its own buyer so the order it places lands in nobody else's history — see
-  // fixtures/smoke.ts for why "healthy" is not the same as "ready".
-  await waitUntilTheStackCanSell(baseURL, specUsers.smoke);
+  // Last, and with its own buyer so the order it places lands in nobody else's history. The
+  // non-buyer is borrowed to ask the review gate a question it must refuse, which warms a call
+  // no amount of ordering does — see fixtures/smoke.ts for why "healthy" is not "ready".
+  await waitUntilTheStackIsReady(baseURL, specUsers.smoke, specUsers['reviews-nonbuyer']);
 }

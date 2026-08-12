@@ -54,8 +54,8 @@ output is uploaded too (`compose-logs` artifact) for diagnosing backend-side fai
   the admin role) use the seeded pair.
 - `fixtures/auth.ts` — `loginAs(page, user)` helper, used by `global-setup.ts`
 - `fixtures/api.ts` — `waitForApiCall` helper for asserting exact backend requests
-- `fixtures/smoke.ts` — blocks until the stack can actually complete a purchase; see
-  `docs/specs/e2e-test-suite.md` for why "healthy" is not "ready"
+- `fixtures/smoke.ts` — blocks until the stack can complete a purchase *and* answer the review
+  gate; see `docs/specs/e2e-test-suite.md` for why "healthy" is not "ready"
 - `global-setup.ts` — registers this run's spec buyers, logs every account in via the real UI,
   saves Playwright `storageState` to `.auth/*.json` (gitignored), then waits for the stack to be
   able to sell

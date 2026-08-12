@@ -16,16 +16,31 @@ const PAID_TIMEOUT_MS = 45_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * One end-to-end attempt: buy something.
- *
- * @returns null when the order reached PAID, otherwise why it did not
- */
-async function buyOnce(baseURL: string, buyer: TestUser, token: string): Promise<string | null> {
-  const api = await playwrightRequest.newContext({
+/** Opens an API context authenticated as one of the setup accounts. */
+async function contextFor(baseURL: string, user: TestUser) {
+  return playwrightRequest.newContext({
     baseURL,
-    extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    extraHTTPHeaders: { Authorization: `Bearer ${readAccessToken(user)}` },
   });
+}
+
+/**
+ * One end-to-end attempt: buy something, then ask whether somebody who has not bought it may
+ * review it.
+ *
+ * <p>Both, because they warm different things. The purchase exercises orders, products, price and
+ * payment; the review question exercises a call orders never makes - products-service asking
+ * orders-service about purchase history, under its own deadline. Warming only the first left the
+ * second to be made cold by a spec, which is exactly what it was.
+ *
+ * @returns null when both worked, otherwise why one did not
+ */
+async function attemptOnce(
+  baseURL: string,
+  buyer: TestUser,
+  nonBuyer: TestUser,
+): Promise<string | null> {
+  const api = await contextFor(baseURL, buyer);
   try {
     const catalogue = await api.get('/api/products?page=0&size=1');
     if (!catalogue.ok()) return `catalogue unavailable (${catalogue.status()})`;
@@ -63,21 +78,59 @@ async function buyOnce(baseURL: string, buyer: TestUser, token: string): Promise
       if (search.ok()) {
         const body = (await search.json()) as { y: Array<{ id: string; status: string }> };
         last = body.y.find((o) => o.id === orderId)?.status ?? 'not found';
-        if (last === 'PAID') return null;
+        // break, not return: the purchase is only half of what "ready" means, and returning here
+        // would skip the review gate below entirely.
+        if (last === 'PAID') break;
         if (last === 'CANCELLED') return 'the order was cancelled rather than paid';
       } else {
         last = `search failed (${search.status()})`;
       }
       await sleep(2_000);
     }
-    return `the order never reached PAID (last status: ${last})`;
+    if (last !== 'PAID') return `the order never reached PAID (last status: ${last})`;
+
+    return reviewGateAnswers(baseURL, nonBuyer, product.uuid);
   } finally {
     await api.dispose();
   }
 }
 
 /**
- * Blocks until the stack can actually take an order all the way to PAID.
+ * Asks the review gate a question it must refuse.
+ *
+ * <p>Nothing is created by a refusal, so this is safe to repeat. A 403 is the whole point: it
+ * means products-service reached orders-service, got an answer about purchase history, and acted
+ * on it. A 500 means that call did not complete in time - the state the specs kept catching.
+ */
+async function reviewGateAnswers(
+  baseURL: string,
+  nonBuyer: TestUser,
+  productId: string,
+): Promise<string | null> {
+  const api = await contextFor(baseURL, nonBuyer);
+  try {
+    const res = await api.post('/api/reviews', {
+      data: { product_id: productId, stars: 3, text: 'readiness probe' },
+    });
+    if (res.status() === 403) return null;
+    if (res.status() === 200) {
+      // Not a cold stack - a broken gate, and retrying cannot fix it. Say so rather than spending
+      // three minutes pretending it might settle.
+      throw new Error(
+        `The review gate accepted a review from ${nonBuyer.email}, who has bought nothing. `
+          + `Purchase verification is not working, and reviews.spec's 403 case would pass or fail `
+          + `for reasons unrelated to what it is testing.`,
+      );
+    }
+    return `review gate answered ${res.status()} rather than 403`;
+  } finally {
+    await api.dispose();
+  }
+}
+
+/**
+ * Blocks until the stack can actually take an order all the way to PAID, and answer whether
+ * somebody may review what they have not bought.
  *
  * <p>Compose reports a service healthy when its health endpoint answers, which happens well before
  * its REST clients, Kafka consumers and database pools are usable. The suite used to start at
@@ -90,8 +143,11 @@ async function buyOnce(baseURL: string, buyer: TestUser, token: string): Promise
  * if it cannot complete a purchase within the deadline then every order-related spec is going to
  * fail anyway, and failing here says so in one line instead of fifteen.
  */
-export async function waitUntilTheStackCanSell(baseURL: string, buyer: TestUser): Promise<void> {
-  const token = readAccessToken(buyer);
+export async function waitUntilTheStackIsReady(
+  baseURL: string,
+  buyer: TestUser,
+  nonBuyer: TestUser,
+): Promise<void> {
   const deadline = Date.now() + READY_DEADLINE_MS;
   const started = Date.now();
   let attempts = 0;
@@ -99,10 +155,10 @@ export async function waitUntilTheStackCanSell(baseURL: string, buyer: TestUser)
 
   while (Date.now() < deadline) {
     attempts += 1;
-    reason = (await buyOnce(baseURL, buyer, token)) ?? '';
+    reason = (await attemptOnce(baseURL, buyer, nonBuyer)) ?? '';
     if (reason === '') {
       const elapsed = ((Date.now() - started) / 1000).toFixed(1);
-      console.log(`[smoke] stack can complete a purchase (attempt ${attempts}, ${elapsed}s)`);
+      console.log(`[smoke] stack is ready (attempt ${attempts}, ${elapsed}s)`);
       return;
     }
     console.log(`[smoke] attempt ${attempts}: ${reason} — retrying`);
@@ -110,7 +166,7 @@ export async function waitUntilTheStackCanSell(baseURL: string, buyer: TestUser)
   }
 
   throw new Error(
-    `The stack could not complete a purchase within ${READY_DEADLINE_MS / 1000}s `
+    `The stack was not ready within ${READY_DEADLINE_MS / 1000}s `
       + `(${attempts} attempts, last failure: ${reason}). Every order, checkout and review spec `
       + `depends on this working, so the suite is stopping here rather than reporting it fifteen `
       + `times.`,

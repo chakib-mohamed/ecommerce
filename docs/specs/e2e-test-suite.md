@@ -85,9 +85,20 @@ full of the last one's orders — which would reintroduce the same problem one r
 
 ### Waiting for ready, not for healthy
 
-`global-setup.ts` logs each role in, and then **blocks until the stack can actually complete a
-purchase** — place an order, confirm it, and see it reach `PAID` — retrying for up to three minutes
-before giving up (`e2e/fixtures/smoke.ts`).
+`global-setup.ts` logs each role in, and then **blocks until the stack can actually do the two
+things the suite depends on** — complete a purchase (place, confirm, reach `PAID`) and answer
+whether somebody who has bought nothing may review a product (a `403`) — retrying for up to three
+minutes before giving up (`e2e/fixtures/smoke.ts`).
+
+Both, because they warm different things. A purchase exercises orders, products, price and payment.
+The review question exercises a call ordering never makes: products-service asking orders-service
+about purchase history, under its own deadline. Warming only the first left the second to be made
+cold by a spec — which is precisely where the last flake was, `POST /reviews` answering `500`
+instead of `403`.
+
+A refusal creates nothing, so the probe is safe to repeat. If the gate ever *accepts* the
+non-buyer's review, the gate is broken rather than cold, and setup fails immediately instead of
+retrying for three minutes against something no amount of waiting will fix.
 
 This exists because `docker compose up --wait` returns when every health endpoint answers, which
 happens well before a service's REST clients, Kafka consumers and database pools are usable. The
@@ -102,9 +113,11 @@ specs would otherwise hit. It asserts nothing about behaviour and is not a test.
 complete a purchase within the deadline, every order, checkout and review spec was going to fail
 anyway, and failing here says so once instead of fifteen times.
 
-Its own logic is verified against a stub that fails `confirm` with 500 a fixed number of times: it
-retries through a recovering stack, gives up with a readable message on one that never recovers,
-and returns immediately on a healthy one.
+Its own logic is verified against a stub that can fail `confirm` and the review gate a set number
+of times each: it returns immediately on a healthy stack, retries through one that recovers on
+either path, gives up with a readable message on one that never does, and fails fast rather than
+retrying when the gate wrongly accepts a non-buyer. That last pair caught a real bug in the probe —
+an early return that skipped the review check entirely, so it reported ready without ever asking.
 
 ## Assertion philosophy
 
