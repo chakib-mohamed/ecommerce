@@ -1,19 +1,8 @@
 import { expect, test } from '@playwright/test';
-import fs from 'node:fs';
 import { waitForApiCall } from '../fixtures/api';
-import { RETAIL_USER } from '../fixtures/test-users';
+import { readAccessToken, specUser, storageStateFor } from '../fixtures/test-users';
 
-test.use({ storageState: RETAIL_USER.storageStatePath });
-
-/** Reads the retail user's access token out of the storageState global-setup saved. */
-function readAccessToken(): string {
-  const state = JSON.parse(fs.readFileSync(RETAIL_USER.storageStatePath, 'utf-8')) as {
-    origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-  };
-  const entry = state.origins?.[0]?.localStorage?.find((e) => e.name === 'access_token');
-  if (!entry) throw new Error('No access_token in retail storageState — did global-setup run?');
-  return entry.value;
-}
+test.use({ storageState: storageStateFor('lifecycle') });
 
 /**
  * The order lifecycle, end to end and through the real UI.
@@ -41,7 +30,7 @@ test.describe('Order lifecycle', () => {
     await page.getByRole('button', { name: 'Add to cart' }).first().click({ force: true });
 
     await page.goto('/checkout');
-    await page.getByPlaceholder('you@email.com').fill(RETAIL_USER.email);
+    await page.getByPlaceholder('you@email.com').fill(specUser('lifecycle').email);
     await page.getByPlaceholder('Your name').fill('E2E Lifecycle Buyer');
     await page.getByPlaceholder('Street address').fill('123 Test Street');
     await page.getByPlaceholder('City').fill('Springfield');
@@ -77,11 +66,12 @@ test.describe('Order lifecycle', () => {
     // for a *terminal* state, not a sleep. CANCELLED is accepted as a stopping point so a declined
     // or timed-out payment fails this spec with the status it actually reached, rather than with
     // an expired timeout that says nothing about why.
-    const token = readAccessToken();
+    const buyer = specUser('lifecycle');
+    const token = readAccessToken(buyer);
     const statusOf = async (): Promise<string> => {
       const res = await request.post('/api/orders/search', {
         headers: { Authorization: `Bearer ${token}` },
-        data: { user_id: RETAIL_USER.email, offset: 0, limit: 50 },
+        data: { user_id: buyer.email, offset: 0, limit: 50 },
       });
       if (!res.ok()) return `search failed: ${res.status()}`;
       const body = (await res.json()) as { y: Array<{ id: string; status: string }> };
@@ -116,7 +106,7 @@ test.describe('Order lifecycle', () => {
     await page.getByRole('button', { name: 'Add to cart' }).first().click({ force: true });
 
     await page.goto('/checkout');
-    await page.getByPlaceholder('you@email.com').fill(RETAIL_USER.email);
+    await page.getByPlaceholder('you@email.com').fill(specUser('lifecycle').email);
     await page.getByPlaceholder('Your name').fill('E2E Lost Answer');
     await page.getByPlaceholder('Street address').fill('123 Test Street');
     await page.getByPlaceholder('City').fill('Springfield');

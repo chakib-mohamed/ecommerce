@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { waitForApiCall } from '../fixtures/api';
-import { RETAIL_USER } from '../fixtures/test-users';
+import { specUser, storageStateFor } from '../fixtures/test-users';
 
-test.use({ storageState: RETAIL_USER.storageStatePath });
+test.use({ storageState: storageStateFor('checkout') });
 
 /**
  * Add to cart -> checkout -> place a real order
@@ -18,7 +18,7 @@ test('adds a product to cart, completes checkout, and lands on /confirm with a r
   await page.getByRole('button', { name: 'Add to cart' }).first().click({ force: true });
 
   await page.goto('/checkout');
-  await page.getByPlaceholder('you@email.com').fill(RETAIL_USER.email);
+  await page.getByPlaceholder('you@email.com').fill(specUser('checkout').email);
   await page.getByPlaceholder('Your name').fill('E2E Test Buyer');
   await page.getByPlaceholder('Street address').fill('123 Test Street');
   await page.getByPlaceholder('City').fill('Springfield');

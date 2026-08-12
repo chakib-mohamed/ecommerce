@@ -1,6 +1,5 @@
 import { request as playwrightRequest } from '@playwright/test';
-import fs from 'node:fs';
-import { RETAIL_USER } from './test-users';
+import { readAccessToken, type TestUser } from './test-users';
 
 /**
  * How long to keep trying before declaring the stack unable to sell anything. Generous, because
@@ -17,22 +16,12 @@ const PAID_TIMEOUT_MS = 45_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Reads the retail user's access token out of the storageState global-setup just saved. */
-function accessToken(): string {
-  const state = JSON.parse(fs.readFileSync(RETAIL_USER.storageStatePath, 'utf-8')) as {
-    origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-  };
-  const entry = state.origins?.[0]?.localStorage?.find((e) => e.name === 'access_token');
-  if (!entry) throw new Error('No access_token in retail storageState — did the logins run?');
-  return entry.value;
-}
-
 /**
  * One end-to-end attempt: buy something.
  *
  * @returns null when the order reached PAID, otherwise why it did not
  */
-async function buyOnce(baseURL: string, token: string): Promise<string | null> {
+async function buyOnce(baseURL: string, buyer: TestUser, token: string): Promise<string | null> {
   const api = await playwrightRequest.newContext({
     baseURL,
     extraHTTPHeaders: { Authorization: `Bearer ${token}` },
@@ -69,7 +58,7 @@ async function buyOnce(baseURL: string, token: string): Promise<string | null> {
     let last = 'no status yet';
     while (Date.now() < deadline) {
       const search = await api.post('/api/orders/search', {
-        data: { user_id: RETAIL_USER.email, offset: 0, limit: 50 },
+        data: { user_id: buyer.email, offset: 0, limit: 50 },
       });
       if (search.ok()) {
         const body = (await search.json()) as { y: Array<{ id: string; status: string }> };
@@ -101,8 +90,8 @@ async function buyOnce(baseURL: string, token: string): Promise<string | null> {
  * if it cannot complete a purchase within the deadline then every order-related spec is going to
  * fail anyway, and failing here says so in one line instead of fifteen.
  */
-export async function waitUntilTheStackCanSell(baseURL: string): Promise<void> {
-  const token = accessToken();
+export async function waitUntilTheStackCanSell(baseURL: string, buyer: TestUser): Promise<void> {
+  const token = readAccessToken(buyer);
   const deadline = Date.now() + READY_DEADLINE_MS;
   const started = Date.now();
   let attempts = 0;
@@ -110,7 +99,7 @@ export async function waitUntilTheStackCanSell(baseURL: string): Promise<void> {
 
   while (Date.now() < deadline) {
     attempts += 1;
-    reason = (await buyOnce(baseURL, token)) ?? '';
+    reason = (await buyOnce(baseURL, buyer, token)) ?? '';
     if (reason === '') {
       const elapsed = ((Date.now() - started) / 1000).toFixed(1);
       console.log(`[smoke] stack can complete a purchase (attempt ${attempts}, ${elapsed}s)`);

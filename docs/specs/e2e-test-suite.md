@@ -34,6 +34,8 @@ One spec file per flow, all under `e2e/specs/`:
 | `checkout.spec.ts` | Add to cart → fill checkout form → place order (`POST /api/orders`) → land on `/confirm` with a real order id. |
 | `orders.spec.ts` | A logged-in buyer sees their own previously-placed order(s), and the order-search request (`POST /api/orders/search`) is scoped to their email — the "own orders by authenticated user" fix (commit `f160317`). |
 | `admin.spec.ts` | Admin back-office (`/admin/products`, `/admin/categories`) renders real data; one real write (create + delete a throwaway subcategory) proves add/edit/delete actually work. |
+| `order-lifecycle.spec.ts` | An order placed through the UI reaches `PAID` across four services and a broker; and a confirm whose answer is lost does not place a second order. The only tests that fail when the saga chain breaks rather than one of its links. |
+| `reviews.spec.ts` | Verified-purchaser reviews: a buyer with a *paid* order can review, a buyer with none gets `403`, and a review can be submitted then deleted. |
 
 ### Out of scope
 
@@ -59,6 +61,27 @@ at all (a real, pre-existing onboarding gap this suite's setup also closes).
 CI runs the suite on push to `main` and on pull requests carrying an `e2e` label — see
 `docs/adr/0008-e2e-target-localhost-81.md`'s sibling note in `.github/workflows/ci.yml` for why it
 isn't on every PR by default.
+
+### One buyer per spec
+
+Every spec that places an order gets its **own account, registered fresh for that run**
+(`e2e/fixtures/test-users.ts`). Only `auth.spec` and `admin.spec` use the two seeded accounts —
+the first needs a fixed credential pair to type into the login form, the second needs the admin
+role.
+
+Sharing one buyer across the suite caused three separate failures, none of them obvious:
+
+1. **Assertions on a moving target.** The history pages at five. Six specs placing orders for one
+   account meant the order under test could be on any page, depending on which spec finished
+   first — so a test asserting it was on page one passed only while the suite was small.
+2. **A test passing because another spec did its setup.** When purchase verification was tightened
+   to require `PAID`, `reviews.spec` still stopped at `INITIATED` and kept passing, because
+   `order-lifecycle` drove the same product to `PAID` for the same buyer in parallel. Green,
+   asserting nothing about its own setup, and it would have failed run on its own.
+3. **Concurrent sagas on one account**, contending on the same rows and the same order search.
+
+Emails carry a per-run suffix, so a stack left up between runs never hands the next run a history
+full of the last one's orders — which would reintroduce the same problem one run later.
 
 ### Waiting for ready, not for healthy
 

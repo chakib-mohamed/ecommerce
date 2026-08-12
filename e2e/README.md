@@ -47,10 +47,16 @@ output is uploaded too (`compose-logs` artifact) for diagnosing backend-side fai
 
 ## Layout
 
-- `fixtures/test-users.ts` — seeded test credentials (single source of truth; see
-  `backend/dev-scripts/mongodb/03-users.js` for how they're seeded)
+- `fixtures/test-users.ts` — the two seeded accounts (`backend/dev-scripts/mongodb/03-users.js`)
+  **plus a buyer per spec**, registered fresh each run. Anything that places an order gets its own
+  account: an order history is mutable shared state and these specs run in parallel. Only
+  `auth.spec` (needs a fixed credential pair to type into the login form) and `admin.spec` (needs
+  the admin role) use the seeded pair.
 - `fixtures/auth.ts` — `loginAs(page, user)` helper, used by `global-setup.ts`
 - `fixtures/api.ts` — `waitForApiCall` helper for asserting exact backend requests
-- `global-setup.ts` — logs in once per role (retail, admin) via the real UI, saves
-  Playwright `storageState` to `.auth/*.json` (gitignored) so most specs start pre-authenticated
+- `fixtures/smoke.ts` — blocks until the stack can actually complete a purchase; see
+  `docs/specs/e2e-test-suite.md` for why "healthy" is not "ready"
+- `global-setup.ts` — registers this run's spec buyers, logs every account in via the real UI,
+  saves Playwright `storageState` to `.auth/*.json` (gitignored), then waits for the stack to be
+  able to sell
 - `specs/*.spec.ts` — one file per flow; see `docs/specs/e2e-test-suite.md` for the mapping
