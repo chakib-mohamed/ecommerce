@@ -72,8 +72,8 @@ class OutboxRelayStoreTest {
         entry.id = UUID.randomUUID();
         entry.aggregateType = "order";
         entry.aggregateId = "o1";
-        entry.eventType = "order-initiated";
-        entry.topic = "order-initiated";
+        entry.eventType = "order-paid";
+        entry.topic = "order-paid";
         entry.payload = "{\"id\":\"o1\"}";
         entry.createdAt = Instant.now();
         return entry;

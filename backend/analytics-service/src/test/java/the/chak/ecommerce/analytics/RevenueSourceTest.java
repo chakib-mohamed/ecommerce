@@ -18,10 +18,10 @@ import the.chak.ecommerce.analytics.control.KafkaEventConsumer;
  * already covered; the entire substance of this change is one binding - the topic the fact table is
  * filled from - and that binding is an annotation, so an annotation is what has to be pinned.
  *
- * <p>Getting it wrong is silent. Feeding the fact table from {@code order-initiated} again would
- * count every confirmed order as money taken, including ones whose card was declined, and the
- * dashboard would report a plausible number that is simply untrue. Nothing would fail, which is
- * exactly why this test exists.
+ * <p>Getting it wrong is silent. Feeding the fact table from a confirmation again would count
+ * every confirmed order as money taken, including ones whose card was declined, and the dashboard
+ * would report a plausible number that is simply untrue. Nothing would fail, which is exactly why
+ * this test exists.
  */
 class RevenueSourceTest {
 
@@ -55,9 +55,11 @@ class RevenueSourceTest {
     @DisplayName("No longer counts a confirmed order as a sale")
     void warehouse_isNotFedByOrderInitiated() {
         // given / when / then - a confirmation is an order placed, not money taken; counting it
-        // means a declined card that was cancelled seconds later still shows up as revenue
+        // means a declined card that was cancelled seconds later still shows up as revenue.
+        // The event itself has since been deleted outright - it had no consumer left once this
+        // warehouse moved off it - so this now guards against resurrecting the name as well.
         assertTrue(!consumedTopics().contains("order-initiated"),
-                "order-initiated must no longer feed the warehouse, found " + consumedTopics());
+                "order-initiated must not feed the warehouse, found " + consumedTopics());
     }
 
     @Test

@@ -226,14 +226,13 @@ public class OrderService {
     }
 
     /**
-     * Confirms an order and emits an {@code order-initiated} event without the dual-write hazard:
-     * the {@link Order} document (status CONFIRMED) and a matching outbox entry are committed in a
-     * single Mongo transaction (replica-set required), so the event can never be lost relative to
-     * the business change. {@link OutboxRelay} drains the entry to the broker; this method only
-     * nudges it awake after the commit.
-     */
-    /**
      * Confirms the order and charges it to the given payment method.
+     *
+     * <p>Free of the dual-write hazard: the {@link Order} document (status CONFIRMED) and the
+     * command that opens the saga are committed in a single Mongo transaction (replica-set
+     * required), so the command can never be lost relative to the business change that expects an
+     * answer to it. {@link OutboxRelay} drains the entry to the broker; this method only nudges it
+     * awake after the commit.
      *
      * @param paymentMethod opaque single-use reference from the payment provider; never card data
      */
@@ -272,7 +271,6 @@ public class OrderService {
         order.setSagaStepId(stepId);
         order.setStepDeadline(Instant.now().plus(stepTimeout));
 
-        OutboxEntry outboxEntry = outboxEventFactory.orderInitiated(order);
         OutboxEntry reserveCommand = outboxEventFactory.reserveStock(order, stepId);
 
         // The status guard above is a read-then-write, so on its own two concurrent confirmations
@@ -298,7 +296,6 @@ public class OrderService {
                     // outbox insert back with it, so no event is published for a write that lost.
                     throw new ConcurrentOrderModificationException(orderId);
                 }
-                outboxRepository.mongoCollection().insertOne(session, outboxEntry);
                 outboxRepository.mongoCollection().insertOne(session, reserveCommand);
                 return null;
             });

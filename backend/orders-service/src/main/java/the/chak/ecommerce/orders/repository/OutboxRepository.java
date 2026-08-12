@@ -14,8 +14,8 @@ public class OutboxRepository implements PanacheMongoRepositoryBase<OutboxEntry,
 
     /**
      * Returns a batch of not-yet-published entries for the relay, oldest first. Mongo has no
-     * {@code FOR UPDATE SKIP LOCKED}; cross-instance duplicates are absorbed by the idempotent
-     * order-initiated consumer and broker idempotence (at-least-once delivery).
+     * {@code FOR UPDATE SKIP LOCKED}; cross-instance duplicates are absorbed by idempotent
+     * consumers and broker idempotence (at-least-once delivery).
      */
     public List<OutboxEntry> findUnpublished(int batchSize) {
         return find("{'publishedAt': null, 'failedAt': null}", Sort.ascending("createdAt"))

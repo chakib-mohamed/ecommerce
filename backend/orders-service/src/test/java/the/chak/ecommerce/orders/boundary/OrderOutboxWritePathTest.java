@@ -40,9 +40,9 @@ import the.chak.ecommerce.orders.repository.OrderRepository;
 import the.chak.ecommerce.orders.repository.OutboxRepository;
 
 /**
- * Proves the order confirm write-path now goes through the transactional outbox: confirming an order
- * commits the order document (status CONFIRMED) and a matching {@code order-initiated} outbox entry,
- * and the relay publishes it to {@code order-initiated} keyed by the order id. The keying assertion
+ * Proves the order confirm write-path goes through the transactional outbox: confirming an order
+ * commits the order document (status CONFIRMED) and the {@code reserve-stock} command that opens
+ * the saga, and the relay publishes it keyed by the order id. The keying assertion
  * guards against a lingering dual-write - the old {@code orderEmitter.send(orderDTO)} path in the
  * resource published with a {@code null} key, so any message carrying the order id that is
  * <em>not</em> keyed by it means the old fire-and-forget path still fires.
@@ -79,8 +79,8 @@ class OrderOutboxWritePathTest {
     @Test
     @TestSecurity(user = "outbox_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "outbox_user") })
-    @DisplayName("Confirming an order commits the CONFIRMED order and an order-initiated outbox entry that the relay publishes keyed by the order id")
-    void confirmOrder_writesOrderInitiatedOutboxEntry_publishedKeyedByOrderId() {
+    @DisplayName("Confirming an order commits the CONFIRMED order and the reserve-stock command that the relay publishes keyed by the order id")
+    void confirmOrder_writesReserveStockOutboxEntry_publishedKeyedByOrderId() {
         // given - an initiated order owned by the caller
         Order order = new Order();
         order.setUserID("outbox_user");
@@ -89,7 +89,7 @@ class OrderOutboxWritePathTest {
         String orderId = order.id.toString();
         double confirmedBefore = orderConfirmedCount();
 
-        try (KafkaConsumer<String, String> consumer = newConsumer("order-initiated")) {
+        try (KafkaConsumer<String, String> consumer = newConsumer("reserve-stock")) {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
             // when
@@ -106,12 +106,12 @@ class OrderOutboxWritePathTest {
             // and - exactly the relay's keyed message lands; no unkeyed dual-write copy
             List<ConsumerRecord<String, String>> records =
                     drainByValue(consumer, orderId, Duration.ofSeconds(15));
-            assertFalse(records.isEmpty(), "an order-initiated message should be published on confirm");
+            assertFalse(records.isEmpty(), "a reserve-stock message should be published on confirm");
             assertAllKeyedBy(records, orderId);
 
             // and - a matching outbox entry was committed and is eventually stamped published
             List<OutboxEntry> entries = outboxEntries(orderId);
-            assertEquals(1, entries.size(), "exactly one order-initiated outbox entry for the confirmed order");
+            assertEquals(1, entries.size(), "exactly one reserve-stock outbox entry for the confirmed order");
             assertEquals("order", entries.get(0).aggregateType);
             assertTrue(entries.get(0).payload.contains(orderId), "payload should carry the order id");
             awaitPublished(orderId);
@@ -126,7 +126,7 @@ class OrderOutboxWritePathTest {
     }
 
     private List<OutboxEntry> outboxEntries(String orderId) {
-        return outboxRepository.find("aggregateId = ?1 and topic = ?2", orderId, "order-initiated").list();
+        return outboxRepository.find("aggregateId = ?1 and topic = ?2", orderId, "reserve-stock").list();
     }
 
     private void awaitPublished(String orderId) {

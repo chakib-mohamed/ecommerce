@@ -88,8 +88,8 @@ with the capture and is never parsed, logged, or persisted beyond the life of th
 **Consequences that constrain the implementation:**
 
 - The token arrives on the confirm request and travels to payment-service in the `capture-payment`
-  command. It is **not** stored on the payment record, and **not** put on any other event -
-  `order-initiated` in particular, which every downstream consumer reads.
+  command. It is **not** stored on the payment record, and **not** put on any other event - in
+  particular not on `order-paid`, which the warehouse reads and retains.
 - It **is** held on the order between confirm and capture, and cleared the moment the capture
   resolves either way. This is not a weakening of the rule above, it is a consequence of the saga's
   shape: the capture is commanded only once the stock step succeeds, which is long after the confirm

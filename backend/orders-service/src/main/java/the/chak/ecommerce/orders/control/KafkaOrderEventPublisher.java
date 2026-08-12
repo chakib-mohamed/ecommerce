@@ -18,18 +18,14 @@ import org.jboss.logging.Logger;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 
 /**
- * Sole owner of the {@code order-initiated} outgoing channel (SmallRye allows one emitter per
- * channel). The keyed {@code publishOrderInitiated} method is what {@link OutboxRelay} uses to drain
- * the outbox with a Kafka message key.
+ * Sole owner of this service's outgoing channels (SmallRye allows one emitter per channel). Each
+ * keyed publish method is what {@link OutboxRelay} uses to drain the outbox with a Kafka message
+ * key, so a topic's messages keep their per-aggregate ordering.
  */
 @ApplicationScoped
 public class KafkaOrderEventPublisher {
 
     private static final Logger LOG = Logger.getLogger(KafkaOrderEventPublisher.class);
-
-    @Inject
-    @Channel("order-initiated")
-    Emitter<OrderDTO> emitter;
 
     @Inject
     @Channel("reserve-stock")
@@ -50,19 +46,6 @@ public class KafkaOrderEventPublisher {
     @Inject
     @Channel("order-paid")
     Emitter<OrderDTO> orderPaidEmitter;
-
-    /**
-     * Publishes an {@code order-initiated} event with the given Kafka message key, parenting the
-     * producer span on {@code parent} (the originating request's trace). The returned future
-     * completes when the broker acks (or completes exceptionally on nack).
-     */
-    public CompletableFuture<Void> publishOrderInitiated(OrderDTO order, String key, Context parent) {
-        LOG.infof("Publishing order-initiated event orderId=%s userId=%s", order.getId(),
-                order.getUserID());
-        CompletableFuture<Void> ack = new CompletableFuture<>();
-        emitter.send(keyedMessage(order, key, parent, ack));
-        return ack;
-    }
 
     /**
      * A payload wrapped with its Kafka key and the trace it belongs to.
@@ -107,7 +90,7 @@ public class KafkaOrderEventPublisher {
     }
 
     /**
-     * Publishes {@code order-paid}. Distinct from {@code order-initiated}, which says an order was
+     * Publishes {@code order-paid}: money taken, as distinct from an order merely being
      * placed; this one says money was taken, and it is the one analytics counts as revenue.
      */
     public CompletableFuture<Void> publishOrderPaid(OrderDTO order, String key, Context parent) {

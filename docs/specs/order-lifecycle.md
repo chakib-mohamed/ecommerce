@@ -101,6 +101,11 @@ CANCELLED             CANCELLED               CANCELLED            REFUNDED
 the analytics contract are unchanged by this design. The new states extend the flow rather than
 renaming it.
 
+> **Since implemented:** revenue moved to `order-paid` as §6 required, which left `order-initiated`
+> with no consumer at all. It was subsequently deleted outright — producer, channel and topic. What
+> opens the saga on confirm is the `reserve-stock` command; nothing announces a confirmation any
+> more. See §5.
+
 ### 3.1 Legal transitions
 
 | From | To | Trigger |
@@ -196,11 +201,16 @@ of sale permanently and silently.
 
 ## 5. Events
 
-Existing:
+Existing at the time of writing:
 
 | Event | Emitted when | Consumed by |
 |---|---|---|
 | `order-initiated` | order confirmed | analytics-service |
+
+> **Since implemented:** `order-initiated` no longer exists. Once revenue moved to `order-paid` it
+> had no consumer, and a produced event nobody reads costs the publish, looks like a working
+> integration, and delivers nothing — so it was removed rather than left as an orphan. Confirming an
+> order now writes exactly one outbox entry: the `reserve-stock` command that opens the saga.
 
 New (contracts specified in a later task, names fixed here):
 
@@ -227,6 +237,11 @@ Required when payment lands:
 - Revenue follows `order-paid`, not `order-initiated`.
 - `IngestionService` consumes the new event; `order-initiated` either stops feeding the fact table
   or feeds a separate "orders placed" measure.
+
+> **Since implemented:** revenue follows `order-paid`. The second point was settled the other way
+> than "a separate measure": no consumer wanted an orders-placed figure, so the event was deleted.
+> If that measure is wanted later it should be designed alongside whatever consumes it, rather than
+> inherited as an orphan producer.
 - `order-cancelled` and refunds must reverse or negate previously counted rows, otherwise the
   warehouse only ever grows.
 

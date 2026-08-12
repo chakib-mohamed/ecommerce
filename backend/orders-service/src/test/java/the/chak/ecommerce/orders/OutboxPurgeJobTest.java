@@ -67,9 +67,9 @@ class OutboxPurgeJobTest {
         entry.id = UUID.randomUUID();
         entry.aggregateType = "order";
         entry.aggregateId = UUID.randomUUID().toString();
-        entry.eventType = "order-initiated";
-        entry.topic = "order-initiated";
-        entry.payload = "{\"id\":\"" + entry.aggregateId + "\",\"userID\":\"u\",\"status\":\"INITIATED\"}";
+        entry.eventType = "order-paid";
+        entry.topic = "order-paid";
+        entry.payload = "{\"id\":\"" + entry.aggregateId + "\",\"userID\":\"u\",\"status\":\"PAID\"}";
         entry.createdAt = createdAt != null ? createdAt : Instant.now();
         entry.publishedAt = publishedAt;
         outboxRepository.persist(entry);

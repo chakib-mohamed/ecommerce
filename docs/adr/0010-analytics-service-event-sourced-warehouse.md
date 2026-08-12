@@ -53,6 +53,12 @@ existing Kafka business events** — a CQRS-style read side layered on the ADR-0
    and a unique `(order_id, product_id)` key) plus a `dim_product` dimension (title + category /
    subcategory labels, soft-delete flag). Every dashboard panel becomes a simple `GROUP BY` rollup.
 
+> **Updated after the order lifecycle work:** the decision below stands — analytics is still a
+> dedicated service over an event-sourced read model — but the event it ingests changed.
+> `order-initiated` announced a *confirmation*, which counted orders whose card was later declined
+> as revenue. Once payment existed, the fact table moved to `order-paid`, and `order-initiated`,
+> having no consumer left, was deleted. Read `order-initiated` below as `order-paid`.
+
 3. **Event-sourced ingestion with idempotent upserts.** Kafka consumers with the service's own
    consumer group read from the **earliest** offset (so the warehouse backfills history on first
    run): `order-initiated` fills the fact; `product-updated` / `product-deleted` maintain the

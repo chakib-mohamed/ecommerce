@@ -22,8 +22,8 @@ import the.chak.ecommerce.outbox.OutboxTracing;
 
 /**
  * Order-specific outbox relay. All scheduling, batching, and at-least-once failure handling live in
- * {@link AbstractOutboxRelay}; this subclass supplies only the Mongo fetch, the {@code order-initiated}
- * publish, and the single-document stamping (no transaction needed for a single Mongo write).
+ * {@link AbstractOutboxRelay}; this subclass supplies only the Mongo fetch, the per-topic publish
+ * dispatch, and the single-document stamping (no transaction needed for a single Mongo write).
  */
 @ApplicationScoped
 public class OutboxRelay extends AbstractOutboxRelay<OutboxEntry> {
@@ -66,8 +66,6 @@ public class OutboxRelay extends AbstractOutboxRelay<OutboxEntry> {
         Context parent = OutboxTracing.extract(entry.traceparent);
         String key = entry.aggregateKey();
         return switch (entry.topic) {
-            case "order-initiated" -> publisher.publishOrderInitiated(
-                    jsonb.fromJson(entry.payload, OrderDTO.class), key, parent);
             case "reserve-stock" -> publisher.publishReserveStock(
                     jsonb.fromJson(entry.payload, ReserveStockCommand.class), key, parent);
             case "release-stock" -> publisher.publishReleaseStock(

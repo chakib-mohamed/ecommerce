@@ -61,7 +61,6 @@ class OrderConfirmPaymentMethodTest {
         when(mongoClient.startSession()).thenReturn(session);
         when(session.withTransaction(any(TransactionBody.class)))
                 .thenAnswer(inv -> inv.getArgument(0, TransactionBody.class).execute());
-        when(outboxEventFactory.orderInitiated(any(Order.class))).thenReturn(new OutboxEntry());
         when(outboxEventFactory.reserveStock(any(Order.class), any())).thenReturn(new OutboxEntry());
 
         OrderService service = new OrderService();
@@ -131,7 +130,7 @@ class OrderConfirmPaymentMethodTest {
     @Test
     @DisplayName("Keeps the payment method out of the published sale")
     void confirmOrder_doesNotPublishThePaymentMethod() {
-        // given - order-initiated goes to analytics and anything else that subscribes; a payment
+        // given - the saga command travels to another service; a payment
         // credential on that topic is readable by every consumer and retained by the broker
         Order order = initiatedOrder();
 
@@ -141,7 +140,7 @@ class OrderConfirmPaymentMethodTest {
         // then
         OutboxEventFactory realFactory = new OutboxEventFactory();
         realFactory.jsonb = jakarta.json.bind.JsonbBuilder.create();
-        String published = realFactory.orderInitiated(order).payload;
+        String published = realFactory.reserveStock(order, "step-1").payload;
         assertFalse(published.contains(PAYMENT_METHOD),
                 "the sale event must not carry the payment method: " + published);
     }

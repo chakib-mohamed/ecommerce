@@ -5,6 +5,11 @@
 Phase 9 of `docs/tasks/order-lifecycle-plan.md`. Depends on phase 8, which built the payment step and
 made `PAID` reachable. This says what the dashboard's numbers mean now that it is.
 
+> **Since implemented:** everything below describes the move off `order-initiated`, and it landed.
+> That event has since been **deleted entirely** — producer, channel and topic — because moving
+> revenue off it left it with no consumer at all. References to it here are the reasoning for the
+> change, not a description of anything that still runs. `order-cancelled` is still produced.
+
 ---
 
 ## 1. Problem

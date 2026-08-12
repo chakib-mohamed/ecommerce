@@ -82,7 +82,9 @@ class OrderPaidIngestionTest {
     @Test
     @DisplayName("Counts nothing for an order that was only placed")
     void orderInitiated_isNotRevenue() {
-        // given - the event this warehouse used to be fed from, in the same shape
+        // given - the event this warehouse used to be fed from, in the shape it had. Nothing
+        // produces it any more, but a test can publish anything, and what is being pinned is
+        // that a confirmation does not become revenue no matter where one comes from.
         String orderId = "order-initiated-" + UUID.randomUUID();
 
         // when
@@ -94,8 +96,8 @@ class OrderPaidIngestionTest {
 
         // then - revenue means money taken. Counting a confirmed order again would put back the
         // exact bug this warehouse was changed to fix, and it would do it silently: the number
-        // stays plausible, it is just no longer true. Nothing consumes this topic now, and this
-        // fails the day something does.
+        // stays plausible, it is just no longer true. Nothing produces or consumes this topic now,
+        // and this fails the day something does either.
         assertTrue(neverLines(orderId),
                 "an order that was merely placed was counted as revenue");
     }

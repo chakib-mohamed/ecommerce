@@ -24,8 +24,10 @@ Consumes three topics with its own consumer group per topic, reading from the ea
 Delivery is at-least-once, so every write is idempotent. Poison messages land on `*-dlq`.
 
 **Revenue is money taken, not orders placed.** The fact table is filled from `order-paid`, so an
-order confirmed but never paid for contributes nothing. `order-initiated` is deliberately not
-consumed — counting it would report a declined card as revenue. Nothing needs to reverse a counted
+order confirmed but never paid for contributes nothing. A confirmation is deliberately not counted —
+it would report a declined card as revenue. (`order-initiated`, which used to feed this, was deleted
+once moving revenue off it left the event with no consumer at all; two tests still name it, guarding
+against the bug being reintroduced under that name.) Nothing needs to reverse a counted
 sale either: `CANCELLED` is not reachable from `PAID`, so an order is either paid or cancelled and
 never both. See `docs/specs/analytics-revenue.md`.
 

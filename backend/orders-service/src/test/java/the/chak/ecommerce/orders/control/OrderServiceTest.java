@@ -304,7 +304,7 @@ class OrderServiceTest {
 
     // --confirmOrder: lifecycle guards --------------------------------------
     // Confirming is only legal from INITIATED. Without this guard a second confirm rewrites the
-    // status and inserts a second outbox entry, so `order-initiated` is published twice and any
+    // status and inserts a second outbox entry, so the saga is opened twice and any
     // consumer that is not idempotent double-processes the sale.
 
     @Test

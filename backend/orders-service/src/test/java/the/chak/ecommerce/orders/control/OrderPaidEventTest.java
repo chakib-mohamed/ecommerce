@@ -47,7 +47,7 @@ class OrderPaidEventTest {
     @Test
     @DisplayName("Publishes the paid order on its own topic")
     void orderPaid_goesToItsOwnTopic() {
-        // given - a separate topic from order-initiated, because the two now mean different things:
+        // given - its own topic, because a sale and an order being placed mean different things:
         // one is an order placed, the other is money taken
         Order order = paidOrder();
 

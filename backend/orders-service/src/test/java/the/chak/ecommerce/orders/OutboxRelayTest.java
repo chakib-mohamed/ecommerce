@@ -50,7 +50,7 @@ class OutboxRelayTest {
         String orderId = UUID.randomUUID().toString();
         UUID entryId = insertUnpublished(orderId);
 
-        try (KafkaConsumer<String, String> consumer = newConsumer("order-initiated")) {
+        try (KafkaConsumer<String, String> consumer = newConsumer("order-paid")) {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
             // when
@@ -77,7 +77,7 @@ class OutboxRelayTest {
         String orderId = UUID.randomUUID().toString();
         insertPublished(orderId);
 
-        try (KafkaConsumer<String, String> consumer = newConsumer("order-initiated")) {
+        try (KafkaConsumer<String, String> consumer = newConsumer("order-paid")) {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
             // when
@@ -97,7 +97,7 @@ class OutboxRelayTest {
         String orderId = UUID.randomUUID().toString();
         UUID entryId = insertUnpublished(orderId);
 
-        try (KafkaConsumer<String, String> consumer = newConsumer("order-initiated")) {
+        try (KafkaConsumer<String, String> consumer = newConsumer("order-paid")) {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
             // when - the async wake-up, not the timer (parked at 24h in test config)
@@ -133,9 +133,9 @@ class OutboxRelayTest {
         entry.id = UUID.randomUUID();
         entry.aggregateType = "order";
         entry.aggregateId = orderId;
-        entry.eventType = "order-initiated";
-        entry.topic = "order-initiated";
-        entry.payload = "{\"id\":\"" + orderId + "\",\"user_id\":\"u\",\"status\":\"INITIATED\"}";
+        entry.eventType = "order-paid";
+        entry.topic = "order-paid";
+        entry.payload = "{\"id\":\"" + orderId + "\",\"user_id\":\"u\",\"status\":\"PAID\"}";
         entry.createdAt = Instant.now();
         return entry;
     }

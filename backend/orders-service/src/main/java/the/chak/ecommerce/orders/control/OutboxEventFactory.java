@@ -33,7 +33,6 @@ import the.chak.ecommerce.outbox.OutboxTracing;
 public class OutboxEventFactory {
 
     static final String AGGREGATE_TYPE_ORDER = "order";
-    static final String TOPIC_ORDER_INITIATED = "order-initiated";
     static final String TOPIC_RESERVE_STOCK = "reserve-stock";
     static final String TOPIC_RELEASE_STOCK = "release-stock";
     static final String TOPIC_ORDER_CANCELLED = "order-cancelled";
@@ -42,20 +41,6 @@ public class OutboxEventFactory {
 
     @Inject
     Jsonb jsonb;
-
-    public OutboxEntry orderInitiated(Order order) {
-        String orderId = order.id.toString();
-        OutboxEntry entry = new OutboxEntry();
-        entry.id = UUID.randomUUID();
-        entry.aggregateType = AGGREGATE_TYPE_ORDER;
-        entry.aggregateId = orderId;
-        entry.eventType = TOPIC_ORDER_INITIATED;
-        entry.topic = TOPIC_ORDER_INITIATED;
-        entry.payload = jsonb.toJson(toDto(order, orderId));
-        entry.traceparent = OutboxTracing.currentTraceparent();
-        entry.createdAt = Instant.now();
-        return entry;
-    }
 
     /**
      * Asks the catalog to hold this order's lines. Keyed by order id like every other entry, so the
@@ -86,12 +71,12 @@ public class OutboxEventFactory {
     }
 
     /**
-     * Announces that the order has been paid for. Distinct from {@code order-initiated}: that one
+     * Announces that the order has been paid for: money taken, not merely an order placed. That
      * says an order was placed, this one says money was taken, and only this one is revenue.
      */
     public OutboxEntry orderPaid(Order order) {
         String orderId = order.id.toString();
-        // The same OrderDTO order-initiated carries, and for the same reason: the warehouse counts
+        // The full OrderDTO, because the warehouse counts
         // per line, so the lines have to travel with the event rather than be fetched back.
         return build(orderId, TOPIC_ORDER_PAID, toDto(order, orderId));
     }

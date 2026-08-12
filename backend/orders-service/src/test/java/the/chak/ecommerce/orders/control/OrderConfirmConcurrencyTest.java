@@ -60,7 +60,6 @@ class OrderConfirmConcurrencyTest {
         // Run the transaction body inline so the conditional write actually executes.
         when(session.withTransaction(any(TransactionBody.class)))
                 .thenAnswer(inv -> inv.getArgument(0, TransactionBody.class).execute());
-        when(outboxEventFactory.orderInitiated(any(Order.class))).thenReturn(new OutboxEntry());
 
         OrderService service = new OrderService();
         service.orderRepository = orderRepository;
