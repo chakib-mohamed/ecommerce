@@ -1,5 +1,6 @@
 import { chromium, type FullConfig } from '@playwright/test';
 import { loginAs } from './fixtures/auth';
+import { waitUntilTheStackCanSell } from './fixtures/smoke';
 import { ADMIN_USER, RETAIL_USER } from './fixtures/test-users';
 
 /**
@@ -8,6 +9,9 @@ import { ADMIN_USER, RETAIL_USER } from './fixtures/test-users';
  * (`test.use({ storageState: ... })`) instead of re-driving the login form
  * every test. auth.spec.ts is the one place that still drives login itself —
  * that's the point of it.
+ *
+ * Then waits until the stack can actually sell something before letting any spec run — see
+ * fixtures/smoke.ts for why "healthy" is not the same as "ready".
  */
 export default async function globalSetup(config: FullConfig): Promise<void> {
   const baseURL = config.projects[0]?.use?.baseURL ?? 'http://localhost:81';
@@ -26,4 +30,8 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   }
 
   await browser.close();
+
+  // After the logins, because it needs a token - and because the logins are themselves the first
+  // proof that the gateway and authenticate-service are up.
+  await waitUntilTheStackCanSell(baseURL);
 }

@@ -60,6 +60,29 @@ CI runs the suite on push to `main` and on pull requests carrying an `e2e` label
 `docs/adr/0008-e2e-target-localhost-81.md`'s sibling note in `.github/workflows/ci.yml` for why it
 isn't on every PR by default.
 
+### Waiting for ready, not for healthy
+
+`global-setup.ts` logs each role in, and then **blocks until the stack can actually complete a
+purchase** — place an order, confirm it, and see it reach `PAID` — retrying for up to three minutes
+before giving up (`e2e/fixtures/smoke.ts`).
+
+This exists because `docker compose up --wait` returns when every health endpoint answers, which
+happens well before a service's REST clients, Kafka consumers and database pools are usable. The
+suite used to start at exactly that moment and immediately drive the heaviest path in the system:
+`confirm` re-checks prices against products-service and price-service over HTTP before committing,
+so it is the first operation needing three services to be genuinely working rather than merely
+answering. The symptom was `confirm` returning **500** on a first attempt and passing on retry —
+three of fifteen tests flaking, and once a hard failure.
+
+The gate **absorbs** that window rather than detecting it: the errors it swallows are the ones the
+specs would otherwise hit. It asserts nothing about behaviour and is not a test. If it cannot
+complete a purchase within the deadline, every order, checkout and review spec was going to fail
+anyway, and failing here says so once instead of fifteen times.
+
+Its own logic is verified against a stub that fails `confirm` with 500 a fixed number of times: it
+retries through a recovering stack, gives up with a readable message on one that never recovers,
+and returns immediately on a healthy one.
+
 ## Assertion philosophy
 
 Contributors extending this suite should follow the same judgment calls made when it was written,
