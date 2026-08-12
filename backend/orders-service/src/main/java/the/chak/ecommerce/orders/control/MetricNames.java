@@ -30,6 +30,13 @@ public final class MetricNames {
     public static final String ORDERS_PAID = "orders.paid";
 
     /** Sagas abandoned because a step ran past its deadline. Alert on this: each one held stock. */
+    /**
+     * Orders cancelled for sitting uncommitted past their TTL. Separate from orders.cancelled on
+     * purpose: a buyer changing their mind and a quote nobody ever acted on are different facts,
+     * and a rise in this one says something about checkout rather than about demand.
+     */
+    public static final String ORDERS_EXPIRED = "orders.expired";
+
     public static final String SAGAS_TIMED_OUT = "orders.sagas.timed.out";
 
     /** Counter - cart checkouts, tagged by {@link #TAG_OUTCOME}. */

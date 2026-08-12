@@ -51,6 +51,15 @@ public class OrderIndexInitializer {
                         Indexes.ascending("status")),
                 new IndexOptions().name("order_user_product_status"));
 
+        // The uncommitted-order expiry sweep: everything still INITIATED, oldest first. Without
+        // this it scans the whole collection on every tick to find the few that are stale, and
+        // that scan grows with the orders it is meant to stop accumulating.
+        orders.createIndex(
+                Indexes.compoundIndex(
+                        Indexes.ascending("status"),
+                        Indexes.ascending("creationDate")),
+                new IndexOptions().name("order_status_created"));
+
         // The saga deadline sweep, which runs on a timer and would otherwise scan the whole
         // collection every tick to find the few orders that are actually overdue.
         orders.createIndex(

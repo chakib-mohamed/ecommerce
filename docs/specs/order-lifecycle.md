@@ -329,6 +329,20 @@ Two consequences that constrain the implementation:
 Because price is revalidated at confirm, a stale `INITIATED` order is harmless — an old quote can
 never be billed. No expiry sweeper is needed, and orders may sit in `INITIATED` indefinitely.
 
+> **Reversed: uncommitted orders now expire after 24h.** The reasoning above still holds and is not
+> what changed — an expired order could not have been billed wrongly, because §10.1 makes that
+> impossible. What it missed is that nothing can *act* on an abandoned order either: the only path
+> that confirms one is the checkout flow that created it, so once that page is gone the order is
+> unreachable rather than merely stale. Left alone they accumulate in the collection and in the
+> buyer's own history, as orders they never placed and cannot remove.
+>
+> `InitiatedOrderExpirySweep` cancels them with `status_reason` `INITIATED_EXPIRED`, on
+> `orders.initiated.ttl` (default `PT24H`, configurable — the right window is a business call).
+> It compensates nothing, because an `INITIATED` order holds no stock and has taken no money; that
+> is the entire difference between it and the saga sweep of §4.4, and the reason it must refuse to
+> touch anything that has left `INITIATED`. Counted separately as `orders.expired`: a rise there
+> says something about checkout, not about demand.
+
 ### 10.3 Reservations have no TTL
 
 Stock stays reserved until something explicitly releases it. There is no independent reaper.

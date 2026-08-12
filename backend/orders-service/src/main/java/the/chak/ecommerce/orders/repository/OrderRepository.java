@@ -10,6 +10,7 @@ import io.quarkus.panache.common.Page;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import the.chak.ecommerce.orders.entity.Order;
+import the.chak.ecommerce.orders.entity.OrderStatus;
 
 @ApplicationScoped
 public class OrderRepository implements PanacheMongoRepository<Order> {
@@ -48,6 +49,21 @@ public class OrderRepository implements PanacheMongoRepository<Order> {
                 panacheQuery.stream().map(Order.class::cast).collect(Collectors.toList());
 
         return new PagedResult<>(totalCount, result);
+    }
+
+    /**
+     * Priced-but-uncommitted orders older than the cutoff.
+     *
+     * <p>Ordered oldest first and bounded, for the same reasons as the saga sweep: a backlog drains
+     * in the order it accumulated, and one pass cannot monopolise the scheduler.
+     */
+    public java.util.List<Order> findExpiredInitiated(java.time.LocalDateTime cutoff, int limit) {
+        // The name, not the constant - for the same reason as the status filter in search() above.
+        // The field holds a string, and comparing it to an enum matches nothing while looking
+        // exactly like a query that found nothing to match.
+        return find("status = ?1 and creationDate < ?2 order by creationDate",
+                OrderStatus.INITIATED.name(), cutoff)
+                .page(0, limit).list();
     }
 
     /**
