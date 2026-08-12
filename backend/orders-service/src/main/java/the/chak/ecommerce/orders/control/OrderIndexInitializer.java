@@ -19,8 +19,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * sort does not degrade gracefully, it starts failing.
  *
  * <p>That matters beyond latency because one caller of the search has a hard deadline:
- * products-service checks purchase eligibility through it under a 2s {@code @Timeout}, and a
- * timeout there surfaces to a reviewer as a 500 rather than a verdict.
+ * products-service checks purchase eligibility through it under a {@code @Timeout}, and a timeout
+ * there surfaces to a reviewer as a 500 rather than a verdict.
  */
 @ApplicationScoped
 public class OrderIndexInitializer {

@@ -15,7 +15,12 @@ import jakarta.ws.rs.core.Response;
 @Path("/pricing/calculate")
 public interface PricingApiClient {
 
-    @Timeout(2000)
+    /**
+     * Five seconds, matching the products client for the same reason: two is tighter than a first
+     * call on a cold stack can meet, and both are on the path that prices an order before it is
+     * written. Still bounded - pricing that hangs should fail the checkout rather than hold it.
+     */
+    @Timeout(5000)
     @POST
     Response calculatePrice(PricingRequest request);
 
