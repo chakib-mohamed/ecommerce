@@ -69,6 +69,14 @@ class OrderServiceTest {
     @Mock
     OrderRepository orderRepository;
 
+    // Cancelling now compensates, announces, and writes conditionally, so it needs both of these.
+    // The detail of what it writes lives in OrderCancellationTest; here they only have to exist.
+    @Mock
+    OutboxEventFactory outboxEventFactory;
+
+    @Mock
+    SagaService sagaService;
+
     // A real registry (not a mock) so meter increments are actually recorded and assertable.
     // @InjectMocks injects @Spy fields, so OrderService receives this registry.
     @Spy
@@ -362,6 +370,10 @@ class OrderServiceTest {
         order.setStatus(OrderStatus.INITIATED);
         order.id = new ObjectId();
         when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+        when(outboxEventFactory.orderCancelled(any(Order.class), any()))
+                .thenReturn(new the.chak.ecommerce.orders.entity.OutboxEntry());
+        when(sagaService.commitOrder(any(Order.class),
+                any(the.chak.ecommerce.orders.entity.OutboxEntry[].class))).thenReturn(true);
 
         // when
         Order cancelled = orderService.cancelOrder(order.id.toString());

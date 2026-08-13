@@ -328,9 +328,9 @@ paths:
     post:
       summary: Cancel an order
       description: >-
-        Stops an order that has not yet shipped. Anything already set aside for it is released and
-        any payment taken is returned. An order that has shipped or already reached a final state
-        cannot be cancelled.
+        Stops an order the buyer no longer wants and gives back anything set aside for it.
+        Available until the order is being paid for; once payment is under way it can no longer be
+        cancelled, and neither can an order that has shipped or already reached a final state.
       operationId: cancelOrder
       parameters:
         - name: orderID
@@ -358,7 +358,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: The order is not in a state that can be cancelled
+          description: >-
+            The order cannot be cancelled: it is already being paid for, has shipped, or has
+            reached a final state.
           content:
             application/json:
               schema:

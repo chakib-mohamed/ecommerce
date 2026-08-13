@@ -136,6 +136,13 @@ Only `INITIATED` orders may be updated or deleted. This closes defect 5. `PUT /o
 order uses `POST /orders/{orderID}/cancel`, which is a *transition*, not a mutation, and emits an
 event so downstream read models converge.
 
+> **Since written:** the buyer's cancellation is refused from `RESERVED`, though the transition
+> itself stays legal. `RESERVED` means the capture has already been commanded, so a cancellation
+> there always races a charge in flight — and releasing the stock while the charge lands would take
+> money for an order that no longer exists to pay for, with no refund path to undo it. The saga
+> still cancels from `RESERVED` on a declined charge; that one knows the money was *not* taken.
+> A buyer may cancel from `INITIATED` and `CONFIRMED`. Revisit once refunds exist.
+
 ---
 
 ## 4. Saga

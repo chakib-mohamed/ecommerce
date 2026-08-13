@@ -317,10 +317,20 @@ public class OrderService {
         return Optional.ofNullable(orderRepository.findById(new org.bson.types.ObjectId(orderId)));
     }
 
+    /** Recorded on orders the buyer stopped themselves, to tell them from the system's own. */
+    static final String REASON_BUYER_CANCELLED = "BUYER_CANCELLED";
+
     /**
-     * Stops an order that has not yet shipped, releasing anything held for it and returning any
-     * payment taken. Cancelling is a lifecycle move rather than an edit, so it stays available
-     * after the order has been confirmed, when the order itself can no longer be changed.
+     * Stops an order the buyer no longer wants, giving back anything held for it.
+     *
+     * <p>Cancelling is a lifecycle move rather than an edit, so it stays available after the order
+     * has been confirmed, when the order itself can no longer be changed. It stops being available
+     * once the charge is in flight - see below.
+     *
+     * <p>This does three things the status write alone did not, each of which was its own defect:
+     * it releases stock the order may be holding, it announces the cancellation like every other
+     * path that reaches {@code CANCELLED}, and it writes conditionally on the version so a saga
+     * reply cannot overwrite it.
      */
     public Order cancelOrder(String orderId) {
         Order order = orderRepository.findById(new org.bson.types.ObjectId(orderId));
@@ -328,12 +338,50 @@ public class OrderService {
             return null;
         }
         stateMachine.assertCanTransition(order.getStatus(), OrderStatus.CANCELLED);
+
+        // Legal for the saga, refused for the buyer. RESERVED is not a resting place: the capture
+        // was commanded the moment stock came back, so a cancellation here always races a charge
+        // already in flight. Cancelling would release the stock and leave the capture to land
+        // against an order that no longer exists to pay for - and the platform has no refund path
+        // to undo that. The saga cancels from RESERVED too, on a declined charge, but that one
+        // knows the money was not taken.
+        if (order.getStatus() == OrderStatus.RESERVED) {
+            throw new IllegalOrderTransitionException(OrderStatus.RESERVED, OrderStatus.CANCELLED);
+        }
+
         OrderStatus previousStatus = order.getStatus();
+        String stepId = order.getSagaStepId();
+
         order.setStatus(OrderStatus.CANCELLED);
-        orderRepository.persistOrUpdate(order);
+        order.setStatusReason(REASON_BUYER_CANCELLED);
+        // Cleared so the deadline sweep stops seeing this order. Left set, it finds one it cannot
+        // cancel again, takes the branch written for shipped orders, and clears the deadline while
+        // releasing nothing - which is where the leak became permanent and looked like housekeeping.
+        order.setSagaStepId(null);
+        order.setStepDeadline(null);
+        // The capture is never going to happen, so the token has nothing left to be held for.
+        order.setPaymentMethodRef(null);
+
+        java.util.List<OutboxEntry> entries = new java.util.ArrayList<>();
+        if (stepId != null) {
+            // A step was outstanding, so the reserve command is out and may already have been acted
+            // on. products-service releases by order id and gives back only what it still holds, so
+            // a release for a reservation that never happened is a no-op - while not sending one
+            // when it did leaks stock that nothing else will ever free.
+            entries.add(outboxEventFactory.releaseStock(orderId, stepId));
+        }
+        entries.add(outboxEventFactory.orderCancelled(order, REASON_BUYER_CANCELLED));
+
+        // Conditional, and in one transaction with the entries above. persistOrUpdate replaced the
+        // document and left the version untouched, so a saga reply that had read the same version
+        // still matched and overwrote the cancellation - charging a buyer who had cancelled.
+        if (!sagaService.commitOrder(order, entries.toArray(new OutboxEntry[0]))) {
+            throw new IllegalOrderTransitionException(previousStatus, OrderStatus.CANCELLED);
+        }
+
         meterRegistry.counter(MetricNames.ORDERS_CANCELLED).increment();
-        LOG.infof("Order cancelled orderId=%s userId=%s from=%s to=%s",
-                order.getId(), order.getUserID(), previousStatus, order.getStatus());
+        LOG.infof("Order cancelled by the buyer orderId=%s userId=%s from=%s to=%s released=%s",
+                order.getId(), order.getUserID(), previousStatus, order.getStatus(), stepId != null);
         return order;
     }
 
