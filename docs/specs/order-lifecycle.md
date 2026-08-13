@@ -124,6 +124,11 @@ renaming it.
 **Every transition not in this table is rejected with `409`.** In particular: confirming an already
 confirmed order, and updating or deleting anything past `INITIATED`.
 
+> **Since written:** the two fulfilment rows had no trigger — `SHIPPED` and `DELIVERED` were legal
+> but unreachable, because nothing in the system could move an order past `PAID`. What produces them
+> is specified in `docs/specs/order-fulfilment.md`. `REFUNDED` remains unreachable, as
+> `docs/specs/payment.md` §2 records.
+
 ### 3.2 Immutability
 
 Only `INITIATED` orders may be updated or deleted. This closes defect 5. `PUT /orders` and
