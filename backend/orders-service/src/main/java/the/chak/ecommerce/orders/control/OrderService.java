@@ -17,6 +17,7 @@ import the.chak.ecommerce.orders.control.exceptions.OrderNotMutableException;
 import the.chak.ecommerce.orders.control.exceptions.OrderPriceChangedException;
 import the.chak.ecommerce.orders.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.orders.entity.Order;
+import the.chak.ecommerce.orders.control.exceptions.IllegalOrderTransitionException;
 import the.chak.ecommerce.orders.entity.OrderStatus;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
@@ -79,6 +80,9 @@ public class OrderService {
 
     @Inject
     OrderStateMachine stateMachine;
+
+    @Inject
+    SagaService sagaService;
 
     /**
      * How long a saga step is worth waiting for. Reservations have no expiry of their own, so this
@@ -330,6 +334,55 @@ public class OrderService {
         meterRegistry.counter(MetricNames.ORDERS_CANCELLED).increment();
         LOG.infof("Order cancelled orderId=%s userId=%s from=%s to=%s",
                 order.getId(), order.getUserID(), previousStatus, order.getStatus());
+        return order;
+    }
+
+    /**
+     * Records that a paid order has been dispatched.
+     *
+     * <p>An operator action rather than the buyer's, so unlike {@link #cancelOrder} nothing here
+     * looks at who owns the order - the caller's role is the whole permission.
+     */
+    public Order shipOrder(String orderId) {
+        return fulfil(orderId, OrderStatus.SHIPPED, MetricNames.ORDERS_SHIPPED, "shipped");
+    }
+
+    /** Records that a shipped order has reached the buyer. Its final state. */
+    public Order deliverOrder(String orderId) {
+        return fulfil(orderId, OrderStatus.DELIVERED, MetricNames.ORDERS_DELIVERED, "delivered");
+    }
+
+    /**
+     * Moves an order along the fulfilment tail, or refuses.
+     *
+     * <p>Written through the saga's conditional write rather than {@code persistOrUpdate}: two
+     * operators clicking at once, or one tool retrying, must not both transition. The version guard
+     * decides, and the loser is told the order was not in a state it could leave - which by then is
+     * true, because the winner already moved it.
+     *
+     * <p>No event is published. Nothing consumes one: revenue is counted at {@code PAID}, and the
+     * catalog already treats paid, shipped and delivered alike when deciding who may review a
+     * product. See docs/specs/order-fulfilment.md section 6.
+     */
+    private Order fulfil(String orderId, OrderStatus target, String metric, String verb) {
+        Order order = orderRepository.findById(new org.bson.types.ObjectId(orderId));
+        if (order == null) {
+            return null;
+        }
+        OrderStatus previousStatus = order.getStatus();
+        stateMachine.assertCanTransition(previousStatus, target);
+
+        order.setStatus(target);
+        if (!sagaService.commitOrder(order)) {
+            // Lost the conditional write, so something else moved this order first. The transition
+            // asked for is no longer legal from wherever it now is, and saying so is the honest
+            // answer: reporting success would claim a dispatch this call did not make.
+            throw new IllegalOrderTransitionException(previousStatus, target);
+        }
+
+        meterRegistry.counter(metric).increment();
+        LOG.infof("Order %s orderId=%s userId=%s from=%s to=%s",
+                verb, order.getId(), order.getUserID(), previousStatus, order.getStatus());
         return order;
     }
 

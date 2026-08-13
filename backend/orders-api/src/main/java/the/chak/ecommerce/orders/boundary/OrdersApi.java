@@ -51,4 +51,16 @@ public interface OrdersApi {
     @Path("/{orderID}/cancel")
     Response cancelOrder(@PathParam("orderID") String orderID);
 
+    // Fulfilment. Restricted to administrators - the role check lives on the implementation, not
+    // here, because this interface is also the REST client other services bind to and a security
+    // annotation on it would be describing the caller rather than the endpoint.
+
+    @POST
+    @Path("/{orderID}/ship")
+    Response shipOrder(@PathParam("orderID") String orderID);
+
+    @POST
+    @Path("/{orderID}/deliver")
+    Response deliverOrder(@PathParam("orderID") String orderID);
+
 }

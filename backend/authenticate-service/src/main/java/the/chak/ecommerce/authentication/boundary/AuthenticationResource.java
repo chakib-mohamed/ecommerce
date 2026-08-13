@@ -45,7 +45,7 @@ public class AuthenticationResource {
     public Response authenticate(@Valid AuthenticateRequest authenticateRequest) {
         var user = userService.authenticateUser(authenticateRequest);
         if (user.isPresent()) {
-            String token = tokenUtils.generateToken(user.get().getEmail());
+            String token = tokenUtils.generateToken(user.get().getEmail(), user.get().getRoles());
             var authResponse = new AuthenticateResponse(token);
             return Response.ok(authResponse)
                     .cookie(createAuthCookie(authResponse.getAccessToken()))

@@ -10,6 +10,7 @@ import the.chak.ecommerce.orders.boundary.dto.Tuple;
 import the.chak.ecommerce.orders.control.OrderService;
 import the.chak.ecommerce.orders.entity.Order;
 import io.quarkus.security.Authenticated;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Context;
@@ -19,6 +20,13 @@ import jakarta.ws.rs.core.SecurityContext;
 @Authenticated
 @RequestScoped
 public class OrdersResource implements OrdersApi {
+
+    /**
+     * The role a fulfilment operator holds. Matches the {@code groups} claim authenticate-service
+     * mints from the user's stored roles - the claim name is what {@code @RolesAllowed} reads, so
+     * the two have to agree or every check here silently refuses everyone.
+     */
+    private static final String ADMIN = "admin";
 
     @Inject
     OrderMapper orderMapper;
@@ -104,5 +112,22 @@ public class OrdersResource implements OrdersApi {
         }
         Order cancelled = orderService.cancelOrder(orderID);
         return Response.ok(cancelled).status(200).build();
+    }
+
+    // Fulfilment. Note what is deliberately absent: the owner check every method above performs.
+    // Dispatching a parcel is a warehouse fact, so the permission is the caller's role and owning
+    // the order is neither necessary nor sufficient - an administrator ships orders belonging to
+    // other people, which is the entire point, and a buyer may not ship their own.
+
+    @RolesAllowed(ADMIN)
+    public Response shipOrder(String orderID) {
+        Order shipped = orderService.shipOrder(orderID);
+        return shipped == null ? Response.status(404).build() : Response.ok(shipped).build();
+    }
+
+    @RolesAllowed(ADMIN)
+    public Response deliverOrder(String orderID) {
+        Order delivered = orderService.deliverOrder(orderID);
+        return delivered == null ? Response.status(404).build() : Response.ok(delivered).build();
     }
 }

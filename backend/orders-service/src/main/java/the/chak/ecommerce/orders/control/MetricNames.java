@@ -29,6 +29,19 @@ public final class MetricNames {
     /** Counter - orders whose payment has been taken. This, not confirmation, is revenue. */
     public static final String ORDERS_PAID = "orders.paid";
 
+    /** Counter - orders dispatched to the buyer. */
+    public static final String ORDERS_SHIPPED = "orders.shipped";
+
+    /**
+     * Counter - orders confirmed as delivered.
+     *
+     * <p>The gap between {@link #ORDERS_PAID} and {@link #ORDERS_SHIPPED} is the fulfilment
+     * backlog: orders paid for and not yet dispatched. That difference is the number worth
+     * watching, which is why shipping and delivery are counted apart rather than as one
+     * "fulfilled" total.
+     */
+    public static final String ORDERS_DELIVERED = "orders.delivered";
+
     /** Sagas abandoned because a step ran past its deadline. Alert on this: each one held stock. */
     /**
      * Orders cancelled for sitting uncommitted past their TTL. Separate from orders.cancelled on
