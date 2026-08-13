@@ -71,6 +71,8 @@ the exact control method (and failure branch) verified against the current code.
 | orders | `orders_cancelled_total` | counter | — | `OrderService.cancelOrder`, and `SagaService` on a stock refusal or a failed charge |
 | orders | `orders_reserved_total` | counter | — | `SagaService.onStockReserved` |
 | orders | `orders_paid_total` | counter | — | `SagaService.onPaymentCaptured` — this, not confirmation, is revenue |
+| orders | `orders_shipped_total` | counter | — | `OrderService.shipOrder` — the gap from `orders_paid_total` is the fulfilment backlog |
+| orders | `orders_delivered_total` | counter | — | `OrderService.deliverOrder` |
 | orders | `orders_sagas_timed_out_total` | counter | — | `SagaDeadlineSweep.abandon` — **alerted on**; each one held stock |
 | payment | `payments_captured_total` | counter | — | `PaymentService.record` on the captured branch |
 | payment | `payments_declined_total` | counter | — | `PaymentService.record` on the refused branch |

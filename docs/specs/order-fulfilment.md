@@ -1,6 +1,6 @@
 # Spec: Order Fulfilment (ship & deliver)
 
-**Status:** Draft — design spec for review (Spec gate, step 1 of the workflow).
+**Status:** Implemented.
 
 Completes the tail of `docs/specs/order-lifecycle.md`. That spec defined `PAID → SHIPPED → DELIVERED`
 and the state machine implements those transitions; nothing has ever been able to trigger them. This
@@ -206,17 +206,26 @@ Counted only on a transition that actually committed, so a `409` increments noth
 
 ## 10. Convention compliance checklist
 
-To be checked off after implementation, naming what enforces each.
+Checked off after implementation, naming what enforces each rather than a reading of the code.
 
-- [ ] BCE layering: transitions in `control/`, endpoints in `boundary/` (`architecture-conventions.md`)
+- [x] BCE layering: transitions in `control/`, endpoints in `boundary/` (`architecture-conventions.md`)
       — `BceArchitectureTest`
-- [ ] Blocking JAX-RS and synchronous Panache only (`architecture-conventions.md`)
-- [ ] JSON: snake_case, nulls omitted, ISO-8601 dates (`json-serialization-conventions.md`)
-- [ ] Illegal transitions raise `IllegalOrderTransitionException` and map to `409`
-      (`exception-handling-conventions.md`)
-- [ ] No network I/O inside a transaction (`persistence-conventions.md`) — `TransactionalRulesArchTest`
-- [ ] Logging: no token, no card data, order id and status on every transition
+- [x] Blocking JAX-RS and synchronous Panache only (`architecture-conventions.md`)
+- [x] JSON: snake_case, nulls omitted, ISO-8601 dates (`json-serialization-conventions.md`)
+      — unchanged; both endpoints return the existing `OrderDTO`
+- [x] Illegal transitions raise `IllegalOrderTransitionException` and map to `409`
+      (`exception-handling-conventions.md`) — the existing `FunctionalException` mapper, no new
+      handler, and no try-catch in the resource
+- [x] No network I/O inside a transaction (`persistence-conventions.md`) — `TransactionalRulesArchTest`
+- [x] Logging: no token, no card data, order id and status on every transition
       (`logging-conventions.md`)
-- [ ] Both `openapi.yaml` copies byte-identical, and the `OrdersApi` interface matches them
-- [ ] No new Compose service, so none of the lists in the root `CLAUDE.md` need editing — the
+- [x] Both `openapi.yaml` copies byte-identical, and the `OrdersApi` interface matches them
+      — `OrdersApiFulfilmentContractTest`, which is plain JUnit so it runs without Docker
+- [x] New counters registered in `docs/specs/functional-metrics.md`
+- [x] No new Compose service, so none of the lists in the root `CLAUDE.md` need editing — the
       gateway's existing `Path=/api/orders/**` route already covers both endpoints
+
+**Not covered:** there is no e2e test for fulfilment. The suite's per-run buyers are all customers,
+so exercising this needs an admin session, and `SPEC_BUYERS` mints none. The seeded
+`admin@ecommerce.test` account now carries a usable role for the first time, so the gap is closable
+— it is simply not closed here.
