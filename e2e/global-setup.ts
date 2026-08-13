@@ -76,7 +76,13 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   }
 
   // Last, and with its own buyer so the order it places lands in nobody else's history. The
-  // non-buyer is borrowed to ask the review gate a question it must refuse, which warms a call
-  // no amount of ordering does — see fixtures/smoke.ts for why "healthy" is not "ready".
-  await waitUntilTheStackIsReady(baseURL, specUsers.smoke, specUsers['reviews-nonbuyer']);
+  // non-buyer is borrowed to ask the review gate a question it must refuse, and the administrator
+  // to read the two collections the back office renders — each warms a path no amount of ordering
+  // does. See fixtures/smoke.ts for why "healthy" is not "ready".
+  await waitUntilTheStackIsReady(
+    baseURL,
+    specUsers.smoke,
+    specUsers['reviews-nonbuyer'],
+    ADMIN_USER,
+  );
 }

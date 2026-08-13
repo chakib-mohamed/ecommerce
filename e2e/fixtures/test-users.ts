@@ -51,6 +51,7 @@ export const SPEC_BUYERS = [
   'orders',
   'reviews-buyer',
   'reviews-nonbuyer',
+  'fulfilment',
 ] as const;
 
 export type SpecBuyer = (typeof SPEC_BUYERS)[number];

@@ -39,6 +39,7 @@ async function attemptOnce(
   baseURL: string,
   buyer: TestUser,
   nonBuyer: TestUser,
+  admin: TestUser,
 ): Promise<string | null> {
   const api = await contextFor(baseURL, buyer);
   try {
@@ -89,7 +90,45 @@ async function attemptOnce(
     }
     if (last !== 'PAID') return `the order never reached PAID (last status: ${last})`;
 
-    return reviewGateAnswers(baseURL, nonBuyer, product.uuid);
+    const reviewGate = await reviewGateAnswers(baseURL, nonBuyer, product.uuid);
+    if (reviewGate !== null) return reviewGate;
+
+    return adminBackOfficeAnswers(baseURL, admin);
+  } finally {
+    await api.dispose();
+  }
+}
+
+/**
+ * Asks for the two collections the back office renders, as the administrator.
+ *
+ * <p>Neither is warmed by buying something. The purchase path reads the catalogue as a shopper -
+ * one page, one product, enough to order - while the back office lists every product with its
+ * stock and renders the whole category hierarchy, and admin.spec asserts on what those pages
+ * *contain*. A page that renders before its collection is available has no table header and no
+ * add button, which is exactly how those two specs failed: together, on their content, at the
+ * start of a run.
+ *
+ * <p>As the administrator specifically, because that session's token is the only one carrying a
+ * role. Warming these as a shopper would prove the data is there and nothing about whether the
+ * account that reads it is allowed to.
+ */
+async function adminBackOfficeAnswers(baseURL: string, admin: TestUser): Promise<string | null> {
+  const api = await contextFor(baseURL, admin);
+  try {
+    const categories = await api.get('/api/categories');
+    if (!categories.ok()) return `the category hierarchy is unavailable (${categories.status()})`;
+    if (!((await categories.json()) as unknown[]).length) {
+      return 'the category hierarchy is empty';
+    }
+
+    const products = await api.get('/api/products');
+    if (!products.ok()) return `the back-office product list is unavailable (${products.status()})`;
+    if (!((await products.json()) as unknown[]).length) {
+      return 'the back-office product list is empty';
+    }
+
+    return null;
   } finally {
     await api.dispose();
   }
@@ -147,6 +186,7 @@ export async function waitUntilTheStackIsReady(
   baseURL: string,
   buyer: TestUser,
   nonBuyer: TestUser,
+  admin: TestUser,
 ): Promise<void> {
   const deadline = Date.now() + READY_DEADLINE_MS;
   const started = Date.now();
@@ -155,7 +195,7 @@ export async function waitUntilTheStackIsReady(
 
   while (Date.now() < deadline) {
     attempts += 1;
-    reason = (await attemptOnce(baseURL, buyer, nonBuyer)) ?? '';
+    reason = (await attemptOnce(baseURL, buyer, nonBuyer, admin)) ?? '';
     if (reason === '') {
       const elapsed = ((Date.now() - started) / 1000).toFixed(1);
       console.log(`[smoke] stack is ready (attempt ${attempts}, ${elapsed}s)`);

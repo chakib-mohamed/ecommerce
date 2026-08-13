@@ -225,7 +225,12 @@ Checked off after implementation, naming what enforces each rather than a readin
 - [x] No new Compose service, so none of the lists in the root `CLAUDE.md` need editing — the
       gateway's existing `Path=/api/orders/**` route already covers both endpoints
 
-**Not covered:** there is no e2e test for fulfilment. The suite's per-run buyers are all customers,
-so exercising this needs an admin session, and `SPEC_BUYERS` mints none. The seeded
-`admin@ecommerce.test` account now carries a usable role for the first time, so the gap is closable
-— it is simply not closed here.
+- [x] Covered end-to-end by `e2e/specs/fulfilment.spec.ts` — both transitions, the refusal of a
+      buyer for their own order, and the refusal of an unauthenticated caller
+
+**On the e2e coverage**, because it is the only place the authorization is really proved: the unit
+tests use `@TestSecurity`, which hands the container a role directly and so cannot tell whether a
+token ever carries one. The e2e spec drives `admin@ecommerce.test` through the real login form and
+uses the session that comes back, so it fails if `groups` is missing, misnamed, or dropped in
+transit. Before this change that account's token carried no roles at all, so nothing in the
+platform had ever demonstrated an enforceable role.
