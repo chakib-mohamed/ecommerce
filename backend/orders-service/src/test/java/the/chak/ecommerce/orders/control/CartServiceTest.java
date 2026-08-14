@@ -10,11 +10,16 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.mongodb.client.ClientSession;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.TransactionBody;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.bson.conversions.Bson;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +53,15 @@ class CartServiceTest {
 
     @Mock
     CartRepository cartRepository;
+
+    @Mock
+    MongoClient mongoClient;
+
+    @Mock
+    ClientSession session;
+
+    @Mock
+    MongoCollection<Cart> carts;
 
     // A real registry so checkout outcome counters are recorded and assertable.
     @Spy
@@ -310,9 +324,7 @@ class CartServiceTest {
     @DisplayName("Creates the order, delegates to the order service, and deletes the cart on valid checkout")
     void checkout_validCart_delegatesToOrderServiceAndDeleteCart() {
         // given
-        Cart cart = new Cart();
-        cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 2)));
-        when(cartRepository.findByUserId(USER_ID)).thenReturn(Optional.of(cart));
+        Cart cart = cartReadyForCheckout();
 
         // when
         Order order = cartService.checkout(USER_ID);
@@ -321,22 +333,36 @@ class CartServiceTest {
         assertNotNull(order);
         assertEquals(USER_ID, order.getUserID());
         assertEquals(1, order.getProducts().size());
-        verify(orderService).saveOrder(any(Order.class));
-        verify(cartRepository).delete(cart);
+        verify(orderService).insertOrder(any(Order.class), any(ClientSession.class));
+        verify(carts).deleteOne(any(ClientSession.class), any(Bson.class));
     }
 
     @Test
     @DisplayName("Records a successful checkout outcome on valid checkout")
     void checkout_validCart_recordsSuccessOutcome() {
         // given
-        Cart cart = new Cart();
-        cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 2)));
-        when(cartRepository.findByUserId(USER_ID)).thenReturn(Optional.of(cart));
+        cartReadyForCheckout();
 
         // when
         cartService.checkout(USER_ID);
 
         // then
         assertEquals(1.0, meterRegistry.get("checkouts").tag("outcome", "success").counter().count(), 0.001);
+    }
+
+    /**
+     * A cart the service can check out, with the Mongo session stubbed to run the transaction body
+     * inline. That the two writes share the session is the subject of
+     * {@link CartCheckoutAtomicityTest}; here it is only scaffolding.
+     */
+    private Cart cartReadyForCheckout() {
+        Cart cart = new Cart();
+        cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 2)));
+        when(cartRepository.findByUserId(USER_ID)).thenReturn(Optional.of(cart));
+        when(cartRepository.mongoCollection()).thenReturn(carts);
+        when(mongoClient.startSession()).thenReturn(session);
+        when(session.withTransaction(any(TransactionBody.class)))
+                .thenAnswer(inv -> inv.getArgument(0, TransactionBody.class).execute());
+        return cart;
     }
 }

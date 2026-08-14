@@ -167,6 +167,7 @@ paths:
 
     put:
       summary: Update an order
+      description: Only an order that has not been confirmed yet can be changed.
       operationId: updateOrder
       requestBody:
         required: true
@@ -187,8 +188,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: The order belongs to someone else
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The order has already been confirmed and can no longer be changed
           content:
             application/json:
               schema:
@@ -221,6 +234,7 @@ paths:
   /orders/{orderID}:
     delete:
       summary: Delete an order
+      description: Only an order that has not been confirmed yet can be removed.
       operationId: deleteOrder
       parameters:
         - name: orderID
@@ -231,8 +245,21 @@ paths:
       responses:
         '200':
           description: Order deleted
+        '403':
+          description: The order belongs to someone else
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            The order has already been confirmed and can no longer be removed. Cancel it instead.
           content:
             application/json:
               schema:
@@ -241,7 +268,70 @@ paths:
   /orders/{orderID}/confirm:
     post:
       summary: Confirm an order
+      description: >-
+        Commits the order so it can be fulfilled, and requests payment for it using the supplied
+        payment method. Confirming an order that is already confirmed has no further effect and is
+        reported as a conflict.
       operationId: confirmOrder
+      parameters:
+        - name: orderID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmOrderRequest'
+      responses:
+        '200':
+          description: >-
+            The order has been committed and payment has been requested. This does not mean payment
+            has completed: the order goes on to reach its final state on its own, and the outcome —
+            including a declined payment — is reported by the order's status and status_reason.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDTO'
+        '400':
+          description: No payment method was supplied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: The order belongs to someone else
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            The order cannot be confirmed: either it is no longer awaiting confirmation, or the
+            price of one or more products has changed since the order was placed. The response
+            names the affected products with their previous and current prices, so the order can
+            be reviewed and placed again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderID}/cancel:
+    post:
+      summary: Cancel an order
+      description: >-
+        Stops an order the buyer no longer wants and gives back anything set aside for it.
+        Available until the order is being paid for; once payment is under way it can no longer be
+        cancelled, and neither can an order that has shipped or already reached a final state.
+      operationId: cancelOrder
       parameters:
         - name: orderID
           in: path
@@ -250,13 +340,109 @@ paths:
             type: string
       responses:
         '200':
-          description: Order confirmed
+          description: Order cancelled
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDTO'
+        '403':
+          description: The order belongs to someone else
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            The order cannot be cancelled: it is already being paid for, has shipped, or has
+            reached a final state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderID}/ship:
+    post:
+      summary: Mark an order as shipped
+      description: >-
+        Records that an order has been dispatched to the buyer. Only an order that has been paid for
+        can be shipped, and an order ships once. Restricted to administrators.
+      operationId: shipOrder
+      parameters:
+        - name: orderID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The order has been recorded as shipped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDTO'
+        '403':
+          description: The caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            The order cannot be shipped: it has not been paid for, or it has already been shipped or
+            has since reached a final state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderID}/deliver:
+    post:
+      summary: Mark an order as delivered
+      description: >-
+        Records that a shipped order has reached the buyer. This is the order's final state.
+        Restricted to administrators.
+      operationId: deliverOrder
+      parameters:
+        - name: orderID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The order has been recorded as delivered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDTO'
+        '403':
+          description: The caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            The order cannot be delivered: it has not been shipped, or it has already been
+            delivered.
           content:
             application/json:
               schema:
@@ -295,10 +481,10 @@ components:
           minimum: 1
         unit_price:
           type: number
-          format: double
+          format: decimal
         total_price:
           type: number
-          format: double
+          format: decimal
 
     AddItemRequest:
       type: object
@@ -326,28 +512,50 @@ components:
       properties:
         id:
           type: string
-        card_number:
-          type: string
         creation_date:
           type: string
           format: date-time
           description: ISO-8601 datetime
-        expiration_date:
-          type: string
         price:
           type: number
-          format: double
+          format: decimal
+          description: Total for the whole order, with any discounts already applied.
+        currency:
+          type: string
+          example: EUR
+          description: ISO-4217 code the amounts on this order are denominated in.
         products:
           type: array
           items:
             $ref: '#/components/schemas/ProductVO'
         user_id:
           type: string
-        validation_number:
-          type: string
         status:
+          allOf:
+            - $ref: '#/components/schemas/OrderStatus'
+          description: >-
+            Where the order currently sits. Only an order still in INITIATED can be changed or
+            removed; after that, use the cancel operation. CANCELLED, DELIVERED and REFUNDED are
+            final.
+        status_reason:
           type: string
-          enum: [INITIATED, CONFIRMED]
+          description: >-
+            Why the order reached its current status, when it did not get there by the buyer's own
+            action — a declined payment or an item that could not be supplied, for example. Present
+            only when there is such a reason to give.
+
+    ConfirmOrderRequest:
+      type: object
+      required:
+        - payment_method
+      properties:
+        payment_method:
+          type: string
+          description: >-
+            A single-use reference to the payment method the order is to be charged to, obtained by
+            the client directly from the payment provider. Card details are never sent to this API
+            and are never held by the platform. The reference is short-lived and cannot be reused
+            for a second order.
 
     OrderRequest:
       type: object
@@ -378,13 +586,26 @@ components:
           minimum: 1
         price:
           type: number
-          format: double
+          format: decimal
           minimum: 0
           exclusiveMinimum: true
         percentage_off:
           type: number
           format: double
           description: Active promotion discount percentage; omitted if no active promotion
+
+    OrderStatus:
+      type: string
+      description: The states an order can be in over its life.
+      enum:
+        - INITIATED
+        - CONFIRMED
+        - RESERVED
+        - PAID
+        - SHIPPED
+        - DELIVERED
+        - CANCELLED
+        - REFUNDED
 
     SearchOrdersCommand:
       type: object
@@ -393,6 +614,18 @@ components:
       properties:
         user_id:
           type: string
+        product_id:
+          type: string
+          description: >-
+            When provided, narrows results to orders containing this product —
+            used to check whether a buyer has purchased a given product.
+        statuses:
+          type: array
+          description: >-
+            When provided, narrows results to orders currently in one of these
+            states. Omit it to search every order regardless of state.
+          items:
+            $ref: '#/components/schemas/OrderStatus'
         offset:
           type: integer
           minimum: 0

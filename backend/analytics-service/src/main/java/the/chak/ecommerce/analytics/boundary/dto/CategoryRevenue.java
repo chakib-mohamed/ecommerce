@@ -1,5 +1,6 @@
 package the.chak.ecommerce.analytics.boundary.dto;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,7 +16,7 @@ public class CategoryRevenue {
 
     private String name;
 
-    private Double value;
+    private BigDecimal value;
 
     /** Share of total revenue, between 0 and 100. */
     private Double pct;

@@ -36,9 +36,15 @@ store fed by the platform's existing business events.
   to the events other services already publish, with the analytics-service's own consumer group and
   idempotent writes. No batch ETL, no live cross-service calls. Delivery is at-least-once, so
   ingestion de-duplicates on the source record's identity.
-- **Only completed (confirmed) orders count as sales.** This is the natural and only option — an
-  order is evented only when it is confirmed, so pending/abandoned orders never reach the warehouse
-  and never affect any figure.
+- **Only paid orders count as sales.** Revenue follows `order-paid` — money actually taken. An
+  order that was confirmed but never paid for contributes nothing, and since `CANCELLED` is not
+  reachable from `PAID`, no cancellation ever has to take a counted sale back. See
+  `analytics-revenue.md`.
+
+  > This was originally *confirmed* orders, which was the only option while no payment existed —
+  > the figure was **orders placed**, not money. Phase 8 made `PAID` reachable and phase 9 moved
+  > it. Rows ingested before that move came from confirmations and are not revenue; rebuilding the
+  > warehouse means clearing it, not replaying onto it.
 - **Line revenue is computed from the order snapshot** frozen at purchase time
   (`units × unit_price × (1 − discount%)`), so figures stay stable even if a product's live price
   later changes.

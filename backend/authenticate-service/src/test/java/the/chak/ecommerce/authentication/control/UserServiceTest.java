@@ -179,6 +179,44 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("Returns empty when no account exists for the email")
+    void authenticateUser_unknownEmail_returnsEmpty() {
+        // given
+        String email = "nobody@example.com";
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        AuthenticateRequest request = new AuthenticateRequest();
+        request.setEmail(email);
+        request.setPassword("anyPassword");
+
+        // when
+        var result = userService.authenticateUser(request);
+
+        // then - the password is still checked against a dummy hash, so an unknown email takes
+        // the same time as a wrong password and cannot be distinguished by timing
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Counts a failed login outcome when no account exists for the email")
+    void authenticateUser_unknownEmail_recordsFailureOutcome() {
+        // given
+        String email = "metric-nobody@example.com";
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        AuthenticateRequest request = new AuthenticateRequest();
+        request.setEmail(email);
+        request.setPassword("anyPassword");
+
+        // when
+        userService.authenticateUser(request);
+
+        // then
+        assertEquals(1.0,
+                meterRegistry.get("auth.logins").tag("outcome", "failure").counter().count(), 0.001);
+    }
+
+    @Test
     @DisplayName("Counts a failed login outcome when the password does not match")
     void authenticateUser_wrongPassword_recordsFailureOutcome() {
         // given

@@ -8,14 +8,14 @@
         infra observability backend front up down logs \
         build build-api build-front \
         dev-front dev-gateway \
-        dev-authenticate dev-products dev-featured dev-orders dev-price dev-analytics \
+        dev-authenticate dev-products dev-featured dev-orders dev-price dev-analytics dev-payment \
         e2e e2e-env e2e-up e2e-run e2e-down
 
 ## help: list available targets
 help:
 	@echo "Run targets:"
 	@echo "  make infra            infra containers only (db/kafka/etc.)"
-	@echo "  make observability    tracing/metrics stack (jaeger/prometheus/grafana)"
+	@echo "  make observability    tracing/metrics stack (jaeger/prometheus/alertmanager/grafana)"
 	@echo "  make backend          infra + backend services"
 	@echo "  make front            full stack (infra + backend + frontend)"
 	@echo "  make up               full stack (infra + backend + frontend)"
@@ -36,6 +36,7 @@ help:
 	@echo "  make dev-orders       quarkus:dev on :8084"
 	@echo "  make dev-price        quarkus:dev on :8085"
 	@echo "  make dev-analytics    quarkus:dev on :8086"
+	@echo "  make dev-payment      quarkus:dev on :8087"
 	@echo ""
 	@echo "E2E targets:"
 	@echo "  make e2e              full cycle: build, bring up the stack, run the e2e suite, tear down"
@@ -52,7 +53,7 @@ help:
 infra:
 	docker compose --profile infra up -d
 
-## observability: bring up the tracing/metrics stack only (jaeger/prometheus/grafana)
+## observability: bring up the tracing/metrics stack only (jaeger/prometheus/alertmanager/grafana)
 observability:
 	docker compose --profile observability up -d
 
@@ -64,8 +65,16 @@ backend:
 front:
 	docker compose --profile infra --profile backend --profile frontend --profile observability up -d
 
-## up: bring up the full stack (incl. observability)
+## up: bring up the full stack (incl. observability), with the demo catalogue and demo accounts
 up:
+	docker compose --profile infra --profile backend --profile frontend --profile observability up -d
+
+## up-bare: the same stack with no demo data — empty catalogue, no demo accounts
+# Both variables have to agree, so this target is the way to set them: the catalogue is chosen by a
+# Liquibase context and the rest by a boolean, and there is no way to derive one from the other in
+# Compose. Getting only one of them right leaves less data than expected, never more.
+up-bare:
+	LIQUIBASE_CONTEXTS=prod SEED_DEMO_DATA=false \
 	docker compose --profile infra --profile backend --profile frontend --profile observability up -d
 
 ## down: stop & remove every container across all profiles
@@ -92,7 +101,7 @@ build-api:
 	docker compose --profile "*" build \
 		products-service authenticate-service orders-service \
 		featured-products-service price-service api-gateway \
-		analytics-service
+		analytics-service payment-service
 
 ## build-front: build the frontend image (single in-image build)
 build-front:
@@ -136,6 +145,10 @@ dev-price:
 dev-analytics:
 	cd backend && ./mvnw quarkus:dev -pl analytics-service -Dquarkus.http.port=8086
 
+## dev-payment: payment-service hot reload (:8087)
+dev-payment:
+	cd backend && ./mvnw quarkus:dev -pl payment-service -Dquarkus.http.port=8087
+
 # ----------------------------------------------------------------------------
 # E2E — browser tests against the real stack (see e2e/README.md)
 # ----------------------------------------------------------------------------
@@ -158,6 +171,15 @@ e2e-run:
 e2e-down:
 	docker compose --profile "*" down
 
-## e2e: full cycle — build, bring up, run, tear down (always tears down, even on failure)
+## e2e: full cycle — build, bring up, run, tear down (always tears down, even on failure).
+## On failure the service logs are captured *before* teardown: this recipe always tears down, so
+## anything that reads `docker compose logs` afterwards - CI's own on-failure step did - finds no
+## containers and collects an empty file. That is a diagnostic that looks present and reports
+## nothing, exactly when it is needed.
 e2e: build e2e-up
-	$(MAKE) e2e-run; status=$$?; $(MAKE) e2e-down; exit $$status
+	$(MAKE) e2e-run; status=$$?; \
+	if [ $$status -ne 0 ]; then \
+	  echo "e2e failed - capturing service logs before teardown"; \
+	  docker compose --profile "*" logs --no-color --timestamps > compose-logs.txt 2>&1 || true; \
+	fi; \
+	$(MAKE) e2e-down; exit $$status

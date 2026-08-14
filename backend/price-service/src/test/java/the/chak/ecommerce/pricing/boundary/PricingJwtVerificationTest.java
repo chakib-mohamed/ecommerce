@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.boundary;
 
+import java.math.BigDecimal;
 import static io.restassured.RestAssured.given;
 import java.time.Duration;
 import java.util.List;
@@ -51,7 +52,7 @@ class PricingJwtVerificationTest {
         product.setProductID("prod-1");
         product.setTitle("Widget");
         product.setQty(6);
-        product.setPrice(10.0);
+        product.setPrice(BigDecimal.valueOf(10.0));
         product.setPercentageOff(null);
         OrderDTO order = new OrderDTO();
         order.setProducts(List.of(product));

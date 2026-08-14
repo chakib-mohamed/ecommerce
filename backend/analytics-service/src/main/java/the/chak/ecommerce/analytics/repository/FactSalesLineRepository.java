@@ -1,5 +1,6 @@
 package the.chak.ecommerce.analytics.repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import jakarta.enterprise.context.ApplicationScoped;
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
@@ -55,9 +56,9 @@ public class FactSalesLineRepository implements PanacheRepository<FactSalesLine>
     }
 
     /** Total revenue across every recorded line; zero when the warehouse is empty. */
-    public double totalRevenue() {
+    public BigDecimal totalRevenue() {
         return getEntityManager().createQuery(
-                "select coalesce(sum(f.lineRevenue), 0) from FactSalesLine f", Double.class)
+                "select coalesce(sum(f.lineRevenue), 0) from FactSalesLine f", BigDecimal.class)
                 .getSingleResult();
     }
 

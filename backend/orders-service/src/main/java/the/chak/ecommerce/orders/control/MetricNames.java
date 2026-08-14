@@ -20,6 +20,38 @@ public final class MetricNames {
     /** Counter - orders confirmed. */
     public static final String ORDERS_CONFIRMED = "orders.confirmed";
 
+    /** Counter - orders cancelled, whether before or after confirmation. */
+    public static final String ORDERS_CANCELLED = "orders.cancelled";
+
+    /** Orders whose stock the catalog has confirmed it is holding. */
+    public static final String ORDERS_RESERVED = "orders.reserved";
+
+    /** Counter - orders whose payment has been taken. This, not confirmation, is revenue. */
+    public static final String ORDERS_PAID = "orders.paid";
+
+    /** Counter - orders dispatched to the buyer. */
+    public static final String ORDERS_SHIPPED = "orders.shipped";
+
+    /**
+     * Counter - orders confirmed as delivered.
+     *
+     * <p>The gap between {@link #ORDERS_PAID} and {@link #ORDERS_SHIPPED} is the fulfilment
+     * backlog: orders paid for and not yet dispatched. That difference is the number worth
+     * watching, which is why shipping and delivery are counted apart rather than as one
+     * "fulfilled" total.
+     */
+    public static final String ORDERS_DELIVERED = "orders.delivered";
+
+    /** Sagas abandoned because a step ran past its deadline. Alert on this: each one held stock. */
+    /**
+     * Orders cancelled for sitting uncommitted past their TTL. Separate from orders.cancelled on
+     * purpose: a buyer changing their mind and a quote nobody ever acted on are different facts,
+     * and a rise in this one says something about checkout rather than about demand.
+     */
+    public static final String ORDERS_EXPIRED = "orders.expired";
+
+    public static final String SAGAS_TIMED_OUT = "orders.sagas.timed.out";
+
     /** Counter - cart checkouts, tagged by {@link #TAG_OUTCOME}. */
     public static final String CHECKOUTS = "checkouts";
 

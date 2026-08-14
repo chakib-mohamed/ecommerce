@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.boundary.dto;
 
+import java.math.BigDecimal;
 import lombok.Data;
 
 import java.util.List;
@@ -11,7 +12,7 @@ public class ProductMongoEntityDto {
     private String productId;
     private String description;
     private String imageKey;
-    private Double price;
+    private BigDecimal price;
     private String title;
 
     private List<PromotionDto> promotions;

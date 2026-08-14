@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.entity;
 
+import java.math.BigDecimal;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -21,7 +22,7 @@ public class Product {
     private UUID uuid;
     private String description;
     private String imageKey;
-    private Double price;
+    private BigDecimal price;
     private String title;
     private Integer stock;
 

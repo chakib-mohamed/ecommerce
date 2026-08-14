@@ -5,6 +5,8 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import java.util.UUID;
 import org.junit.jupiter.api.Tag;
+import jakarta.inject.Inject;
+import the.chak.ecommerce.authentication.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.common.QuarkusTestResource;
@@ -18,6 +20,9 @@ import the.chak.ecommerce.authentication.boundary.dto.SignUpRequest;
 @QuarkusTestResource(MongoDbTestResource.class)
 @Tag("integration")
 class AuthenticationResourceTest {
+
+    @Inject
+    UserRepository userRepository;
 
     @Test
     @DisplayName("Returns 201 with the created user's email when the sign-up request is valid")
@@ -188,5 +193,93 @@ class AuthenticationResourceTest {
         response.then().statusCode(401)
                 .body("type", is("FUNCTIONAL"))
                 .body("error_code", is("INVALID_TOKEN"));
+    }
+
+    @Test
+    @DisplayName("Returns 404 when the requested email has no account")
+    void getUser_unknownEmail_returns404() {
+        // given - a valid session, so the request gets past authentication
+        String cookie = signedInCookie();
+
+        // when
+        var response = given().cookie("Authorization", cookie)
+                .when().get("/users/{email}", "no-such-user-" + UUID.randomUUID() + "@example.com");
+
+        // then
+        response.then().statusCode(404);
+    }
+
+    @Test
+    @DisplayName("Returns the signed-in user's details for the current-user request")
+    void getAuthenticatedUser_validCookie_returnsOwnDetails() {
+        // given
+        String email = "current-" + UUID.randomUUID() + "@example.com";
+        String cookie = signedInCookie(email);
+
+        // when
+        var response = given().cookie("Authorization", cookie).when().get("/users/current");
+
+        // then
+        response.then().statusCode(200).body("email", is(email));
+    }
+
+    @Test
+    @DisplayName("Returns 401 with INVALID_TOKEN for the current-user request without authentication")
+    void getAuthenticatedUser_noCookie_returns401() {
+        // when
+        var response = given().when().get("/users/current");
+
+        // then
+        response.then().statusCode(401)
+                .body("type", is("FUNCTIONAL"))
+                .body("error_code", is("INVALID_TOKEN"));
+    }
+
+    @Test
+    @DisplayName("Accepts an authentication cookie whose token carries the scheme prefix")
+    void getUser_tokenWithSchemePrefix_isAccepted() {
+        // given - the cookie is minted as a bare token; a client that sends it back with the
+        // scheme prefix must resolve to the same user
+        String email = "prefixed-" + UUID.randomUUID() + "@example.com";
+        String prefixed = "Bearer " + signedInCookie(email);
+
+        // when
+        var response = given().cookie("Authorization", prefixed)
+                .when().get("/users/{email}", email);
+
+        // then
+        response.then().statusCode(200).body("email", is(email));
+    }
+
+    @Test
+    @DisplayName("Returns 404 for the current-user request when the account no longer exists")
+    void getAuthenticatedUser_accountRemoved_returns404() {
+        // given - a valid session whose account is then removed, so the token outlives the user
+        String email = "vanished-" + UUID.randomUUID() + "@example.com";
+        String cookie = signedInCookie(email);
+        userRepository.delete("email", email);
+
+        // when
+        var response = given().cookie("Authorization", cookie).when().get("/users/current");
+
+        // then
+        response.then().statusCode(404);
+    }
+
+    private String signedInCookie() {
+        return signedInCookie("cookie-" + UUID.randomUUID() + "@example.com");
+    }
+
+    private String signedInCookie(String email) {
+        SignUpRequest signUp = new SignUpRequest();
+        signUp.setEmail(email);
+        signUp.setPassword("pass1234");
+        given().contentType(ContentType.JSON).body(signUp).when().post("/users");
+
+        AuthenticateRequest auth = new AuthenticateRequest();
+        auth.setEmail(email);
+        auth.setPassword("pass1234");
+        return given().contentType(ContentType.JSON).body(auth)
+                .when().post("/users/authenticate").then().extract().cookie("Authorization");
     }
 }

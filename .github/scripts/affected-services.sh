@@ -20,6 +20,7 @@ ALL_SERVICES=(
   authenticate-service
   featured-products-service
   price-service
+  payment-service
   orders-service
   products-service
   analytics-service
@@ -31,8 +32,8 @@ ALL_SERVICES=(
 dependents_of() {
   case "$1" in
     products-api)  echo "featured-products-service price-service orders-service products-service analytics-service" ;;
-    orders-api)    echo "price-service orders-service products-service analytics-service" ;;
-    outbox-common) echo "price-service orders-service products-service" ;;
+    orders-api)    echo "price-service payment-service orders-service products-service analytics-service" ;;
+    outbox-common) echo "price-service payment-service orders-service products-service" ;;
     *)             echo "" ;;
   esac
 }

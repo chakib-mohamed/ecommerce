@@ -1,6 +1,6 @@
 -- liquibase formatted sql
 
--- changeset chakib:002-init-data
+-- changeset chakib:002-init-data context:seed
 
 insert into category (id, label, parent_id) values (1, 'Dinning table', null) ON CONFLICT DO NOTHING;
 insert into category (id, label, parent_id) values (2, 'Decoration table', null) ON CONFLICT DO NOTHING;

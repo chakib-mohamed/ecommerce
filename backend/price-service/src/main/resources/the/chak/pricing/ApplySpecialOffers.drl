@@ -1,11 +1,16 @@
 package the.chak.pricing;
+import the.chak.ecommerce.orders.boundary.dto.Money;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
+import java.math.BigDecimal;
 
+// Amounts are BigDecimal, so the reduction is an explicit multiply against a decimal literal
+// rather than `* 0.95`. The literal is built from a string: new BigDecimal(0.95) would capture
+// the binary approximation of 0.95 and carry it straight into the price.
 rule "If products qty is above 5 apply 5% reduction"
     when
         $order: OrderDTO()
         $product: ProductVO(qty > 5) from $order.products
     then
-        $product.setPrice($product.getPrice() * 0.95);
+        $product.setPrice(Money.round($product.getPrice().multiply(new BigDecimal("0.95"))));
 end

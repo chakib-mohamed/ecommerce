@@ -58,13 +58,13 @@ jobs:
             echo "Not a pull request -> verifying every service."
             services=$(printf '%s\n' authenticate-service featured-products-service \
               price-service orders-service products-service analytics-service \
-              ecommerce-api-gateway)
+              payment-service ecommerce-api-gateway)
           elif ! git fetch --no-tags origin "${{ github.base_ref }}" >/dev/null 2>&1; then
             # Never silently narrow the run because the base ref was unreachable.
             echo "::warning::Could not fetch base ref '${{ github.base_ref }}' -> verifying every service."
             services=$(printf '%s\n' authenticate-service featured-products-service \
               price-service orders-service products-service analytics-service \
-              ecommerce-api-gateway)
+              payment-service ecommerce-api-gateway)
           else
             base=$(git merge-base FETCH_HEAD HEAD)
             echo "Diffing against $base"
@@ -108,6 +108,155 @@ jobs:
             echo "::endgroup::"
           done
 
+      # The coverage gate cannot report whether it measured anything: JaCoCo prints the same
+      # success line for seven classes checked and for none, which is how it enforced nothing for
+      # its whole life. This reads the poms and the reports and says so.
+      - name: Verify the coverage gate enforced something
+        if: steps.select.outputs.services != ''
+        working-directory: .
+        run: python3 .github/scripts/verify-coverage-gate.py
+
+  # Prometheus config and alerting rules. These reach production through a volume mount and
+  # are read by nothing else, so without this step the only thing that ever parses them is
+  # Prometheus itself, at startup, in a container nobody is watching.
+  #
+  # The failure being prevented is silent and points the wrong way: Prometheus logs an error
+  # for a rule file it cannot load and then *keeps running*. The alerts simply never fire, and
+  # an alert that never fires is indistinguishable from a system with nothing wrong.
+  #
+  # Note what this does NOT check: promtool validates that an expression is well-formed PromQL,
+  # not that the metrics it names are published by anything. `increase(a_metric_that_never_
+  # existed[10m]) > 0` passes here cleanly. That half is covered by the MetricNamesOnTheWireTest
+  # classes in orders-service and payment-service, which pin the rendered Prometheus names
+  # against a real Micrometer registry. Neither check catches the other's failure.
+  observability-config:
+    runs-on: ubuntu-latest                         # Docker preinstalled
+    steps:
+      - uses: actions/checkout@v5
+
+      # Validated with the *same* Prometheus version the stack runs, read from the compose
+      # file rather than pinned twice: a bump there must not leave CI checking against a
+      # different parser than the one that actually loads the files.
+      - name: Check Prometheus config and alerting rules
+        run: |
+          set -euo pipefail
+          image=$(grep -m1 'image: prom/prometheus:' docker-compose.yml | awk '{print $2}')
+          echo "Validating with $image"
+
+          # Mounted at the paths docker-compose.yml uses, so `rule_files:` resolves exactly as
+          # it will at runtime — this also catches a broken glob or a moved rules directory.
+          out=$(docker run --rm \
+            -v "$PWD/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+            -v "$PWD/observability/rules:/etc/prometheus/rules:ro" \
+            --entrypoint promtool "$image" \
+            check config /etc/prometheus/prometheus.yml 2>&1)
+          echo "$out"
+
+          # `check config` passes with exit 0 when the glob matches nothing at all, dropping the
+          # "N rule files found" line entirely. That is the same clean pass as a healthy run, so
+          # the count has to be asserted or this whole job would greenlight silently-unloaded
+          # alerts — the precise thing it exists to prevent.
+          # Every YAML in the directory is counted, not just the ones matching the glob. A new
+          # rules file named `payment.yml` instead of `payment.rules.yml` would otherwise be
+          # ignored by both Prometheus and this check, and agree with itself while doing it.
+          expected=$(find observability/rules -type f \( -name '*.yml' -o -name '*.yaml' \) | wc -l)
+          found=$(sed -n 's/.*SUCCESS: \([0-9]*\) rule files found.*/\1/p' <<<"$out" | head -1)
+          : "${found:=0}"
+          echo "Rule files on disk: $expected; picked up by Prometheus: $found"
+          if [ "$expected" -eq 0 ]; then
+            echo "::error::No rule files found under observability/rules."
+            exit 1
+          fi
+          if [ "$found" -ne "$expected" ]; then
+            echo "::error::Prometheus loaded $found rule file(s) but $expected exist under" \
+                 "observability/rules. Every file there must match the rule_files glob in" \
+                 "observability/prometheus.yml (*.rules.yml) - alerts in an unloaded file never fire."
+            exit 1
+          fi
+
+      # Same reasoning as above, for the other half of the alerting path. Alertmanager refuses to
+      # start on a bad config, so without this the failure surfaces as a container that will not
+      # come up during an e2e run - long after the change that caused it.
+      - name: Check the Alertmanager config
+        run: |
+          set -euo pipefail
+          image=$(grep -m1 'image: prom/alertmanager:' docker-compose.yml | awk '{print $2}')
+          echo "Validating with $image"
+          docker run --rm \
+            -v "$PWD/observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" \
+            --entrypoint amtool "$image" \
+            check-config /etc/alertmanager/alertmanager.yml
+
+      # An alerting block that names an Alertmanager nothing runs is worse than none: the rules
+      # evaluate, the Alerts page looks healthy, and the notifications go nowhere. Neither promtool
+      # nor amtool checks across that seam, because each only ever sees one side of it.
+      #
+      # Reads the compose file directly rather than asking `docker compose config --services`.
+      # That command needs `--profile "*"` to see profile-gated services at all, and whether the
+      # glob is honoured depends on the Compose version the runner image happens to ship - this
+      # check passed and then failed on identical files for exactly that reason. The service names
+      # are top-level keys; parsing them needs no Docker and cannot drift with the runner.
+      - name: Check Prometheus and Alertmanager agree on where alerts go
+        run: |
+          python3 - <<'PY'
+          import sys, yaml
+
+          prom = yaml.safe_load(open('observability/prometheus.yml'))
+          ams = prom.get('alerting', {}).get('alertmanagers', [])
+          targets = [t for am in ams
+                     for sc in am.get('static_configs', [])
+                     for t in sc.get('targets', [])]
+          if len(targets) != 1:
+              sys.exit(f'::error::expected exactly one alertmanager target in prometheus.yml, '
+                       f'got {targets}. Alerts go nowhere with none, and this check cannot say '
+                       f'where with several.')
+
+          host = targets[0].split(':')[0]
+          services = yaml.safe_load(open('docker-compose.yml')).get('services', {})
+          print(f'prometheus.yml sends alerts to: {targets[0]}')
+
+          if host not in services:
+              sys.exit(f"::error::prometheus.yml sends alerts to '{host}', which is not a service "
+                       f"in docker-compose.yml. Alerts would evaluate and be delivered nowhere.")
+
+          # A service that exists but sits in no profile the observability stack turns on would
+          # never be started by `make observability`, which is the same failure wearing a disguise.
+          profiles = services[host].get('profiles', [])
+          if 'observability' not in profiles:
+              sys.exit(f"::error::service '{host}' is not in the observability profile "
+                       f"(profiles: {profiles}), so `make observability` never starts it.")
+
+          print(f"OK  '{host}' is a compose service in the observability profile")
+          PY
+
+      # The rules and the scrape config reach Prometheus via volume mounts declared here, so a
+      # compose file that no longer parses breaks them too.
+      - name: Check the compose file parses
+        run: docker compose --profile "*" config --quiet
+
+  # The e2e specs are TypeScript that nothing compiles: Playwright transpiles each
+  # file as it runs it and never reports a type error, and the suite below only
+  # runs behind a label. So a spec can be broken for every unlabelled PR on main
+  # and say nothing until someone opts in. This job is seconds long, needs no
+  # Docker and no browsers, and runs always - it is the only thing that reads
+  # e2e/tsconfig.json, which was failing on a missing DOM lib when it was added.
+  e2e-typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: e2e/.nvmrc
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'      # types only; the suite below installs them
+      - run: npm run typecheck
+
   # Full-stack browser suite (e2e/) — boots the real docker-compose stack (6 JVM
   # services + Postgres/Mongo/Kafka/Redis/Zookeeper + the built frontend image),
   # so it's meaningfully slower than the jobs above. Not run on every PR by
@@ -143,16 +292,18 @@ jobs:
           path: e2e/playwright-report/
           retention-days: 14
 
-      - name: Dump service logs on failure
-        if: failure()
-        run: docker compose --profile "*" logs --no-color > compose-logs.txt
-
+      # `make e2e` writes compose-logs.txt itself, before it tears the stack down. This step used
+      # to run `docker compose logs` here instead, which always ran *after* that teardown and so
+      # collected an empty file - a 148-byte artifact from the one run that most needed reading.
+      # If the file is missing the upload warns rather than failing the job, so a run that died
+      # before the suite started still reports its real error.
       - name: Upload service logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: compose-logs
           path: compose-logs.txt
+          if-no-files-found: warn
 
   # Dependency vulnerability gate: one Trivy fs scan over the whole repo covers
   # both the Maven backend (backend/**/pom.xml) and the npm frontend

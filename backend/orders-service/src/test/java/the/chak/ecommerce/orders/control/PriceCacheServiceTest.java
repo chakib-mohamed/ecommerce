@@ -1,8 +1,10 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -34,14 +36,14 @@ class PriceCacheServiceTest {
     ProductsApiClient productsApiClient;
 
     @Mock
-    ValueCommands<String, Double> priceValues;
+    ValueCommands<String, BigDecimal> priceValues;
 
     @Mock
     ValueCommands<String, ProductDto> productValues;
 
     @BeforeEach
     void setUp() {
-        when(redis.value(Double.class)).thenReturn(priceValues);
+        when(redis.value(BigDecimal.class)).thenReturn(priceValues);
         when(redis.value(ProductDto.class)).thenReturn(productValues);
         priceCacheService.init();
         priceCacheService.ttlMinutes = 15;
@@ -53,7 +55,7 @@ class PriceCacheServiceTest {
         // given
         String productId = "prod-1";
         ProductDto expected = new ProductDto();
-        expected.setPrice(29.99);
+        expected.setPrice(BigDecimal.valueOf(29.99));
 
         when(productValues.get("product:" + productId)).thenReturn(null);
         when(productsApiClient.getProduct(productId)).thenReturn(expected);
@@ -63,7 +65,8 @@ class PriceCacheServiceTest {
 
         // then
         assertNotNull(result);
-        assertEquals(29.99, result.getPrice());
+        assertEquals(0, BigDecimal.valueOf(29.99).compareTo(result.getPrice()),
+                "expected 29.99, was " + result.getPrice());
         verify(productValues).setex(eq("product:" + productId), anyLong(), eq(expected));
     }
 
@@ -73,7 +76,7 @@ class PriceCacheServiceTest {
         // given
         String productId = "prod-1";
         ProductDto cached = new ProductDto();
-        cached.setPrice(29.99);
+        cached.setPrice(BigDecimal.valueOf(29.99));
 
         when(productValues.get("product:" + productId)).thenReturn(cached);
 
@@ -82,7 +85,8 @@ class PriceCacheServiceTest {
 
         // then
         assertNotNull(result);
-        assertEquals(29.99, result.getPrice());
+        assertEquals(0, BigDecimal.valueOf(29.99).compareTo(result.getPrice()),
+                "expected 29.99, was " + result.getPrice());
         verify(productsApiClient, never()).getProduct(anyString());
     }
 
@@ -107,17 +111,18 @@ class PriceCacheServiceTest {
         // given
         String productId = "prod-1";
         ProductDto product = new ProductDto();
-        product.setPrice(19.99);
+        product.setPrice(BigDecimal.valueOf(19.99));
 
         when(priceValues.get("price:" + productId)).thenReturn(null);
         when(productsApiClient.getProduct(productId)).thenReturn(product);
 
         // when
-        Double result = priceCacheService.getPrice(productId);
+        BigDecimal result = priceCacheService.getPrice(productId);
 
         // then
-        assertEquals(19.99, result);
-        verify(priceValues).setex(eq("price:" + productId), anyLong(), eq(19.99));
+        assertEquals(0, BigDecimal.valueOf(19.99).compareTo(result),
+                "expected 19.99, was " + result);
+        verify(priceValues).setex(eq("price:" + productId), anyLong(), eq(BigDecimal.valueOf(19.99)));
     }
 
     @Test
@@ -125,13 +130,14 @@ class PriceCacheServiceTest {
     void getPrice_cacheHit_returnsCachedValue() {
         // given
         String productId = "prod-1";
-        when(priceValues.get("price:" + productId)).thenReturn(19.99);
+        when(priceValues.get("price:" + productId)).thenReturn(BigDecimal.valueOf(19.99));
 
         // when
-        Double result = priceCacheService.getPrice(productId);
+        BigDecimal result = priceCacheService.getPrice(productId);
 
         // then
-        assertEquals(19.99, result);
+        assertEquals(0, BigDecimal.valueOf(19.99).compareTo(result),
+                "expected 19.99, was " + result);
         verify(productsApiClient, never()).getProduct(anyString());
     }
 
@@ -144,9 +150,27 @@ class PriceCacheServiceTest {
         when(productsApiClient.getProduct(productId)).thenReturn(null);
 
         // when
-        Double result = priceCacheService.getPrice(productId);
+        BigDecimal result = priceCacheService.getPrice(productId);
 
         // then
         assertNull(result);
+    }
+
+    @Test
+    @DisplayName("Returns null without caching when the product exists but carries no price")
+    void getPrice_productWithoutPrice_returnsNullAndCachesNothing() {
+        // given - a product the catalog knows about but has not priced
+        String productId = "unpriced-id";
+        ProductDto unpriced = new ProductDto();
+        unpriced.setTitle("Not priced yet");
+        when(priceValues.get("price:" + productId)).thenReturn(null);
+        when(productsApiClient.getProduct(productId)).thenReturn(unpriced);
+
+        // when
+        BigDecimal result = priceCacheService.getPrice(productId);
+
+        // then - caching a null price would serve it for the whole TTL
+        assertNull(result);
+        verify(priceValues, never()).setex(anyString(), anyLong(), any());
     }
 }

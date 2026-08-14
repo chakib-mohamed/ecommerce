@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,7 +48,7 @@ class PriceChangedWireFormatTest {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
             // when - the real producer path serializes the event onto the topic
-            publisher.publishPriceChanged(new PriceChangedEvent(productId.toString(), 42.0),
+            publisher.publishPriceChanged(new PriceChangedEvent(productId.toString(), BigDecimal.valueOf(42.0)),
                     productId.toString(), Context.root());
 
             // then - the wire payload uses snake_case field names, never camelCase

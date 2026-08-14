@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import Badge from "../../components/UI/Badge/Badge";
+import Badge, { BadgeTone } from "../../components/UI/Badge/Badge";
 import Button from "../../components/UI/Button/Button";
 import ConfirmDialog from "../../components/UI/ConfirmDialog/ConfirmDialog";
 import Icon from "../../components/UI/Icon/Icon";
 import Guard from "../../hoc/Guard/Guard";
 import { service, User } from "../../services";
-import type { OrderSummary } from "../../services/rest-api-service";
+import type { OrderStatus, OrderSummary } from "../../services/rest-api-service";
 import type { RootState } from "../../store";
 
 const WRAP = "max-w-[860px] mx-auto px-6 pt-10 pb-20";
@@ -21,6 +21,27 @@ const fmtDate = (iso: string) =>
     year: "numeric",
   });
 
+/**
+ * How each lifecycle state is shown to the buyer.
+ *
+ * An order moves on its own once confirmed, so the states are not a binary: treating anything
+ * that is not CONFIRMED as unfinished labelled a fully paid order "Pending". The wording is the
+ * buyer's, not the system's - RESERVED is an internal step and reads as "Processing" here.
+ */
+const STATUS_BADGE: Record<OrderStatus, { label: string; tone: BadgeTone }> = {
+  INITIATED: { label: "Pending", tone: "warn" },
+  CONFIRMED: { label: "Processing", tone: "warn" },
+  RESERVED: { label: "Processing", tone: "warn" },
+  PAID: { label: "Paid", tone: "ok" },
+  SHIPPED: { label: "Shipped", tone: "ok" },
+  DELIVERED: { label: "Delivered", tone: "ok" },
+  CANCELLED: { label: "Cancelled", tone: "neutral" },
+  REFUNDED: { label: "Refunded", tone: "neutral" },
+};
+
+/** A state this build has not heard of: show it rather than rendering a blank pill. */
+const UNKNOWN_STATUS = { label: "Unknown", tone: "neutral" as BadgeTone };
+
 interface OrderCardProps {
   order: OrderSummary;
   delay: number;
@@ -28,7 +49,7 @@ interface OrderCardProps {
 }
 function OrderCard({ order, delay, onCancel }: OrderCardProps) {
   const count = order.products.reduce((n, p) => n + p.qty, 0);
-  const confirmed = order.status === "CONFIRMED";
+  const { label, tone } = STATUS_BADGE[order.status] ?? UNKNOWN_STATUS;
   return (
     <div
       className="rounded-md bg-surface border border-line p-5 reveal"
@@ -38,11 +59,16 @@ function OrderCard({ order, delay, onCancel }: OrderCardProps) {
         <div>
           <div className="flex items-center gap-2.5">
             <span className="font-serif text-[18px]">Order #{order.id.slice(-6)}</span>
-            <Badge tone={confirmed ? "ok" : "warn"}>{confirmed ? "Confirmed" : "Pending"}</Badge>
+            <Badge tone={tone}>{label}</Badge>
           </div>
           <div className="text-muted text-[13px] mt-1">
             {fmtDate(order.creation_date)} · {count} item{count === 1 ? "" : "s"}
           </div>
+          {/* Only ever set when an order ended somewhere the buyer did not choose, and it is the
+              one thing they need: an order that vanished with no reason reads as money lost. */}
+          {order.status_reason && (
+            <div className="text-muted text-[13px] mt-1 italic">{order.status_reason}</div>
+          )}
         </div>
         <span className="price font-serif text-[20px]">{fmtMoney(order.price)}</span>
       </div>
@@ -58,7 +84,16 @@ function OrderCard({ order, delay, onCancel }: OrderCardProps) {
         ))}
       </div>
 
-      {!confirmed && (
+      {/*
+        This removes the order outright, which is only allowed while it is still INITIATED - an
+        order the buyer has committed is no longer theirs to delete. The old test was "not
+        CONFIRMED", which under two states meant the same thing and under eight offers the button
+        on a paid order, where it can only fail.
+
+        Cancelling a committed order is a different operation with its own endpoint, and it is not
+        wired here: stock has been reserved by then and possibly charged, so it is not a delete.
+      */}
+      {order.status === "INITIATED" && (
         <div className="flex justify-end mt-3.5">
           <Button variant="ghost" size="sm" onClick={onCancel}>
             <Icon name="close" size={15} /> Cancel order

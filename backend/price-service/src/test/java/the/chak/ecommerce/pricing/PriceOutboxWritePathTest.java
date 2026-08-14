@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -67,12 +68,13 @@ class PriceOutboxWritePathTest {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
             // when
-            priceService.update(productId, 42.0);
+            priceService.update(productId, BigDecimal.valueOf(42.0));
 
             // then - the price document is committed
             Price saved = priceRepository.find("productId", productId).firstResult();
             assertNotNull(saved, "the price document should be persisted");
-            assertEquals(42.0, saved.price, 0.001);
+            assertEquals(0, BigDecimal.valueOf(42.0).compareTo(saved.price),
+                "expected 42.0, was " + saved.price);
 
             // and - a success outcome is recorded for the update
             assertEquals(successesBefore + 1.0, priceUpdateSuccessCount(), 0.001);

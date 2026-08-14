@@ -1,5 +1,6 @@
 package the.chak.ecommerce.analytics.boundary.dto;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,5 +17,5 @@ public class ProductSale {
 
     private Long units;
 
-    private Double revenue;
+    private BigDecimal revenue;
 }

@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.value.ValueCommands;
 import jakarta.annotation.PostConstruct;
@@ -23,19 +24,19 @@ public class PriceCacheService {
     @ConfigProperty(name = "cart.price-cache.ttl-minutes", defaultValue = "15")
     int ttlMinutes;
 
-    private ValueCommands<String, Double> priceValues;
+    private ValueCommands<String, BigDecimal> priceValues;
     private ValueCommands<String, ProductDto> productValues;
 
     @PostConstruct
     void init() {
-        priceValues = redis.value(Double.class);
+        priceValues = redis.value(BigDecimal.class);
         productValues = redis.value(ProductDto.class);
     }
 
-    public Double getPrice(String productId) {
+    public BigDecimal getPrice(String productId) {
         String key = "price:" + productId;
 
-        Double cached = priceValues.get(key);
+        BigDecimal cached = priceValues.get(key);
         if (cached != null) {
             return cached;
         }

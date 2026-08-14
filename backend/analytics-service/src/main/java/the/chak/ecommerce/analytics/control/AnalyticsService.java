@@ -1,5 +1,7 @@
 package the.chak.ecommerce.analytics.control;
 
+import the.chak.ecommerce.orders.boundary.dto.Money;
+import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -38,7 +40,9 @@ public class AnalyticsService {
      * category split, and the total.
      */
     public AnalyticsResponse buildAnalytics() {
-        double totalRevenue = factRepository.totalRevenue();
+        // Cent scale on every published amount, so an empty warehouse reports 0.00 rather than
+        // a bare 0 and the response shape does not depend on whether there were any sales.
+        BigDecimal totalRevenue = Money.round(factRepository.totalRevenue());
         return new AnalyticsResponse(
                 monthlySeries(),
                 productSales(),
@@ -52,7 +56,7 @@ public class AnalyticsService {
      */
     private List<MonthSale> monthlySeries() {
         YearMonth start = YearMonth.now().minusMonths(WINDOW_MONTHS - 1L);
-        Map<String, Double> recorded = factRepository.revenueByMonth(start.format(MONTH_BUCKET))
+        Map<String, BigDecimal> recorded = factRepository.revenueByMonth(start.format(MONTH_BUCKET))
                 .stream()
                 .collect(Collectors.toMap(MonthlyRevenue::month, MonthlyRevenue::revenue));
 
@@ -61,7 +65,7 @@ public class AnalyticsService {
             YearMonth month = start.plusMonths(offset);
             series.add(new MonthSale(
                     month.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH),
-                    recorded.getOrDefault(month.format(MONTH_BUCKET), 0d)));
+                    Money.round(recorded.getOrDefault(month.format(MONTH_BUCKET), BigDecimal.ZERO))));
         }
         return series;
     }
@@ -74,26 +78,33 @@ public class AnalyticsService {
 
     private ProductSale toProductSale(ProductAggregate aggregate) {
         return new ProductSale(aggregate.productId(), aggregate.title(), aggregate.units(),
-                aggregate.revenue());
+                Money.round(aggregate.revenue()));
     }
 
-    private List<CategoryRevenue> categoryBreakdown(double totalRevenue) {
+    private List<CategoryRevenue> categoryBreakdown(BigDecimal totalRevenue) {
         return factRepository.revenueByCategory().stream()
                 .map(aggregate -> toCategoryRevenue(aggregate, totalRevenue))
                 .toList();
     }
 
-    private CategoryRevenue toCategoryRevenue(CategoryAggregate aggregate, double totalRevenue) {
+    private CategoryRevenue toCategoryRevenue(CategoryAggregate aggregate, BigDecimal totalRevenue) {
         boolean known = aggregate.categoryId() != null;
         return new CategoryRevenue(
                 known ? String.valueOf(aggregate.categoryId()) : UNCATEGORIZED_ID,
                 known ? aggregate.categoryLabel() : UNCATEGORIZED_NAME,
-                aggregate.revenue(),
+                Money.round(aggregate.revenue()),
                 share(aggregate.revenue(), totalRevenue));
     }
 
-    /** Guards the empty warehouse, where every share would otherwise be a division by zero. */
-    private double share(double revenue, double totalRevenue) {
-        return totalRevenue == 0d ? 0d : revenue / totalRevenue * 100d;
+    /**
+     * A category's percentage of total revenue. Guards the empty warehouse, where every share would
+     * otherwise be a division by zero.
+     *
+     * <p>A share is a ratio rather than an amount, so it is computed and returned as a double. The
+     * inputs are exact; only the presentation of the ratio is approximate.
+     */
+    private double share(BigDecimal revenue, BigDecimal totalRevenue) {
+        return totalRevenue.signum() == 0 ? 0d
+                : revenue.doubleValue() / totalRevenue.doubleValue() * 100d;
     }
 }

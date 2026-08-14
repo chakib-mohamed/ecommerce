@@ -37,3 +37,26 @@ Validate inputs and authorise the request *before* opening a transaction. Do not
 ## JPA / Entity Rules
 
 All JPA relationship fields (`@ManyToOne`, `@OneToOne`, `@OneToMany`, `@ManyToMany`) **must** declare `fetch = FetchType.LAZY` explicitly. `@ManyToOne` and `@OneToOne` default to `EAGER`, which causes silent N+1 queries. Enforce with an ArchUnit test where possible so it becomes a CI gate.
+
+## Indexing a sorted query
+
+**Any query that sorts must have an index that covers the sort.** In MongoDB this is a correctness
+rule, not a performance one: an in-memory sort is aborted once it exceeds 32MB, so an unindexed sort
+does not get slower as a collection grows — it starts failing outright, and only in the environment
+large enough to cross the threshold.
+
+The same applies to a query the *sweeps* run. A background job scanning on an unindexed predicate
+looks harmless while a collection is small and becomes a full scan on every tick once it is not.
+
+`orders-service` creates its indexes at startup in `OrderIndexInitializer` rather than by hand, so a
+fresh environment cannot come up without them:
+
+| Index | Serves |
+|---|---|
+| `order_user_recent` — `userID`, `creationDate` desc | order history, which pages newest-first |
+| `order_user_product_status` | the purchase check products-service makes before accepting a review |
+| `order_status_created` — `status`, `creationDate` | the uncommitted-order expiry sweep |
+| `order_step_deadline` — sparse | the saga deadline sweep, which only ever looks at orders that have one |
+
+The last one is sparse deliberately: only orders with an outstanding step carry a deadline, and a
+sparse index keeps the sweep's scan proportional to that set rather than to the collection.

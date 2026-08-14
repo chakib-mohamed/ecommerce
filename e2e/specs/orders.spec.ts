@@ -1,19 +1,8 @@
 import { expect, test } from '@playwright/test';
-import fs from 'node:fs';
 import { waitForApiCall } from '../fixtures/api';
-import { RETAIL_USER } from '../fixtures/test-users';
+import { readAccessToken, specUser, storageStateFor } from '../fixtures/test-users';
 
-test.use({ storageState: RETAIL_USER.storageStatePath });
-
-/** Reads the retail user's access token out of the storageState global-setup saved. */
-function readAccessToken(): string {
-  const state = JSON.parse(fs.readFileSync(RETAIL_USER.storageStatePath, 'utf-8')) as {
-    origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-  };
-  const entry = state.origins?.[0]?.localStorage?.find((e) => e.name === 'access_token');
-  if (!entry) throw new Error('No access_token in retail storageState — did global-setup run?');
-  return entry.value;
-}
+test.use({ storageState: storageStateFor('orders') });
 
 /**
  * Order history, scoped to the authenticated buyer
@@ -24,7 +13,8 @@ test.describe('Order history', () => {
   let placedOrderId: string;
 
   test.beforeAll(async ({ request }) => {
-    const token = readAccessToken();
+    const buyer = specUser('orders');
+    const token = readAccessToken(buyer);
     // Order against a real seeded product rather than a fabricated id.
     const products = (await (await request.get('/api/products?page=0&size=1')).json()) as Array<{
       uuid: string;
@@ -54,8 +44,13 @@ test.describe('Order history', () => {
     // Regression check for f160317: the search request must be scoped to
     // *this* buyer's email, not fetch every user's orders.
     const requestBody = response.request().postDataJSON() as { user_id: string };
-    expect(requestBody.user_id).toBe(RETAIL_USER.email);
+    expect(requestBody.user_id).toBe(specUser('orders').email);
 
+    // This buyer is registered fresh for this run and places exactly one order, so its history is
+    // a single page containing exactly that order. The previous version of this test walked the
+    // pager, because every buyer spec shared one account and five-per-page meant the order could
+    // be anywhere - which was a workaround for shared state rather than a property worth asserting.
+    await expect(page.getByText('1 order')).toBeVisible();
     await expect(page.getByText(`Order #${placedOrderId.slice(-6)}`)).toBeVisible();
   });
 });

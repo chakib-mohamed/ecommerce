@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.control;
 
+import java.math.BigDecimal;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
@@ -193,7 +194,7 @@ public class ProductService {
     }
 
     @Transactional
-    public void updatePrice(String productId, Double newPrice) {
+    public void updatePrice(String productId, BigDecimal newPrice) {
         Product product = productRepository.findByUuid(UUID.fromString(productId));
         if (product == null) {
             LOG.warnf("Price-changed event for unknown product %s - discarding", productId);

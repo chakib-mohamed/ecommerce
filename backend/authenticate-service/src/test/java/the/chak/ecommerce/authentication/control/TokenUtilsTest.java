@@ -35,7 +35,7 @@ class TokenUtilsTest {
     @DisplayName("Generates a JWT whose subject matches the username it was issued for")
     void generateToken_validSubject_returnsJwtWithMatchingSubject() {
         // when
-        String token = tokenUtils.generateToken("alice@example.com");
+        String token = tokenUtils.generateToken("alice@example.com", null);
 
         // then
         assertEquals("alice@example.com", tokenUtils.getUsername(token));
@@ -45,7 +45,7 @@ class TokenUtilsTest {
     @DisplayName("Sets the token expiry to the configured number of minutes after issuance")
     void generateToken_validSubject_expiresAfterConfiguredMinutes() {
         // when
-        String token = tokenUtils.generateToken("alice@example.com");
+        String token = tokenUtils.generateToken("alice@example.com", null);
 
         // then
         Claims claims = Jwts.parserBuilder()

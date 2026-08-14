@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,7 +50,7 @@ class PriceChangedConsumerDlqTest {
             Product product = new Product();
             product.setTitle("DLQ Test Product");
             product.setDescription("desc");
-            product.setPrice(100.0);
+            product.setPrice(BigDecimal.valueOf(100.0));
             productRepository.persist(product);
             return product.getUuid();
         });
@@ -78,26 +79,32 @@ class PriceChangedConsumerDlqTest {
         }
 
         // and - the partition keeps flowing: the valid message updates the stored price
-        assertEquals(42.0, awaitPrice(uuid, Duration.ofSeconds(20)), 0.001,
-                "a valid message after the poison one must still be processed");
+        BigDecimal settled = awaitPrice(uuid, Duration.ofSeconds(20));
+        assertEquals(0, EXPECTED_PRICE.compareTo(settled),
+                "a valid message after the poison one must still be processed, was " + settled);
     }
+
+    /** The price the valid message carries. */
+    private static final BigDecimal EXPECTED_PRICE = BigDecimal.valueOf(42.0);
 
     // --- helpers -----------------------------------------------------------
 
-    private double awaitPrice(UUID uuid, Duration timeout) {
+    private BigDecimal awaitPrice(UUID uuid, Duration timeout) {
         long deadline = System.currentTimeMillis() + timeout.toMillis();
-        Double price = null;
+        BigDecimal price = null;
         while (System.currentTimeMillis() < deadline) {
             price = QuarkusTransaction.requiringNew().call(() -> {
                 Product p = productRepository.<Product>find("uuid", uuid).firstResult();
                 return p == null ? null : p.getPrice();
             });
-            if (price != null && price == 42.0) {
+            // compareTo, not equals: the column has scale 2, so the value read back is 42.00 and
+            // equals would call that different from 42.
+            if (price != null && EXPECTED_PRICE.compareTo(price) == 0) {
                 return price;
             }
             sleep(250);
         }
-        return price == null ? Double.NaN : price;
+        return price;
     }
 
     private void sleep(long millis) {

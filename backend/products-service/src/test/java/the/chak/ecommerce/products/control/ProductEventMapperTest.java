@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -25,7 +26,7 @@ class ProductEventMapperTest {
     private static Product productFiledUnder(Category leaf) {
         Product product = new Product();
         product.setTitle("Marble Dining Table");
-        product.setPrice(899.99);
+        product.setPrice(BigDecimal.valueOf(899.99));
         product.setCategories(leaf == null ? List.of() : List.of(leaf));
         return product;
     }

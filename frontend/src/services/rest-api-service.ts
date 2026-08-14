@@ -1,3 +1,4 @@
+import axios from "axios";
 import { restApi } from "../axios-instance";
 import { Category, OrderCommand, Product } from "../types/types";
 
@@ -127,6 +128,38 @@ export const createOrder = (checkoutCommand: OrderCommand): Promise<CreatedOrder
   return restApi.post("/orders", checkoutCommand).then((response) => response.data);
 };
 
+/**
+ * Commits the order and asks for payment.
+ *
+ * Resolving does **not** mean the buyer has been charged: it means the order is committed and
+ * payment has been requested. The outcome arrives afterwards and can be a decline - it shows up
+ * as the order's status, which is why nothing here returns a result to display.
+ *
+ * `paymentMethod` is an opaque reference to the buyer's chosen method. No card detail passes
+ * through this app.
+ */
+export const confirmOrder = (orderID: string, paymentMethod: string): Promise<void> => {
+  return restApi
+    .post(
+      `/orders/${orderID}/confirm`,
+      { payment_method: paymentMethod },
+      // A conflict means this order has already been committed, which is an answer rather than a
+      // failure — see isAlreadyCommitted. The caller reports it; the generic toast would not.
+      { silentStatuses: [409] },
+    )
+    .then(() => undefined);
+};
+
+/**
+ * Whether a failed confirm failed because the order was *already* confirmed.
+ *
+ * <p>An order can only be committed once, so a second attempt is refused. That refusal is what a
+ * lost response looks like from the outside: the commit went through, the answer did not come
+ * back. Treating it as a failure is what makes a buyer place — and pay for — the order twice.
+ */
+export const isAlreadyCommitted = (error: unknown): boolean =>
+  axios.isAxiosError(error) && error.response?.status === 409;
+
 export const deleteOrder = (orderID: string) => {
   return restApi.delete(`/orders/${orderID}`);
 };
@@ -140,13 +173,30 @@ export interface OrderLineView {
   percentage_off?: number;
 }
 
+/**
+ * Where an order sits in its lifecycle. All eight states the API can report - an order moves on
+ * its own after being confirmed, so anything that treats "not CONFIRMED" as "not finished" reads
+ * a paid order as still pending.
+ */
+export type OrderStatus =
+  | "INITIATED"
+  | "CONFIRMED"
+  | "RESERVED"
+  | "PAID"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "REFUNDED";
+
 /** A placed order as returned by order history. */
 export interface OrderSummary {
   id: string;
   user_id: string;
   creation_date: string;
   price: number;
-  status: "INITIATED" | "CONFIRMED";
+  status: OrderStatus;
+  /** Why the order ended where it did - present on a cancellation, absent otherwise. */
+  status_reason?: string;
   products: OrderLineView[];
 }
 

@@ -5,7 +5,7 @@ description: The local tracing, metrics, and log-aggregation stack (OTel Collect
 
 # Observability
 
-Distributed tracing, metrics, and logs across all 7 backend services. The local stack — **OTel
+Distributed tracing, metrics, and logs across all 8 backend services. The local stack — **OTel
 Collector + Jaeger + Prometheus + Loki + Grafana** — runs under the `observability` Docker Compose
 profile (`make observability`, also folded into `make up`).
 
@@ -14,7 +14,8 @@ profile (`make observability`, also folded into `make up`).
 | UI | URL | Purpose |
 |----|-----|---------|
 | Jaeger | http://localhost:16686 | traces |
-| Prometheus | http://localhost:9090 | metrics + targets |
+| Prometheus | http://localhost:9090 | metrics + targets (rule state on *Alerts*) |
+| Alertmanager | http://localhost:9093 | firing alerts after grouping/inhibition; silences |
 | Loki | http://localhost:3100 | log store (query via Grafana Explore; `/ready` health) |
 | Grafana | http://localhost:3000 | dashboards + log search (anon admin; *Ecommerce Overview* + *Ecommerce Business KPIs* auto-provisioned) |
 
@@ -32,14 +33,28 @@ profile (`make observability`, also folded into `make up`).
   (Loki `derivedFields` → Jaeger) and trace → log (Jaeger `tracesToLogsV2` → Loki). Console/stdout
   logging is unchanged (`make logs` still works). **`X-Request-ID` is retired** — the gateway echoes
   the trace id back as an `X-Trace-Id` response header. Spec: `docs/specs/log-aggregation.md`.
-- Beyond the auto-instrumented RED/JVM/Kafka signals, the four business-owning Quarkus services
-  (`authenticate`, `products`, `orders`, `price`) record curated **functional/business meters** in
-  their control layer (orders/revenue, auth success/failure, catalog mutations, pricing/discounts),
-  surfaced on the *Ecommerce Business KPIs* dashboard.
+- Beyond the auto-instrumented RED/JVM/Kafka signals, the business-owning Quarkus services
+  (`authenticate`, `products`, `orders`, `price`, `payment`) record curated **functional/business
+  meters** in their control layer (orders/revenue, auth success/failure, catalog mutations,
+  pricing/discounts, captures/declines/gateway faults), surfaced on the *Ecommerce Business KPIs*
+  dashboard. Full catalog: `docs/specs/functional-metrics.md`.
+- **Alerting rules** live in `observability/rules/*.rules.yml`, loaded via `rule_files` in
+  `observability/prometheus.yml` and validated in CI by the `observability-config` job. Rules are
+  written against the *rendered* Prometheus names (dots become underscores, counters gain
+  `_total`); `MetricNamesOnTheWireTest` in orders-service and payment-service pins those names,
+  because an alert on a metric that does not exist never fires.
+- **Delivery** is Alertmanager (`observability/alertmanager.yml`), which groups by
+  `alertname` + `job`, routes `severity: critical` to its own receiver on a 1h repeat, and
+  suppresses alerts a `ServiceNotScraped` already explains. The `severity` label on a rule picks
+  the route, so it is load-bearing. The default receiver posts to the `alert-sink` container —
+  `docker compose logs alert-sink` shows the payload of everything delivered, which is how you
+  tell a working receiver from one that silently discards. **Swapping in Slack or email** is one
+  receiver block in `alertmanager.yml`; both read their credential from a mounted file, because a
+  webhook URL committed here is a credential leaked to everyone who can read the repo.
 
 ## Per-service wiring
 
-All 6 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
+All 7 Quarkus services use `quarkus-opentelemetry` (tracing) + `quarkus-micrometer-registry-prometheus`
 (metrics); the gateway uses `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`.
 
 - **Tracing** — OTLP endpoint `http://otel-collector:4317`, sampler `quarkus.otel.traces.sampler=always_on`

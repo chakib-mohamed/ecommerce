@@ -34,6 +34,8 @@ One spec file per flow, all under `e2e/specs/`:
 | `checkout.spec.ts` | Add to cart → fill checkout form → place order (`POST /api/orders`) → land on `/confirm` with a real order id. |
 | `orders.spec.ts` | A logged-in buyer sees their own previously-placed order(s), and the order-search request (`POST /api/orders/search`) is scoped to their email — the "own orders by authenticated user" fix (commit `f160317`). |
 | `admin.spec.ts` | Admin back-office (`/admin/products`, `/admin/categories`) renders real data; one real write (create + delete a throwaway subcategory) proves add/edit/delete actually work. |
+| `order-lifecycle.spec.ts` | An order placed through the UI reaches `PAID` across four services and a broker; and a confirm whose answer is lost does not place a second order. The only tests that fail when the saga chain breaks rather than one of its links. |
+| `reviews.spec.ts` | Verified-purchaser reviews: a buyer with a *paid* order can review, a buyer with none gets `403`, and a review can be submitted then deleted. |
 
 ### Out of scope
 
@@ -59,6 +61,63 @@ at all (a real, pre-existing onboarding gap this suite's setup also closes).
 CI runs the suite on push to `main` and on pull requests carrying an `e2e` label — see
 `docs/adr/0008-e2e-target-localhost-81.md`'s sibling note in `.github/workflows/ci.yml` for why it
 isn't on every PR by default.
+
+### One buyer per spec
+
+Every spec that places an order gets its **own account, registered fresh for that run**
+(`e2e/fixtures/test-users.ts`). Only `auth.spec` and `admin.spec` use the two seeded accounts —
+the first needs a fixed credential pair to type into the login form, the second needs the admin
+role.
+
+Sharing one buyer across the suite caused three separate failures, none of them obvious:
+
+1. **Assertions on a moving target.** The history pages at five. Six specs placing orders for one
+   account meant the order under test could be on any page, depending on which spec finished
+   first — so a test asserting it was on page one passed only while the suite was small.
+2. **A test passing because another spec did its setup.** When purchase verification was tightened
+   to require `PAID`, `reviews.spec` still stopped at `INITIATED` and kept passing, because
+   `order-lifecycle` drove the same product to `PAID` for the same buyer in parallel. Green,
+   asserting nothing about its own setup, and it would have failed run on its own.
+3. **Concurrent sagas on one account**, contending on the same rows and the same order search.
+
+Emails carry a per-run suffix, so a stack left up between runs never hands the next run a history
+full of the last one's orders — which would reintroduce the same problem one run later.
+
+### Waiting for ready, not for healthy
+
+`global-setup.ts` logs each role in, and then **blocks until the stack can actually do the two
+things the suite depends on** — complete a purchase (place, confirm, reach `PAID`) and answer
+whether somebody who has bought nothing may review a product (a `403`) — retrying for up to three
+minutes before giving up (`e2e/fixtures/smoke.ts`).
+
+Both, because they warm different things. A purchase exercises orders, products, price and payment.
+The review question exercises a call ordering never makes: products-service asking orders-service
+about purchase history, under its own deadline. Warming only the first left the second to be made
+cold by a spec — which is precisely where the last flake was, `POST /reviews` answering `500`
+instead of `403`.
+
+A refusal creates nothing, so the probe is safe to repeat. If the gate ever *accepts* the
+non-buyer's review, the gate is broken rather than cold, and setup fails immediately instead of
+retrying for three minutes against something no amount of waiting will fix.
+
+This exists because `docker compose up --wait` returns when every health endpoint answers, which
+happens well before a service's REST clients, Kafka consumers and database pools are usable. The
+suite used to start at exactly that moment and immediately drive the heaviest path in the system:
+`confirm` re-checks prices against products-service and price-service over HTTP before committing,
+so it is the first operation needing three services to be genuinely working rather than merely
+answering. The symptom was `confirm` returning **500** on a first attempt and passing on retry —
+three of fifteen tests flaking, and once a hard failure.
+
+The gate **absorbs** that window rather than detecting it: the errors it swallows are the ones the
+specs would otherwise hit. It asserts nothing about behaviour and is not a test. If it cannot
+complete a purchase within the deadline, every order, checkout and review spec was going to fail
+anyway, and failing here says so once instead of fifteen times.
+
+Its own logic is verified against a stub that can fail `confirm` and the review gate a set number
+of times each: it returns immediately on a healthy stack, retries through one that recovers on
+either path, gives up with a readable message on one that never does, and fails fast rather than
+retrying when the gate wrongly accepts a non-buyer. That last pair caught a real bug in the probe —
+an early return that skipped the review check entirely, so it reported ready without ever asking.
 
 ## Assertion philosophy
 

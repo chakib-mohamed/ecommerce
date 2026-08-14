@@ -27,3 +27,4 @@ consequences accepted.
 | [0008](0008-e2e-target-localhost-81.md) | E2E suite drives the built frontend container, not the Vite dev server | Accepted |
 | [0009](0009-playwright-e2e-suite-and-ci-gating.md) | Playwright for end-to-end browser testing, gated in CI | Accepted |
 | [0010](0010-analytics-service-event-sourced-warehouse.md) | Analytics as a dedicated service over an event-sourced read-model warehouse | Proposed |
+| [0011](0011-orchestrated-saga-over-the-outbox.md) | The order saga is orchestrated by orders-service over the transactional outbox | Accepted |

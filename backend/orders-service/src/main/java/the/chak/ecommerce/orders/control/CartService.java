@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import the.chak.ecommerce.orders.boundary.dto.AddItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.UpdateItemRequest;
 import the.chak.ecommerce.orders.boundary.dto.CartItemResponse;
@@ -10,6 +11,9 @@ import the.chak.ecommerce.orders.control.exceptions.CartNotFoundException;
 import the.chak.ecommerce.orders.entity.Cart;
 import the.chak.ecommerce.orders.entity.CartItem;
 import the.chak.ecommerce.orders.entity.Order;
+import com.mongodb.client.ClientSession;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.model.Filters;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -32,6 +36,9 @@ public class CartService {
 
     @Inject
     the.chak.ecommerce.orders.repository.CartRepository cartRepository;
+
+    @Inject
+    MongoClient mongoClient;
 
     @Inject
     MeterRegistry meterRegistry;
@@ -128,8 +135,24 @@ public class CartService {
         order.setUserID(userId);
         order.setProducts(products);
 
-        orderService.saveOrder(order);
-        cartRepository.delete(cart);
+        // Priced first, deliberately outside the transaction below: this calls two other services
+        // over REST, and persistence-conventions.md forbids network I/O inside a transaction.
+        orderService.priceOrder(order);
+
+        // The order and the cart it came from are written together. Split into two independent
+        // writes, a crash in between leaves the buyer with an order and a live cart, and the retry
+        // they will reach for buys the same goods a second time.
+        Cart toDelete = cart;
+        try (ClientSession session = mongoClient.startSession()) {
+            session.withTransaction(() -> {
+                orderService.insertOrder(order, session);
+                cartRepository.mongoCollection()
+                        .deleteOne(session, Filters.eq("_id", toDelete.id));
+                return null;
+            });
+        }
+
+        orderService.recordOrderCreated(order);
         recordCheckout(MetricNames.OUTCOME_SUCCESS);
         LOG.infof("Cart cleared userId=%s", userId);
         return order;
@@ -142,8 +165,9 @@ public class CartService {
     private CartResponse toResponse(Cart cart) {
         List<CartItemResponse> items = cart.items.stream()
                 .map(i -> {
-                    Double unitPrice = priceCacheService.getPrice(i.getProductId());
-                    Double totalPrice = unitPrice != null ? unitPrice * i.getQuantity() : null;
+                    BigDecimal unitPrice = priceCacheService.getPrice(i.getProductId());
+                    BigDecimal totalPrice = unitPrice == null ? null
+                            : unitPrice.multiply(BigDecimal.valueOf(i.getQuantity()));
                     return new CartItemResponse(i.getProductId(), i.getQuantity(), unitPrice, totalPrice);
                 })
                 .toList();

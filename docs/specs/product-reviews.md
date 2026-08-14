@@ -17,10 +17,21 @@ and `review_count` derived from real reviews.
 
 ## Decisions
 
-- **Who can review — verified purchasers only.** A user may review a product only if they have an
-  order containing that product. This is checked at submission time against the buyer's order
-  history (products-service calling orders-service — see Architecture below), mirroring the
-  "Verified Purchase" pattern common in e-commerce and giving reviews real trust weight.
+- **Who can review — verified purchasers only.** A user may review a product only if they have
+  **paid for** an order containing that product: one in `PAID`, `SHIPPED` or `DELIVERED`. This is
+  checked at submission time against the buyer's order history (products-service calling
+  orders-service — see Architecture below), mirroring the "Verified Purchase" pattern common in
+  e-commerce and giving reviews real trust weight.
+
+  This originally read "an order containing that product", which was written when an order had two
+  states and nothing was ever paid for. Once payment existed that wording let anyone place an order
+  and review the product without ever completing it — the order never has to leave `INITIATED`, and
+  an abandoned order costs nothing. A trust signal that anybody can mint is worse than none, so
+  eligibility follows the money.
+
+  `REFUNDED` is excluded: the buyer has been made whole and no longer holds a purchase. That is a
+  judgement call rather than an obvious truth — a refund is often exactly what someone wants to
+  write about — and it is the one to revisit first if the rule feels wrong in practice.
 - **One review per (user, product), editable and deletable by its author.** Submitting again for a
   product the user already reviewed updates their existing review (upsert on `(product_id,
   reviewer)`) rather than creating a second one. The author can delete their own review at any

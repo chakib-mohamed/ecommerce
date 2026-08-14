@@ -93,4 +93,22 @@ public class ProductRepository implements PanacheRepository<Product> {
         return params.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().value()));
     }
+
+    /**
+     * Takes {@code quantity} out of a product's stock, but only if that much is there.
+     *
+     * <p>The check is part of the write rather than a read followed by a write: two orders reaching
+     * the last unit together would both pass a check made beforehand, and the catalog would sell
+     * stock it does not have.
+     *
+     * @return true when the stock was taken
+     */
+    public boolean decrementStockIfAvailable(UUID uuid, int quantity) {
+        return update("stock = stock - ?1 where uuid = ?2 and stock >= ?1", quantity, uuid) == 1;
+    }
+
+    /** Puts held stock back on sale. */
+    public void incrementStock(UUID uuid, int quantity) {
+        update("stock = stock + ?1 where uuid = ?2", quantity, uuid);
+    }
 }

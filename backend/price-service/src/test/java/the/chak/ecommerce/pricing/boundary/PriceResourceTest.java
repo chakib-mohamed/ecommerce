@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.boundary;
 
+import java.math.BigDecimal;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -32,7 +33,7 @@ class PriceResourceTest {
     void updatePrice_validPrice_returns200WithStoredPrice() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();
-        request.setPrice(49.99);
+        request.setPrice(BigDecimal.valueOf(49.99));
 
         // when
         var response = given().contentType(ContentType.JSON).body(request)
@@ -46,11 +47,37 @@ class PriceResourceTest {
 
     @Test
     @TestSecurity(user = "test-user")
+    @DisplayName("Replaces the stored price when the product already has one")
+    void updatePrice_productAlreadyPriced_replacesExistingPrice() {
+        // given - the same product priced twice; the second update must overwrite rather than
+        // insert a second record for it
+        String productId = UUID.randomUUID().toString();
+        UpdatePriceRequest first = new UpdatePriceRequest();
+        first.setPrice(BigDecimal.valueOf(10.0));
+        given().contentType(ContentType.JSON).body(first)
+                .when().put("/prices/{productId}", productId)
+                .then().statusCode(200);
+
+        UpdatePriceRequest second = new UpdatePriceRequest();
+        second.setPrice(BigDecimal.valueOf(25.5));
+
+        // when
+        var response = given().contentType(ContentType.JSON).body(second)
+                .when().put("/prices/{productId}", productId);
+
+        // then
+        response.then().statusCode(200)
+                .body("product_id", is(productId))
+                .body("price", is(25.5f));
+    }
+
+    @Test
+    @TestSecurity(user = "test-user")
     @DisplayName("Returns 400 with VALIDATION_ERROR when updating with a negative price")
     void updatePrice_negativePrice_returns400() {
         // given
         UpdatePriceRequest request = new UpdatePriceRequest();
-        request.setPrice(-1.0);
+        request.setPrice(BigDecimal.valueOf(-1.0));
 
         // when
         var response = given().contentType(ContentType.JSON).body(request)

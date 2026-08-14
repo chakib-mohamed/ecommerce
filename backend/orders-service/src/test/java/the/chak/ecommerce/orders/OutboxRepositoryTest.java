@@ -44,7 +44,7 @@ class OutboxRepositoryTest {
         assertNotNull(stored.createdAt);
         assertNull(stored.publishedAt);
         assertEquals(orderId, stored.aggregateId);
-        assertEquals("order-initiated", stored.topic);
+        assertEquals("order-paid", stored.topic);
     }
 
     @Test
@@ -68,9 +68,9 @@ class OutboxRepositoryTest {
         entry.id = UUID.randomUUID();
         entry.aggregateType = "order";
         entry.aggregateId = orderId;
-        entry.eventType = "order-initiated";
-        entry.topic = "order-initiated";
-        entry.payload = "{\"id\":\"" + orderId + "\",\"userID\":\"u\",\"status\":\"INITIATED\"}";
+        entry.eventType = "order-paid";
+        entry.topic = "order-paid";
+        entry.payload = "{\"id\":\"" + orderId + "\",\"userID\":\"u\",\"status\":\"PAID\"}";
         entry.createdAt = Instant.now();
         return entry;
     }

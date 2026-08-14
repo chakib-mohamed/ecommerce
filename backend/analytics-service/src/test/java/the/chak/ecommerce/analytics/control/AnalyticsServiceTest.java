@@ -1,5 +1,6 @@
 package the.chak.ecommerce.analytics.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -47,16 +48,17 @@ class AnalyticsServiceTest {
         when(factRepository.revenueByMonth(anyString())).thenReturn(List.of());
         when(factRepository.salesByProduct()).thenReturn(List.of());
         when(factRepository.revenueByCategory()).thenReturn(List.of());
-        when(factRepository.totalRevenue()).thenReturn(0d);
+        when(factRepository.totalRevenue()).thenReturn(BigDecimal.valueOf(0));
 
         // when
         AnalyticsResponse result = analyticsService.buildAnalytics();
 
         // then
         assertEquals(12, result.getSales().size());
-        assertTrue(result.getSales().stream().allMatch(m -> m.getValue() == 0d),
+        assertTrue(result.getSales().stream().allMatch(m -> m.getValue().signum() == 0),
                 "every month of an empty warehouse should report zero revenue");
-        assertEquals(0d, result.getTotalRevenue());
+        assertEquals(0, BigDecimal.valueOf(0).compareTo(result.getTotalRevenue()),
+                "expected 0, was " + result.getTotalRevenue());
     }
 
     @Test
@@ -66,7 +68,7 @@ class AnalyticsServiceTest {
         when(factRepository.revenueByMonth(anyString())).thenReturn(List.of());
         when(factRepository.salesByProduct()).thenReturn(List.of());
         when(factRepository.revenueByCategory()).thenReturn(List.of());
-        when(factRepository.totalRevenue()).thenReturn(0d);
+        when(factRepository.totalRevenue()).thenReturn(BigDecimal.valueOf(0));
 
         // when
         AnalyticsResponse result = analyticsService.buildAnalytics();
@@ -83,17 +85,19 @@ class AnalyticsServiceTest {
         // given
         YearMonth thisMonth = YearMonth.now();
         when(factRepository.revenueByMonth(anyString()))
-                .thenReturn(List.of(new MonthlyRevenue(thisMonth.format(BUCKET), 4200d)));
+                .thenReturn(List.of(new MonthlyRevenue(thisMonth.format(BUCKET), BigDecimal.valueOf(4200))));
         when(factRepository.salesByProduct()).thenReturn(List.of());
         when(factRepository.revenueByCategory()).thenReturn(List.of());
-        when(factRepository.totalRevenue()).thenReturn(4200d);
+        when(factRepository.totalRevenue()).thenReturn(BigDecimal.valueOf(4200));
 
         // when
         AnalyticsResponse result = analyticsService.buildAnalytics();
 
         // then
-        assertEquals(4200d, result.getSales().get(11).getValue());
-        assertEquals(0d, result.getSales().get(10).getValue());
+        assertEquals(0, BigDecimal.valueOf(4200).compareTo(result.getSales().get(11).getValue()),
+                "expected 4200, was " + result.getSales().get(11).getValue());
+        assertEquals(0, BigDecimal.valueOf(0).compareTo(result.getSales().get(10).getValue()),
+                "expected 0, was " + result.getSales().get(10).getValue());
     }
 
     @Test
@@ -103,7 +107,7 @@ class AnalyticsServiceTest {
         when(factRepository.revenueByMonth(anyString())).thenReturn(List.of());
         when(factRepository.salesByProduct()).thenReturn(List.of());
         when(factRepository.revenueByCategory()).thenReturn(List.of());
-        when(factRepository.totalRevenue()).thenReturn(0d);
+        when(factRepository.totalRevenue()).thenReturn(BigDecimal.valueOf(0));
 
         // when
         analyticsService.buildAnalytics();
@@ -119,10 +123,10 @@ class AnalyticsServiceTest {
         // given
         when(factRepository.revenueByMonth(anyString())).thenReturn(List.of());
         when(factRepository.salesByProduct()).thenReturn(List.of(
-                new ProductAggregate("uuid-a", "Desk lamp", 90L, 1800d),
-                new ProductAggregate("uuid-b", "Wall clock", 30L, 900d)));
+                new ProductAggregate("uuid-a", "Desk lamp", 90L, BigDecimal.valueOf(1800)),
+                new ProductAggregate("uuid-b", "Wall clock", 30L, BigDecimal.valueOf(900))));
         when(factRepository.revenueByCategory()).thenReturn(List.of());
-        when(factRepository.totalRevenue()).thenReturn(2700d);
+        when(factRepository.totalRevenue()).thenReturn(BigDecimal.valueOf(2700));
 
         // when
         AnalyticsResponse result = analyticsService.buildAnalytics();
@@ -132,7 +136,8 @@ class AnalyticsServiceTest {
         assertEquals("uuid-a", result.getProductSales().get(0).getProductId());
         assertEquals("Desk lamp", result.getProductSales().get(0).getName());
         assertEquals(90L, result.getProductSales().get(0).getUnits());
-        assertEquals(1800d, result.getProductSales().get(0).getRevenue());
+        assertEquals(0, BigDecimal.valueOf(1800).compareTo(result.getProductSales().get(0).getRevenue()),
+                "expected 1800, was " + result.getProductSales().get(0).getRevenue());
         assertEquals("uuid-b", result.getProductSales().get(1).getProductId());
     }
 
@@ -143,9 +148,9 @@ class AnalyticsServiceTest {
         when(factRepository.revenueByMonth(anyString())).thenReturn(List.of());
         when(factRepository.salesByProduct()).thenReturn(List.of());
         when(factRepository.revenueByCategory()).thenReturn(List.of(
-                new CategoryAggregate(1L, "Lighting", 750d),
-                new CategoryAggregate(2L, "Decor", 250d)));
-        when(factRepository.totalRevenue()).thenReturn(1000d);
+                new CategoryAggregate(1L, "Lighting", BigDecimal.valueOf(750)),
+                new CategoryAggregate(2L, "Decor", BigDecimal.valueOf(250))));
+        when(factRepository.totalRevenue()).thenReturn(BigDecimal.valueOf(1000));
 
         // when
         AnalyticsResponse result = analyticsService.buildAnalytics();
@@ -153,7 +158,8 @@ class AnalyticsServiceTest {
         // then
         assertEquals("1", result.getCategoryBreakdown().get(0).getId());
         assertEquals("Lighting", result.getCategoryBreakdown().get(0).getName());
-        assertEquals(750d, result.getCategoryBreakdown().get(0).getValue());
+        assertEquals(0, BigDecimal.valueOf(750).compareTo(result.getCategoryBreakdown().get(0).getValue()),
+                "expected 750, was " + result.getCategoryBreakdown().get(0).getValue());
         assertEquals(75d, result.getCategoryBreakdown().get(0).getPct());
         assertEquals(25d, result.getCategoryBreakdown().get(1).getPct());
     }
@@ -165,8 +171,8 @@ class AnalyticsServiceTest {
         when(factRepository.revenueByMonth(anyString())).thenReturn(List.of());
         when(factRepository.salesByProduct()).thenReturn(List.of());
         when(factRepository.revenueByCategory())
-                .thenReturn(List.of(new CategoryAggregate(null, null, 400d)));
-        when(factRepository.totalRevenue()).thenReturn(400d);
+                .thenReturn(List.of(new CategoryAggregate(null, null, BigDecimal.valueOf(400))));
+        when(factRepository.totalRevenue()).thenReturn(BigDecimal.valueOf(400));
 
         // when
         AnalyticsResponse result = analyticsService.buildAnalytics();
@@ -175,7 +181,8 @@ class AnalyticsServiceTest {
         assertEquals(1, result.getCategoryBreakdown().size());
         assertEquals("uncategorized", result.getCategoryBreakdown().get(0).getId());
         assertEquals("Uncategorized", result.getCategoryBreakdown().get(0).getName());
-        assertEquals(400d, result.getCategoryBreakdown().get(0).getValue());
+        assertEquals(0, BigDecimal.valueOf(400).compareTo(result.getCategoryBreakdown().get(0).getValue()),
+                "expected 400, was " + result.getCategoryBreakdown().get(0).getValue());
     }
 
     @Test
@@ -185,8 +192,8 @@ class AnalyticsServiceTest {
         when(factRepository.revenueByMonth(anyString())).thenReturn(List.of());
         when(factRepository.salesByProduct()).thenReturn(List.of());
         when(factRepository.revenueByCategory())
-                .thenReturn(List.of(new CategoryAggregate(1L, "Lighting", 0d)));
-        when(factRepository.totalRevenue()).thenReturn(0d);
+                .thenReturn(List.of(new CategoryAggregate(1L, "Lighting", BigDecimal.valueOf(0))));
+        when(factRepository.totalRevenue()).thenReturn(BigDecimal.valueOf(0));
 
         // when
         AnalyticsResponse result = analyticsService.buildAnalytics();

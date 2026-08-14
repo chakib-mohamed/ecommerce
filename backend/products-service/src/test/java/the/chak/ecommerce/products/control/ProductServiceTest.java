@@ -1,10 +1,14 @@
 package the.chak.ecommerce.products.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,6 +19,7 @@ import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import the.chak.ecommerce.products.entity.Category;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -227,10 +232,11 @@ class ProductServiceTest {
         when(productRepository.findByUuid(uuid)).thenReturn(product);
 
         // when
-        productService.updatePrice(uuid.toString(), 25.0);
+        productService.updatePrice(uuid.toString(), BigDecimal.valueOf(25.0));
 
         // then
-        assertEquals(25.0, product.getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(25.0).compareTo(product.getPrice()),
+                "expected 25.00, was " + product.getPrice());
     }
 
     @Test
@@ -241,7 +247,7 @@ class ProductServiceTest {
         when(productRepository.findByUuid(uuid)).thenReturn(null);
 
         // when
-        productService.updatePrice(uuid.toString(), 50.0);
+        productService.updatePrice(uuid.toString(), BigDecimal.valueOf(50.0));
 
         // then - no exception
     }
@@ -483,7 +489,7 @@ class ProductServiceTest {
         when(productRepository.findByUuid(uuid)).thenReturn(product);
 
         // when
-        productService.updatePrice(uuid.toString(), 25.0);
+        productService.updatePrice(uuid.toString(), BigDecimal.valueOf(25.0));
 
         // then
         assertEquals(1.0, meterRegistry.get("catalog.price.updates.consumed").counter().count(), 0.001);
@@ -497,10 +503,174 @@ class ProductServiceTest {
         when(productRepository.findByUuid(uuid)).thenReturn(null);
 
         // when
-        productService.updatePrice(uuid.toString(), 50.0);
+        productService.updatePrice(uuid.toString(), BigDecimal.valueOf(50.0));
 
         // then
         assertNull(meterRegistry.find("catalog.price.updates.consumed").counter());
+    }
+
+    // -- image guard: an empty array is not an image ------------------------
+    // The guard checks length as well as null, so a caller sending an empty body does not get a
+    // zero-byte object uploaded and an image key pointing at it.
+
+    @Test
+    @DisplayName("Persists without uploading when the image bytes are empty rather than absent")
+    void saveProduct_emptyImageBytes_persistsWithoutUpload() {
+        // given
+        Product product = new Product();
+        product.setUuid(UUID.randomUUID());
+
+        // when
+        productService.saveProduct(product, new byte[0], null, null);
+
+        // then
+        verify(storageService, never()).uploadImage(any(byte[].class));
+        verify(productRepository).persist(product);
+    }
+
+    @Test
+    @DisplayName("Keeps the existing image when the update carries empty image bytes")
+    void updateProduct_emptyImageBytes_keepsExistingImage() {
+        // given
+        UUID uuid = UUID.randomUUID();
+        Product existing = new Product();
+        existing.id = 7L;
+        existing.setUuid(uuid);
+        existing.setImageKey("existing-key");
+        Product update = new Product();
+        update.setUuid(uuid);
+        when(productRepository.findByUuid(uuid)).thenReturn(existing);
+
+        // when
+        productService.updateProduct(update, new byte[0], null, null);
+
+        // then
+        verify(storageService, never()).uploadImage(any(byte[].class));
+        verify(storageService, never()).deleteImage(anyString());
+    }
+
+    @Test
+    @DisplayName("Deletes no old image when the product being updated had none")
+    void updateProduct_firstImageOnProduct_deletesNothing() {
+        // given - a product that has never had an image, now getting its first
+        UUID uuid = UUID.randomUUID();
+        Product existing = new Product();
+        existing.id = 3L;
+        existing.setUuid(uuid);
+        existing.setImageKey(null);
+        when(productRepository.findByUuid(uuid)).thenReturn(existing);
+
+        byte[] newBytes = jpegBytes();
+        when(storageService.uploadImage(newBytes)).thenReturn("first-key");
+
+        Product update = new Product();
+        update.setUuid(uuid);
+
+        // when
+        Product result = productService.updateProduct(update, newBytes);
+
+        // then - deleting a null key would be a wasted call at best
+        assertEquals("first-key", result.getImageKey());
+        verify(storageService, never()).deleteImage(anyString());
+    }
+
+    // -- category linking ---------------------------------------------------
+
+    @Test
+    @DisplayName("Files the product under its subcategory when both a category and a subcategory are given")
+    void saveProduct_categoryAndSubcategory_filesUnderSubcategory() {
+        // given - the subcategory is the more specific of the two and wins
+        Product product = new Product();
+        product.setUuid(UUID.randomUUID());
+        Category subcategory = new Category();
+        subcategory.id = 20L;
+        when(categoryRepository.findById(20L)).thenReturn(subcategory);
+
+        // when
+        productService.saveProduct(product, null, 10L, 20L);
+
+        // then
+        assertEquals(1, product.getCategories().size());
+        assertEquals(subcategory, product.getCategories().get(0));
+    }
+
+    @Test
+    @DisplayName("Files the product under its category when no subcategory is given")
+    void saveProduct_categoryOnly_filesUnderCategory() {
+        // given
+        Product product = new Product();
+        product.setUuid(UUID.randomUUID());
+        Category category = new Category();
+        category.id = 10L;
+        when(categoryRepository.findById(10L)).thenReturn(category);
+
+        // when
+        productService.saveProduct(product, null, 10L, null);
+
+        // then
+        assertEquals(category, product.getCategories().get(0));
+    }
+
+    @Test
+    @DisplayName("Refuses a category id that matches no category")
+    void saveProduct_unknownCategoryId_throwsBadRequest() {
+        // given
+        Product product = new Product();
+        product.setUuid(UUID.randomUUID());
+        when(categoryRepository.findById(404L)).thenReturn(null);
+
+        // when / then
+        assertThrows(BadRequestException.class,
+                () -> productService.saveProduct(product, null, 404L, null));
+    }
+
+    // -- listing ------------------------------------------------------------
+
+    @Test
+    @DisplayName("Lists by category when a category filter is supplied")
+    void getProducts_withCategoryFilter_queriesByCategory() {
+        // given
+        Product p = new Product();
+        p.id = 1L;
+        when(productRepository.listByCategoryWithPromotions(10L, null, 0, 5))
+                .thenReturn(List.of(p));
+
+        // when
+        List<Product> page = productService.getProducts(0, 5, 10L, null);
+
+        // then
+        assertEquals(1, page.size());
+        verify(productRepository, never()).listWithPromotions(anyInt(), anyInt());
+    }
+
+    @Test
+    @DisplayName("Lists by subcategory when only a subcategory filter is supplied")
+    void getProducts_withSubcategoryFilter_queriesByCategory() {
+        // given
+        Product p = new Product();
+        p.id = 1L;
+        when(productRepository.listByCategoryWithPromotions(null, 20L, 0, 5))
+                .thenReturn(List.of(p));
+
+        // when
+        List<Product> page = productService.getProducts(0, 5, null, 20L);
+
+        // then
+        assertEquals(1, page.size());
+    }
+
+    @Test
+    @DisplayName("Skips priming associations when the page is empty")
+    void getProducts_emptyPage_skipsPriming() {
+        // given - priming an empty id list would issue a pointless query
+        when(productRepository.listWithPromotions(9, 5)).thenReturn(List.of());
+
+        // when
+        List<Product> page = productService.getProducts(9, 5, null, null);
+
+        // then
+        assertTrue(page.isEmpty());
+        verify(productRepository, never()).primeCategories(anyList());
     }
 
     private static byte[] jpegBytes() {

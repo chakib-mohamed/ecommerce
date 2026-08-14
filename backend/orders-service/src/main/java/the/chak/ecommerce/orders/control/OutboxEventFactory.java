@@ -10,6 +10,11 @@ import jakarta.json.bind.Jsonb;
 import the.chak.ecommerce.orders.boundary.dto.OrderDTO;
 import the.chak.ecommerce.orders.boundary.dto.ProductVO;
 import the.chak.ecommerce.orders.entity.Order;
+import the.chak.ecommerce.orders.control.events.CapturePaymentCommand;
+import the.chak.ecommerce.orders.control.events.OrderCancelledEvent;
+import the.chak.ecommerce.orders.control.events.ReleaseStockCommand;
+import the.chak.ecommerce.orders.control.events.ReserveStockCommand;
+import the.chak.ecommerce.orders.control.events.ReserveStockLine;
 import the.chak.ecommerce.orders.entity.OutboxEntry;
 import the.chak.ecommerce.outbox.OutboxTracing;
 
@@ -28,20 +33,68 @@ import the.chak.ecommerce.outbox.OutboxTracing;
 public class OutboxEventFactory {
 
     static final String AGGREGATE_TYPE_ORDER = "order";
-    static final String TOPIC_ORDER_INITIATED = "order-initiated";
+    static final String TOPIC_RESERVE_STOCK = "reserve-stock";
+    static final String TOPIC_RELEASE_STOCK = "release-stock";
+    static final String TOPIC_ORDER_CANCELLED = "order-cancelled";
+    static final String TOPIC_CAPTURE_PAYMENT = "capture-payment";
+    static final String TOPIC_ORDER_PAID = "order-paid";
 
     @Inject
     Jsonb jsonb;
 
-    public OutboxEntry orderInitiated(Order order) {
+    /**
+     * Asks the catalog to hold this order's lines. Keyed by order id like every other entry, so the
+     * command and any later compensation for the same order stay in sequence on the broker.
+     */
+    public OutboxEntry reserveStock(Order order, String stepId) {
         String orderId = order.id.toString();
+        List<ReserveStockLine> lines = order.getProducts() == null ? List.of()
+                : order.getProducts().stream()
+                        .map(p -> new ReserveStockLine(p.getProductID(), p.getQty()))
+                        .collect(Collectors.toList());
+        return build(orderId, TOPIC_RESERVE_STOCK,
+                new ReserveStockCommand(orderId, stepId, lines));
+    }
+
+    public OutboxEntry releaseStock(String orderId, String stepId) {
+        return build(orderId, TOPIC_RELEASE_STOCK, new ReleaseStockCommand(orderId, stepId));
+    }
+
+    /**
+     * Asks for the order to be charged. Carries the payment method reference, which is why this
+     * command's payload is the one thing in the outbox that is not safe to log.
+     */
+    public OutboxEntry capturePayment(Order order, String stepId, String paymentMethod) {
+        String orderId = order.id.toString();
+        return build(orderId, TOPIC_CAPTURE_PAYMENT, new CapturePaymentCommand(
+                orderId, stepId, order.getPrice(), order.getCurrency(), paymentMethod));
+    }
+
+    /**
+     * Announces that the order has been paid for: money taken, not merely an order placed. That
+     * says an order was placed, this one says money was taken, and only this one is revenue.
+     */
+    public OutboxEntry orderPaid(Order order) {
+        String orderId = order.id.toString();
+        // The full OrderDTO, because the warehouse counts
+        // per line, so the lines have to travel with the event rather than be fetched back.
+        return build(orderId, TOPIC_ORDER_PAID, toDto(order, orderId));
+    }
+
+    public OutboxEntry orderCancelled(Order order, String reason) {
+        String orderId = order.id.toString();
+        return build(orderId, TOPIC_ORDER_CANCELLED,
+                new OrderCancelledEvent(orderId, order.getUserID(), reason));
+    }
+
+    private OutboxEntry build(String orderId, String topic, Object payload) {
         OutboxEntry entry = new OutboxEntry();
         entry.id = UUID.randomUUID();
         entry.aggregateType = AGGREGATE_TYPE_ORDER;
         entry.aggregateId = orderId;
-        entry.eventType = TOPIC_ORDER_INITIATED;
-        entry.topic = TOPIC_ORDER_INITIATED;
-        entry.payload = jsonb.toJson(toDto(order, orderId));
+        entry.eventType = topic;
+        entry.topic = topic;
+        entry.payload = jsonb.toJson(payload);
         entry.traceparent = OutboxTracing.currentTraceparent();
         entry.createdAt = Instant.now();
         return entry;
@@ -52,8 +105,12 @@ public class OutboxEventFactory {
         dto.setId(orderId);
         dto.setCreationDate(order.getCreationDate());
         dto.setPrice(order.getPrice());
+        // Read from the order rather than left to the DTO's field default: they agree today
+        // because there is one currency, and a published amount should not depend on that.
+        if (order.getCurrency() != null) {
+            dto.setCurrency(order.getCurrency());
+        }
         dto.setUserID(order.getUserID());
-        dto.setValidationNumber(order.getValidationNumber());
         dto.setStatus(order.getStatus() == null ? null
                 : the.chak.ecommerce.orders.boundary.dto.OrderStatus.valueOf(order.getStatus().name()));
         dto.setProducts(toProductDtos(order));

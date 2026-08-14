@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -40,13 +41,13 @@ class PriceServiceTest {
     @Test
     @DisplayName("Throws InvalidPriceException when updating with a zero price")
     void update_zeroPrice_throwsInvalidPriceException() {
-        assertThrows(InvalidPriceException.class, () -> priceService.update("prod-1", 0.0));
+        assertThrows(InvalidPriceException.class, () -> priceService.update("prod-1", BigDecimal.valueOf(0.0)));
     }
 
     @Test
     @DisplayName("Throws InvalidPriceException when updating with a negative price")
     void update_negativePrice_throwsInvalidPriceException() {
-        assertThrows(InvalidPriceException.class, () -> priceService.update("prod-1", -5.0));
+        assertThrows(InvalidPriceException.class, () -> priceService.update("prod-1", BigDecimal.valueOf(-5.0)));
     }
 
     // --metrics ------------------------------------------------------------
@@ -63,7 +64,7 @@ class PriceServiceTest {
     @Test
     @DisplayName("Records no success outcome when the price is invalid")
     void update_invalidPrice_recordsNoSuccessOutcome() {
-        assertThrows(InvalidPriceException.class, () -> priceService.update("prod-1", 0.0));
+        assertThrows(InvalidPriceException.class, () -> priceService.update("prod-1", BigDecimal.valueOf(0.0)));
         assertNull(meterRegistry.find("pricing.price.updates").tag("outcome", "success").counter());
     }
 }

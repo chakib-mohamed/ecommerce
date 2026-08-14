@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.entity;
 
+import java.math.BigDecimal;
 import io.quarkus.mongodb.panache.common.MongoEntity;
 import org.bson.types.ObjectId;
 
@@ -7,5 +8,5 @@ import org.bson.types.ObjectId;
 public class Price {
     public ObjectId id;
     public String productId;
-    public Double price;
+    public BigDecimal price;
 }

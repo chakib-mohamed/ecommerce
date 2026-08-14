@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -54,7 +55,7 @@ class ProductServiceTest {
         dto.setUuid(uuid);
         dto.setDescription("A great product");
         dto.setImageKey("img-key");
-        dto.setPrice(49.99);
+        dto.setPrice(BigDecimal.valueOf(49.99));
         dto.setTitle("Widget");
 
         CategoryDto cat = new CategoryDto();
@@ -80,7 +81,8 @@ class ProductServiceTest {
         assertEquals(uuid, entity.getProductID());
         assertEquals("A great product", entity.getDescription());
         assertEquals("img-key", entity.getImage());
-        assertEquals(49.99, entity.getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(49.99).compareTo(entity.getPrice()),
+                "expected 49.99, was " + entity.getPrice());
         assertEquals(1, entity.getCategories().size());
         assertEquals("Electronics", entity.getCategories().get(0).getLabel());
         assertEquals(1, entity.getPromotions().size());
@@ -96,7 +98,7 @@ class ProductServiceTest {
         ProductDto first = new ProductDto();
         first.setUuid(uuid);
         first.setDescription("Original");
-        first.setPrice(10.0);
+        first.setPrice(BigDecimal.valueOf(10.0));
         first.setTitle("Old Title");
         first.setCategories(List.of());
         first.setPromotions(List.of());
@@ -112,7 +114,7 @@ class ProductServiceTest {
         ProductDto second = new ProductDto();
         second.setUuid(uuid);
         second.setDescription("Updated");
-        second.setPrice(20.0);
+        second.setPrice(BigDecimal.valueOf(20.0));
         second.setTitle("New Title");
         second.setCategories(List.of());
         second.setPromotions(List.of());
@@ -127,7 +129,8 @@ class ProductServiceTest {
         verify(productMongoRepository).persistOrUpdate(entityCaptor.capture());
         ProductMongoEntity updatedEntity = entityCaptor.getValue();
         assertEquals("Updated", updatedEntity.getDescription());
-        assertEquals(20.0, updatedEntity.getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(20.0).compareTo(updatedEntity.getPrice()),
+                "expected 20.0, was " + updatedEntity.getPrice());
     }
 
     @Test
@@ -138,7 +141,7 @@ class ProductServiceTest {
         ProductDto dto = new ProductDto();
         dto.setUuid(uuid);
         dto.setDescription("desc");
-        dto.setPrice(5.0);
+        dto.setPrice(BigDecimal.valueOf(5.0));
         dto.setTitle("Item");
         dto.setCategories(null);
         dto.setPromotions(List.of());
@@ -163,7 +166,7 @@ class ProductServiceTest {
         ProductDto dto = new ProductDto();
         dto.setUuid(uuid);
         dto.setDescription("desc");
-        dto.setPrice(5.0);
+        dto.setPrice(BigDecimal.valueOf(5.0));
         dto.setTitle("Item");
         dto.setCategories(List.of());
         dto.setPromotions(null);

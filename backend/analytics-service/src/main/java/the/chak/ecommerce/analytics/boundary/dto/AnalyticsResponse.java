@@ -1,5 +1,6 @@
 package the.chak.ecommerce.analytics.boundary.dto;
 
+import java.math.BigDecimal;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,5 +21,5 @@ public class AnalyticsResponse {
     /** Revenue per category, highest first. */
     private List<CategoryRevenue> categoryBreakdown;
 
-    private Double totalRevenue;
+    private BigDecimal totalRevenue;
 }

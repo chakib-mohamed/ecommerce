@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.boundary;
 
+import java.math.BigDecimal;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -317,7 +318,7 @@ class CartResourceTest {
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 3)));
         cart.updatedAt = Instant.now();
         cartRepository.persist(cart);
-        when(priceCacheService.getPrice("prod-1")).thenReturn(25.0);
+        when(priceCacheService.getPrice("prod-1")).thenReturn(BigDecimal.valueOf(25.0));
 
         // when
         var response = given().when().get("/cart");
@@ -343,9 +344,9 @@ class CartResourceTest {
         doAnswer(inv -> {
             Order o = inv.getArgument(0);
             o.setStatus(OrderStatus.INITIATED);
-            o.setPrice(100.0);
+            o.setPrice(BigDecimal.valueOf(100.0));
             return o;
-        }).when(orderService).saveOrder(any());
+        }).when(orderService).priceOrder(any());
 
         // when
         var response = given().when().post("/cart/checkout");
@@ -399,7 +400,7 @@ class CartResourceTest {
         cart.items = new ArrayList<>(List.of(new CartItem("prod-1", 1)));
         cart.updatedAt = Instant.now();
         cartRepository.persist(cart);
-        doThrow(new RuntimeException("pricing service down")).when(orderService).saveOrder(any());
+        doThrow(new RuntimeException("pricing service down")).when(orderService).priceOrder(any());
 
         // when
         var response = given().when().post("/cart/checkout");

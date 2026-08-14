@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 @Data
 public class ProductVO {
     @NotBlank
@@ -16,6 +18,8 @@ public class ProductVO {
     private Integer qty;
     @NotNull
     @Positive
-    private Double price;
+    private BigDecimal price;
+
+    /** A percentage, not an amount - stays a plain number. */
     private Double percentageOff;
 }

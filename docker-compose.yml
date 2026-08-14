@@ -93,9 +93,12 @@ services:
       - QUARKUS_DATASOURCE_PASSWORD=postgres
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - JWT_PUBLIC_KEY
-      # The seeded dev catalog (Liquibase 004) loads under every profile; this lets the
-      # matching default images load too, so the storefront shows real photos locally.
-      - PRODUCTS_SEED_IMAGES_ENABLED=true
+      # This is a development stack, so it asks for the demo catalogue by default. `make up-bare`
+      # runs it without any demo data - closer to a real deployment - by setting both variables
+      # below. The application's own default is the safe one (schema only), so forgetting either
+      # leaves you with less data, never with unexpected data.
+      - LIQUIBASE_CONTEXTS=${LIQUIBASE_CONTEXTS:-dev,seed}
+      - PRODUCTS_SEED_IMAGES_ENABLED=${SEED_DEMO_DATA:-true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -163,6 +166,10 @@ services:
     environment:
       - QUARKUS_PROFILE=prod
       - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017/?replicaSet=rs0
+      # Without this the broker address falls back to localhost:9092 and orders-service talks to
+      # itself: no saga command is ever sent and no reply is ever consumed. It waited on kafka's
+      # healthcheck below while being unable to reach it, which is why nothing looked wrong.
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - JWT_PUBLIC_KEY
     depends_on:
       mongodb:
@@ -171,6 +178,49 @@ services:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8080/q/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Charges orders through an external payment provider. Kafka-only: it consumes the saga's
+  # commands and replies on the outbox, so it is deliberately absent from the gateway routes -
+  # nothing outside the backend network ever calls it.
+  payment-service:
+    profiles: [backend]
+    build:
+      context: ./backend/payment-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - 8087:8080
+    environment:
+      - QUARKUS_PROFILE=prod
+      - PAYMENT_DB_URL=jdbc:postgresql://payment-postgres:5432/payment
+      - PAYMENT_DB_USER=postgres
+      - PAYMENT_DB_PASSWORD=postgres
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      # The URL alone decides mock or real. No flag, no fallback: pointing this at Stripe is a
+      # deliberate act, and a misconfiguration fails loudly instead of reporting charges never made.
+      - PAYMENT_STRIPE_URL=http://stripe-mock:12111
+      - PAYMENT_STRIPE_API_KEY=${PAYMENT_STRIPE_API_KEY:-sk_test_local}
+    depends_on:
+      payment-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      stripe-mock:
+        condition: service_started
     networks:
       - backend
     healthcheck:
@@ -288,6 +338,10 @@ services:
       - backend
     volumes:
       - ./backend/dev-scripts/mongodb:/seed:ro
+    environment:
+      # Demo data is for development. The replica set is still initiated when this is false - that
+      # is infrastructure the services need, not sample content.
+      - SEED_DEMO_DATA=${SEED_DEMO_DATA:-true}
     # One-shot: wait for mongod, initiate the replica set (idempotent), wait for primary, then
     # seed once (only when the data is empty, so re-running `up` never wipes existing data).
     restart: "no"
@@ -302,6 +356,10 @@ services:
         mongosh --host mongodb:27017 --quiet --eval 'try { rs.status(); print("rs already initiated"); } catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongodb:27017"}]}); print("rs initiated"); }'
         echo "mongo-init: waiting for primary..."
         until mongosh --host mongodb:27017 --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; do sleep 1; done
+        if [ "$${SEED_DEMO_DATA:-true}" != "true" ]; then
+          echo "mongo-init: SEED_DEMO_DATA=$${SEED_DEMO_DATA} - replica set ready, no demo data seeded"
+          exit 0
+        fi
         seeded=$$(mongosh --host mongodb:27017 --quiet --eval 'db.getSiblingDB("price-service").prices.countDocuments()')
         if [ "$$seeded" = "0" ]; then
           echo "mongo-init: seeding..."
@@ -310,7 +368,10 @@ services:
         else
           echo "mongo-init: already seeded ($$seeded prices), skipping"
         fi
-        echo "mongo-init: seeding test users (idempotent upsert)..."
+        # These are demo accounts with passwords committed to this repository, and the upsert puts
+        # them back on every start - deleting one does not keep it gone. They exist for local work
+        # and the e2e suite; anything reachable by anyone else must run with SEED_DEMO_DATA=false.
+        echo "mongo-init: seeding demo users (idempotent upsert)..."
         mongosh --host mongodb:27017 /seed/03-users.js
         echo "mongo-init: done"
 
@@ -353,6 +414,38 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Payments get their own store: it holds the record of money taken, and nothing about
+  # reporting or the catalog should be able to lock or fill it.
+  payment-postgres:
+    profiles: [infra]
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=payment
+    ports:
+      - 5434:5432
+    networks:
+      - backend
+    volumes:
+      - payment_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Stripe's own mock. It validates requests against Stripe's published API spec, so it proves
+  # we speak the dialect - but it is stateless: it does not decline, does not time out, and does
+  # not honour idempotency keys. Those paths are covered by WireMock in the tests, not here.
+  stripe-mock:
+    profiles: [infra]
+    image: stripe/stripe-mock:latest
+    ports:
+      - 12111:12111
+    networks:
+      - backend
 
   localstack:
     profiles: [infra]
@@ -484,6 +577,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     ports:
       - 9090:9090
@@ -495,6 +589,43 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # Takes firing alerts off Prometheus's Alerts page and actually does something with them:
+  # groups them, suppresses the ones a bigger failure already explains, and delivers them.
+  # Configuration and the routing tree: observability/alertmanager.yml.
+  alertmanager:
+    profiles: [observability]
+    image: prom/alertmanager:v0.27.0
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - 9093:9093
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Where alerts land by default, so the delivery path is verifiable rather than assumed:
+  # `docker compose logs alert-sink` shows the full payload of everything Alertmanager sent.
+  # A configured receiver that quietly discards its alerts looks exactly like a working one,
+  # which is the failure this whole change exists to remove - so the default is one that leaves
+  # a trace. Replace it with a real destination in alertmanager.yml when there is one to name.
+  alert-sink:
+    profiles: [observability]
+    image: mendhak/http-https-echo:31
+    environment:
+      - HTTP_PORT=8080
+      - DISABLE_REQUEST_LOGS=false
+    networks:
+      - backend
 
   grafana:
     profiles: [observability]
@@ -531,6 +662,8 @@ volumes:
   mongodb_data:
   postgres_data:
   analytics_postgres_data:
+  payment_postgres_data:
   prometheus_data:
+  alertmanager_data:
   grafana_data:
   loki_data:

@@ -1,24 +1,17 @@
 import { expect, test } from '@playwright/test';
-import fs from 'node:fs';
 import { waitForApiCall } from '../fixtures/api';
-import { ADMIN_USER, RETAIL_USER, type TestUser } from '../fixtures/test-users';
-
-/** Reads a user's access token out of the storageState global-setup saved. */
-function readAccessToken(user: TestUser): string {
-  const state = JSON.parse(fs.readFileSync(user.storageStatePath, 'utf-8')) as {
-    origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-  };
-  const entry = state.origins?.[0]?.localStorage?.find((e) => e.name === 'access_token');
-  if (!entry) throw new Error(`No access_token in ${user.email} storageState — did global-setup run?`);
-  return entry.value;
-}
+import { readAccessToken, specUser, storageStateFor } from '../fixtures/test-users';
 
 /**
  * Verified-purchaser reviews (frontend/src/containers/ProductDetails/ProductDetails.tsx ->
  * GET/POST/DELETE /api/reviews, docs/specs/product-reviews.md). Covers the frontend integration
- * added on top of the reviews backend: the retail user gets a real order against the product in
- * beforeAll so they pass the purchase-verification gate; the admin user deliberately does not, to
- * exercise the 403 rejection path.
+ * added on top of the reviews backend: this run's reviews-buyer gets a real *paid* order against
+ * the product in beforeAll so they pass the purchase-verification gate, while reviews-nonbuyer is
+ * a freshly registered account that has bought nothing, which is what the 403 path needs.
+ *
+ * Both are registered for this run alone. The non-purchaser used to be the shared admin account,
+ * which worked only because admin happened never to buy anything - a property no test stated and
+ * nothing enforced.
  */
 test.describe('Product reviews', () => {
   let productId: string;
@@ -33,14 +26,57 @@ test.describe('Product reviews', () => {
     const product = products[0];
     productId = product.uuid;
 
-    const token = readAccessToken(RETAIL_USER);
-    const res = await request.post('/api/orders', {
-      headers: { Authorization: `Bearer ${token}` },
+    // The order has to be *paid for*, not merely placed. Placing one costs nothing and can be
+    // abandoned, which is why the backend gate counts only PAID/SHIPPED/DELIVERED - so a beforeAll
+    // that stops at INITIATED establishes nothing this spec needs.
+    //
+    // It stopped at INITIATED for a while and the tests below still passed, because every buyer
+    // spec shared one account: order-lifecycle drove the same product to PAID for the same buyer
+    // in parallel, and this spec rode on it. Green, asserting nothing about its own setup, and
+    // dependent on another file's timing. This buyer is now this spec's alone, so the setup here
+    // is the only thing that can satisfy the gate.
+    const token = readAccessToken(specUser('reviews-buyer'));
+    const auth = { Authorization: `Bearer ${token}` };
+
+    const created = await request.post('/api/orders', {
+      headers: auth,
       data: {
         products: [{ product_id: product.uuid, title: product.title, qty: 1, price: product.price }],
       },
     });
-    expect(res.ok()).toBe(true);
+    expect(created.ok(), `could not place the order this spec needs: ${created.status()}`).toBe(true);
+    const orderId = ((await created.json()) as { id: string }).id;
+
+    const confirmed = await request.post(`/api/orders/${orderId}/confirm`, {
+      headers: auth,
+      data: { payment_method: 'pm_card_visa' },
+    });
+    expect(confirmed.status(), 'the order was not committed, so it can never be paid').toBe(200);
+
+    // Confirm returns once payment has been *requested*. Reaching PAID takes the stock step, the
+    // capture and the reply back, across three services and a broker - so this waits for the
+    // status rather than assuming it.
+    await expect
+      .poll(
+        async () => {
+          const res = await request.post('/api/orders/search', {
+            headers: auth,
+            data: { user_id: specUser('reviews-buyer').email, offset: 0, limit: 50 },
+          });
+          if (!res.ok()) return `search failed: ${res.status()}`;
+          const body = (await res.json()) as { y: Array<{ id: string; status: string }> };
+          return body.y.find((o) => o.id === orderId)?.status ?? 'not found';
+        },
+        {
+          message: `order ${orderId} never reached PAID, so the reviewer is not a verified purchaser`,
+          timeout: 60_000,
+          // Every tick is a real search against orders-service, and products-service checks
+          // purchase eligibility through that same endpoint under a 2s deadline. Polling once a
+          // second competes with the thing this setup exists to enable.
+          intervals: [2_000],
+        },
+      )
+      .toBe('PAID');
   });
 
   test.describe('anonymous visitor', () => {
@@ -53,7 +89,7 @@ test.describe('Product reviews', () => {
   });
 
   test.describe('non-purchaser', () => {
-    test.use({ storageState: ADMIN_USER.storageStatePath });
+    test.use({ storageState: storageStateFor('reviews-nonbuyer') });
 
     test('is rejected with 403 when submitting a review for a product they have not bought', async ({
       page,
@@ -73,7 +109,7 @@ test.describe('Product reviews', () => {
   // Submit-then-delete is a single stateful flow against one product's one review row
   // (upsert on product_id + reviewer) — must run in order, not in parallel.
   test.describe.serial('verified purchaser', () => {
-    test.use({ storageState: RETAIL_USER.storageStatePath });
+    test.use({ storageState: storageStateFor('reviews-buyer') });
 
     // Cleanup belongs to this group, not the file. Under `fullyParallel` Playwright dispatches
     // tests individually, so a file-level afterAll runs once per group of tests it happens to
@@ -81,12 +117,13 @@ test.describe('Product reviews', () => {
     // under it, between the submit and the delete below.
     test.afterAll(async ({ request }) => {
       // Best-effort, so a re-run starts from an empty review list for this product.
-      const token = readAccessToken(RETAIL_USER);
+      const token = readAccessToken(specUser('reviews-buyer'));
       const reviews = (await (await request.get(`/api/reviews?product_id=${productId}`)).json()) as Array<{
         id: string;
         reviewer: string;
       }>;
-      for (const review of reviews.filter((r) => r.reviewer === RETAIL_USER.email)) {
+      const buyerEmail = specUser('reviews-buyer').email;
+      for (const review of reviews.filter((r) => r.reviewer === buyerEmail)) {
         await request.delete(`/api/reviews/${review.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });

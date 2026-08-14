@@ -1,8 +1,10 @@
 package the.chak.ecommerce.analytics.repository;
 
+import java.math.BigDecimal;
+
 /**
  * Revenue rolled up for one {@code YYYY-MM} bucket. Only months that actually have sales are
  * returned; filling the gaps is the caller's job.
  */
-public record MonthlyRevenue(String month, double revenue) {
+public record MonthlyRevenue(String month, BigDecimal revenue) {
 }

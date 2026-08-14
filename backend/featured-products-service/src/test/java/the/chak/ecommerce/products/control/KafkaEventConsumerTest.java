@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -47,7 +48,7 @@ class KafkaEventConsumerTest {
         productDto.setUuid(uuid);
         productDto.setDescription("Test Kafka Product");
         productDto.setImageKey("test-image-key");
-        productDto.setPrice(100.0);
+        productDto.setPrice(BigDecimal.valueOf(100.0));
         CategoryDto categoryDto = new CategoryDto();
         categoryDto.setId(1L);
         categoryDto.setLabel("Electronics");

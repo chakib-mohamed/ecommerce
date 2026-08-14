@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -27,6 +28,7 @@ import jakarta.json.bind.config.PropertyNamingStrategy;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -35,6 +37,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.bson.types.ObjectId;
 import the.chak.ecommerce.orders.boundary.dto.SearchOrdersCommand;
 import the.chak.ecommerce.orders.boundary.dto.Tuple;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import the.chak.ecommerce.orders.control.exceptions.IllegalOrderTransitionException;
+import the.chak.ecommerce.orders.control.exceptions.OrderNotMutableException;
 import the.chak.ecommerce.orders.control.exceptions.ProductNotFoundException;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.entity.OrderStatus;
@@ -48,6 +54,9 @@ import the.chak.ecommerce.products.boundary.dto.PromotionDto;
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
+    /** Opaque single-use reference; confirming requires one, and its value is never meaningful. */
+    private static final String PAYMENT_METHOD = "pm_card_visa";
+
     @InjectMocks
     OrderService orderService;
 
@@ -60,10 +69,23 @@ class OrderServiceTest {
     @Mock
     OrderRepository orderRepository;
 
+    // Cancelling now compensates, announces, and writes conditionally, so it needs both of these.
+    // The detail of what it writes lives in OrderCancellationTest; here they only have to exist.
+    @Mock
+    OutboxEventFactory outboxEventFactory;
+
+    @Mock
+    SagaService sagaService;
+
     // A real registry (not a mock) so meter increments are actually recorded and assertable.
     // @InjectMocks injects @Spy fields, so OrderService receives this registry.
     @Spy
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    // The real state machine, not a mock: these tests are about the guards actually refusing
+    // illegal moves, which a stubbed machine would not exercise.
+    @Spy
+    OrderStateMachine stateMachine = new OrderStateMachine();
 
     // --saveOrder ----------------------------------------------------------
 
@@ -129,7 +151,8 @@ class OrderServiceTest {
         // then
         assertNotNull(saved);
         assertEquals(15.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
-        assertEquals(75.0, saved.getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(75.0).compareTo(saved.getPrice()),
+                "expected 75.00, was " + saved.getPrice());
         assertEquals(OrderStatus.INITIATED, saved.getStatus());
         verify(orderRepository).persist(saved);
     }
@@ -209,6 +232,51 @@ class OrderServiceTest {
         assertEquals(1, result.getY().size());
     }
 
+    @Test
+    @DisplayName("Passes the requested states through to the search")
+    void searchOrders_withStatuses_translatesThemForThePersistenceLayer() {
+        // given - the boundary and the entity have their own copies of this enum
+        SearchOrdersCommand cmd = new SearchOrdersCommand();
+        cmd.setUserID("user-1");
+        cmd.setStatuses(List.of(
+                the.chak.ecommerce.orders.boundary.dto.OrderStatus.PAID,
+                the.chak.ecommerce.orders.boundary.dto.OrderStatus.DELIVERED));
+        when(orderRepository.search(any(OrderSearch.class)))
+                .thenReturn(new PagedResult<>(0L, List.of()));
+
+        // when
+        orderService.searchOrders(cmd);
+
+        // then
+        ArgumentCaptor<OrderSearch> search = ArgumentCaptor.forClass(OrderSearch.class);
+        verify(orderRepository).search(search.capture());
+        assertEquals(
+                List.of(the.chak.ecommerce.orders.entity.OrderStatus.PAID,
+                        the.chak.ecommerce.orders.entity.OrderStatus.DELIVERED),
+                search.getValue().statuses());
+    }
+
+    @Test
+    @DisplayName("Treats an empty list of states as no filter at all")
+    void searchOrders_withEmptyStatuses_doesNotFilter() {
+        // given - an empty list is not "match nothing"; a caller that sends one is saying it does
+        // not care, and returning nothing would hide every order they own
+        SearchOrdersCommand cmd = new SearchOrdersCommand();
+        cmd.setUserID("user-1");
+        cmd.setStatuses(List.of());
+        when(orderRepository.search(any(OrderSearch.class)))
+                .thenReturn(new PagedResult<>(0L, List.of()));
+
+        // when
+        orderService.searchOrders(cmd);
+
+        // then
+        ArgumentCaptor<OrderSearch> search = ArgumentCaptor.forClass(OrderSearch.class);
+        verify(orderRepository).search(search.capture());
+        assertTrue(search.getValue().statuses().isEmpty(),
+                "an empty filter must reach the repository as no filter");
+    }
+
     // --confirmOrder -------------------------------------------------------
     // The happy path now commits the CONFIRMED order and a matching outbox entry inside a Mongo
     // transaction, so it is exercised against real Testcontainers in OrderOutboxWritePathTest rather
@@ -222,7 +290,7 @@ class OrderServiceTest {
         when(orderRepository.findById(any(ObjectId.class))).thenReturn(null);
 
         // when
-        Order result = orderService.confirmOrder(fakeId);
+        Order result = orderService.confirmOrder(fakeId, PAYMENT_METHOD);
 
         // then
         assertNull(result);
@@ -236,10 +304,286 @@ class OrderServiceTest {
         when(orderRepository.findById(any(ObjectId.class))).thenReturn(null);
 
         // when
-        orderService.confirmOrder(fakeId);
+        orderService.confirmOrder(fakeId, PAYMENT_METHOD);
 
         // then
         assertNull(meterRegistry.find("orders.confirmed").counter());
+    }
+
+    // --confirmOrder: lifecycle guards --------------------------------------
+    // Confirming is only legal from INITIATED. Without this guard a second confirm rewrites the
+    // status and inserts a second outbox entry, so the saga is opened twice and any
+    // consumer that is not idempotent double-processes the sale.
+
+    @Test
+    @DisplayName("Refuses to confirm an order that has already been confirmed")
+    void confirmOrder_alreadyConfirmed_isRejected() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+
+        // when / then
+        assertThrows(IllegalOrderTransitionException.class,
+                () -> orderService.confirmOrder(order.id.toString(), PAYMENT_METHOD));
+    }
+
+    @Test
+    @DisplayName("Refuses to confirm an order that has been cancelled")
+    void confirmOrder_cancelled_isRejected() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.CANCELLED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+
+        // when / then
+        assertThrows(IllegalOrderTransitionException.class,
+                () -> orderService.confirmOrder(order.id.toString(), PAYMENT_METHOD));
+    }
+
+    @Test
+    @DisplayName("Records no orders-confirmed metric when a second confirmation is refused")
+    void confirmOrder_alreadyConfirmed_doesNotIncrementConfirmedCounter() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+
+        // when
+        assertThrows(IllegalOrderTransitionException.class,
+                () -> orderService.confirmOrder(order.id.toString(), PAYMENT_METHOD));
+
+        // then - a refused confirmation is not a confirmation
+        assertNull(meterRegistry.find("orders.confirmed").counter());
+    }
+
+    // --cancelOrder ---------------------------------------------------------
+
+    @Test
+    @DisplayName("Cancels an order that has not been confirmed yet")
+    void cancelOrder_initiated_movesToCancelled() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.INITIATED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+        when(outboxEventFactory.orderCancelled(any(Order.class), any()))
+                .thenReturn(new the.chak.ecommerce.orders.entity.OutboxEntry());
+        when(sagaService.commitOrder(any(Order.class),
+                any(the.chak.ecommerce.orders.entity.OutboxEntry[].class))).thenReturn(true);
+
+        // when
+        Order cancelled = orderService.cancelOrder(order.id.toString());
+
+        // then
+        assertEquals(OrderStatus.CANCELLED, cancelled.getStatus());
+    }
+
+    @Test
+    @DisplayName("Refuses to cancel an order that has already shipped")
+    void cancelOrder_shipped_isRejected() {
+        // given
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.SHIPPED);
+        order.id = new ObjectId();
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(order);
+
+        // when / then
+        assertThrows(IllegalOrderTransitionException.class,
+                () -> orderService.cancelOrder(order.id.toString()));
+    }
+
+    @Test
+    @DisplayName("Returns null when cancelling an order id that does not exist")
+    void cancelOrder_nonExistentOrderId_returnsNull() {
+        // given
+        when(orderRepository.findById(any(ObjectId.class))).thenReturn(null);
+
+        // when
+        Order result = orderService.cancelOrder(new ObjectId().toString());
+
+        // then
+        assertNull(result);
+    }
+
+    // --promotion windows ---------------------------------------------------
+    // A promotion with an open-ended window is not a promotion the order can price against, and a
+    // window is checked at both ends. These are the guards the discount calculation leans on.
+
+    @Test
+    @DisplayName("Ignores a promotion that has no start date")
+    void saveOrder_promotionWithoutStartDate_isIgnored() {
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveTo(LocalDate.now().plusDays(5));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 10.0, List.of(promo)));
+        mockPricingResult(10.0);
+
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Ignores a promotion that has no end date")
+    void saveOrder_promotionWithoutEndDate_isIgnored() {
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now().minusDays(5));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 10.0, List.of(promo)));
+        mockPricingResult(10.0);
+
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Ignores a promotion whose window has not opened yet")
+    void saveOrder_promotionStartingLater_isIgnored() {
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now().plusDays(1));
+        promo.setActiveTo(LocalDate.now().plusDays(5));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 10.0, List.of(promo)));
+        mockPricingResult(10.0);
+
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    // --stacked discounts ---------------------------------------------------
+    // Promotions are summed, so nothing stops two generous ones from exceeding the whole price.
+    // Unclamped that yields a negative line total, which the order would then be priced at.
+
+    @Test
+    @DisplayName("Caps the combined discount at the full price when promotions stack past 100%")
+    void saveOrder_promotionsStackingPastFull_capsDiscountAtFullPrice() {
+        // given - 60% and 50% together would be 110% off
+        PromotionDto first = activePromotion(60.0);
+        PromotionDto second = activePromotion(50.0);
+
+        when(productsApiClient.getProduct("prod-1"))
+                .thenReturn(productDto("Widget", 100.0, List.of(first, second)));
+        mockPricingResult(0.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then - the buyer gets it free, never paid to take it
+        assertEquals(100.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Leaves a combined discount below the full price untouched")
+    void saveOrder_promotionsStackingBelowFull_keepsTheSum() {
+        // given
+        when(productsApiClient.getProduct("prod-1"))
+                .thenReturn(productDto("Widget", 100.0, List.of(activePromotion(20.0), activePromotion(15.0))));
+        mockPricingResult(65.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then
+        assertEquals(35.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    // --promotion window boundaries -----------------------------------------
+    // A promotion that runs "from today" or "until today" is running today. Excluding the
+    // boundary days silently drops the first and last day of every promotion.
+
+    @Test
+    @DisplayName("Applies a promotion on the day it starts")
+    void saveOrder_promotionStartingToday_isApplied() {
+        // given
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now());
+        promo.setActiveTo(LocalDate.now().plusDays(5));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 100.0, List.of(promo)));
+        mockPricingResult(75.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then
+        assertEquals(25.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Applies a promotion on the day it ends")
+    void saveOrder_promotionEndingToday_isApplied() {
+        // given
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now().minusDays(5));
+        promo.setActiveTo(LocalDate.now());
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 100.0, List.of(promo)));
+        mockPricingResult(75.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then
+        assertEquals(25.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    @Test
+    @DisplayName("Ignores a promotion whose window closed yesterday")
+    void saveOrder_promotionEndedYesterday_isIgnored() {
+        // given
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(25.0);
+        promo.setActiveFrom(LocalDate.now().minusDays(5));
+        promo.setActiveTo(LocalDate.now().minusDays(1));
+
+        when(productsApiClient.getProduct("prod-1")).thenReturn(productDto("W", 100.0, List.of(promo)));
+        mockPricingResult(100.0);
+
+        // when
+        Order saved = orderService.saveOrder(newOrder("prod-1", 1));
+
+        // then
+        assertEquals(0.0, saved.getProducts().get(0).getPercentageOff(), 0.001);
+    }
+
+    private static PromotionDto activePromotion(double percentageOff) {
+        PromotionDto promo = new PromotionDto();
+        promo.setPercentageOff(percentageOff);
+        promo.setActiveFrom(LocalDate.now().minusDays(1));
+        promo.setActiveTo(LocalDate.now().plusDays(1));
+        return promo;
+    }
+
+    // --assertMutable -------------------------------------------------------
+
+    @Test
+    @DisplayName("Allows a change to an order that has not been confirmed yet")
+    void assertMutable_initiated_isAllowed() {
+        Order order = newOrder("p1", 1);
+        order.setStatus(OrderStatus.INITIATED);
+
+        orderService.assertMutable(order);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = OrderStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "INITIATED")
+    @DisplayName("Refuses a change to an order that has moved past initiation")
+    void assertMutable_pastInitiated_isRejected(OrderStatus status) {
+        Order order = newOrder("p1", 1);
+        order.setStatus(status);
+
+        assertThrows(OrderNotMutableException.class, () -> orderService.assertMutable(order));
     }
 
     // --helpers ------------------------------------------------------------
@@ -258,7 +602,7 @@ class OrderServiceTest {
     private static ProductDto productDto(String title, double price, List<PromotionDto> promotions) {
         ProductDto dto = new ProductDto();
         dto.setTitle(title);
-        dto.setPrice(price);
+        dto.setPrice(BigDecimal.valueOf(price));
         dto.setPromotions(promotions);
         return dto;
     }
@@ -273,7 +617,7 @@ class OrderServiceTest {
 
     private static PricingResult pricingResult(double price) {
         PricingResult.PricingResultOrder resultOrder = new PricingResult.PricingResultOrder();
-        resultOrder.setPrice(price);
+        resultOrder.setPrice(BigDecimal.valueOf(price));
         PricingResult result = new PricingResult();
         result.setOrder(resultOrder);
         result.setId("process-id");
@@ -282,7 +626,7 @@ class OrderServiceTest {
 
     private void mockPricingResult(double price) {
         PricingResult.PricingResultOrder resultOrder = new PricingResult.PricingResultOrder();
-        resultOrder.setPrice(price);
+        resultOrder.setPrice(BigDecimal.valueOf(price));
         PricingResult pricingResult = new PricingResult();
         pricingResult.setOrder(resultOrder);
         pricingResult.setId("process-id");

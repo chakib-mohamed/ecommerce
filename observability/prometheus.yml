@@ -5,6 +5,19 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+# Alerting rules are evaluated here, visible on Prometheus's own Alerts page and in Grafana, and
+# handed to Alertmanager for grouping, inhibition and delivery.
+rule_files:
+  - /etc/prometheus/rules/*.rules.yml
+
+# Without this block the rules above still evaluate and still show as firing - they just go
+# nowhere, which is the state this replaced. Prometheus does not warn about it: an alerting
+# config that reaches no Alertmanager and a healthy one look the same from the Alerts page.
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
 scrape_configs:
   - job_name: prometheus
     static_configs:
@@ -48,3 +61,8 @@ scrape_configs:
     metrics_path: /q/metrics
     static_configs:
       - targets: ["analytics-service:8080"]
+
+  - job_name: payment-service
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["payment-service:8080"]

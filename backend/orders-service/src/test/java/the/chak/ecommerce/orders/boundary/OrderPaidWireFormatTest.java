@@ -1,6 +1,5 @@
 package the.chak.ecommerce.orders.boundary;
 
-import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,9 +12,6 @@ import jakarta.inject.Inject;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.security.TestSecurity;
-import io.quarkus.test.security.jwt.Claim;
-import io.quarkus.test.security.jwt.JwtSecurity;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -33,14 +29,17 @@ import the.chak.ecommerce.orders.control.PricingApiClient;
 import the.chak.ecommerce.orders.control.ProductsApiClient;
 import the.chak.ecommerce.orders.entity.Order;
 import the.chak.ecommerce.orders.entity.OrderStatus;
+import the.chak.ecommerce.orders.control.OutboxEventFactory;
+import the.chak.ecommerce.orders.control.OutboxRelay;
 import the.chak.ecommerce.orders.repository.OrderRepository;
+import the.chak.ecommerce.orders.repository.OutboxRepository;
 
 @QuarkusTest
 @QuarkusTestResource(MongoTestResource.class)
 @QuarkusTestResource(KafkaTestResource.class)
 @QuarkusTestResource(RedisTestResource.class)
 @Tag("integration")
-class OrderInitiatedWireFormatTest {
+class OrderPaidWireFormatTest {
 
     @InjectMock
     ProductsApiClient productsApiClient;
@@ -52,31 +51,46 @@ class OrderInitiatedWireFormatTest {
     @Inject
     OrderRepository orderRepository;
 
+    @Inject
+    OutboxRepository outboxRepository;
+
+    @Inject
+    OutboxEventFactory outboxEventFactory;
+
+    @Inject
+    OutboxRelay outboxRelay;
+
     @ConfigProperty(name = "kafka.bootstrap.servers")
     String bootstrapServers;
 
     @Test
-    @TestSecurity(user = "wire_user")
-    @JwtSecurity(claims = { @Claim(key = "sub", value = "wire_user") })
-    @DisplayName("The order-initiated payload is serialized snake_case on the wire (user_id)")
-    void orderInitiatedPayload_isSnakeCaseOnTheWire() {
-        // given - an initiated order whose user id is a multi-word field on the DTO
+    @DisplayName("The order-paid payload is serialized snake_case on the wire (user_id)")
+    void orderPaidPayload_isSnakeCaseOnTheWire() {
+        // given - a paid order whose user id is a multi-word field on the DTO
         Order order = new Order();
         order.setUserID("wire_user");
-        order.setStatus(OrderStatus.INITIATED);
+        order.setStatus(OrderStatus.PAID);
+        order.setPrice(java.math.BigDecimal.valueOf(12.34));
+        order.setProducts(java.util.List.of());
         orderRepository.persist(order);
-        String orderId = order.id.toString();
 
-        try (KafkaConsumer<String, String> consumer = newConsumer("order-initiated")) {
+        try (KafkaConsumer<String, String> consumer = newConsumer("order-paid")) {
             consumer.poll(Duration.ofMillis(500)); // force partition assignment
 
-            // when - confirming the order publishes it onto order-initiated
-            given().when().post("/orders/" + orderId + "/confirm")
-                    .then().statusCode(200);
+            // when - the relay drains an order-paid entry from the outbox. Written directly rather
+            // than by driving the saga: reaching PAID needs products-service and payment-service to
+            // answer, and neither runs here. What is under test is the serialization between the
+            // outbox and the broker, which is the same either way.
+            outboxRepository.persist(outboxEventFactory.orderPaid(order));
+            // Nudge the relay, exactly as every writer does after committing. Tests set
+            // orders.outbox.poll-interval to 24h, so the scheduled tick never arrives here and an
+            // entry nobody asks for sits until some other test's poll happens to drain it - which
+            // is how this first ran: published 20s late, by an accident of what else was running.
+            outboxRelay.requestPoll();
 
             // then - the wire payload uses snake_case field names, never camelCase
             String wire = awaitWire(consumer, "wire_user", Duration.ofSeconds(20));
-            assertNotNull(wire, "an order-initiated record should be published on confirm");
+            assertNotNull(wire, "an order-paid record should be published from the outbox");
             assertTrue(wire.contains("\"user_id\""), "wire must contain snake_case user_id: " + wire);
             assertFalse(wire.contains("\"userID\""), "wire must not contain camelCase userID: " + wire);
         }
@@ -100,7 +114,7 @@ class OrderInitiatedWireFormatTest {
     private KafkaConsumer<String, String> newConsumer(String topic) {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "order-initiated-wire-test-" + UUID.randomUUID());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "order-paid-wire-test-" + UUID.randomUUID());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());

@@ -16,6 +16,8 @@ import the.chak.ecommerce.outbox.AbstractOutboxRelay;
 import the.chak.ecommerce.outbox.OutboxTracing;
 import the.chak.ecommerce.products.control.events.ProductDeletedEvent;
 import the.chak.ecommerce.products.control.events.ProductUpdatedEvent;
+import the.chak.ecommerce.products.control.events.StockRejectedEvent;
+import the.chak.ecommerce.products.control.events.StockReservedEvent;
 import the.chak.ecommerce.products.entity.OutboxEvent;
 import the.chak.ecommerce.products.repository.OutboxRepository;
 
@@ -77,6 +79,16 @@ public class OutboxRelay extends AbstractOutboxRelay<OutboxEvent> {
                 ProductDeletedEvent payload =
                         jsonb.fromJson(event.getPayload(), ProductDeletedEvent.class);
                 yield kafkaEventPublisher.publishProductDeleted(payload, key, parent);
+            }
+            case "stock-reserved" -> {
+                StockReservedEvent payload =
+                        jsonb.fromJson(event.getPayload(), StockReservedEvent.class);
+                yield kafkaEventPublisher.publishStockReserved(payload, key, parent);
+            }
+            case "stock-rejected" -> {
+                StockRejectedEvent payload =
+                        jsonb.fromJson(event.getPayload(), StockRejectedEvent.class);
+                yield kafkaEventPublisher.publishStockRejected(payload, key, parent);
             }
             default -> throw new IllegalStateException("Unknown outbox topic: " + event.getTopic());
         };

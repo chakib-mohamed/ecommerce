@@ -1,6 +1,7 @@
 package the.chak.ecommerce.authentication.control;
 
 import java.util.Date;
+import java.util.List;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -18,13 +19,30 @@ public class TokenUtils {
     @Inject
     JwtConfig jwtConfig;
 
-    public String generateToken(String subject) {
+    /**
+     * Mints an access token naming the user and the roles they hold.
+     *
+     * <p>The roles go in as {@code groups}, and the name is not a matter of taste: that is the claim
+     * MicroProfile JWT maps to the container's roles, so it is the only one {@code @RolesAllowed}
+     * will ever read. A claim called anything else parses cleanly, shows up in the token, and
+     * authorizes nothing.
+     *
+     * <p>A user with no roles mints no claim at all rather than an empty array. Both authorize
+     * nothing; an empty array would suggest roles were looked up and came back empty, and the
+     * platform omits null fields rather than serializing them.
+     *
+     * @param roles the user's roles, or null if they have none
+     */
+    public String generateToken(String subject, List<String> roles) {
         long now = System.currentTimeMillis();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .setSubject(subject)
                 .setIssuedAt(new Date(now))
-                .setExpiration(new Date(now + jwtConfig.getExpiration() * 60 * 1000L))
-                .signWith(rsaKeyProvider.getPrivateKey(), SignatureAlgorithm.RS256)
+                .setExpiration(new Date(now + jwtConfig.getExpiration() * 60 * 1000L));
+        if (roles != null && !roles.isEmpty()) {
+            builder.claim("groups", roles);
+        }
+        return builder.signWith(rsaKeyProvider.getPrivateKey(), SignatureAlgorithm.RS256)
                 .compact();
     }
 

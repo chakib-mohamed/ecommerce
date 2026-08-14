@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -33,15 +34,16 @@ class PriceChangedConsumerTest {
         Product product = new Product();
         product.setTitle("Test Product");
         product.setDescription("desc");
-        product.setPrice(100.0);
+        product.setPrice(BigDecimal.valueOf(100.0));
         productRepository.persist(product);
         String productId = product.getUuid().toString();
 
         // when
-        consumer.consume(new PriceChangedEvent(productId, 75.0));
+        consumer.consume(new PriceChangedEvent(productId, BigDecimal.valueOf(75.0)));
 
         // then
         Product updated = productRepository.<Product>find("uuid", product.getUuid()).firstResult();
-        assertEquals(75.0, updated.getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(75.0).compareTo(updated.getPrice()),
+                "expected 75.00, was " + updated.getPrice());
     }
 }

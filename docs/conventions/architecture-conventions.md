@@ -22,7 +22,7 @@ These placements are enforced by `BceArchitectureTest` in each service: `@Path` 
 
 ## Reactive Stack Policy
 
-The reactive stack is **only allowed in `ecommerce-api-gateway`** (Spring WebFlux / Project Reactor). All six Quarkus services must use the blocking, imperative stack exclusively.
+The reactive stack is **only allowed in `ecommerce-api-gateway`** (Spring WebFlux / Project Reactor). Every Quarkus service must use the blocking, imperative stack exclusively.
 
 **Banned in every Quarkus service** — do not add these to any `pom.xml` or import them in any `.java` file:
 

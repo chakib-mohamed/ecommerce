@@ -2,6 +2,19 @@ import axios, { AxiosError } from "axios";
 import { toast } from "react-toastify";
 import { authService } from "./services";
 
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    /**
+     * Statuses this call handles itself, so the generic error toast is skipped for them.
+     *
+     * The error is still thrown - this suppresses the message, not the failure. For a response
+     * the caller expects and has something better to say about, the default toast is worse than
+     * nothing: it reports a problem beside a screen saying everything worked.
+     */
+    silentStatuses?: number[];
+  }
+}
+
 export const restApi = axios.create({
   baseURL: "/api/",
   withCredentials: true,
@@ -40,7 +53,10 @@ restApi.interceptors.response.use(
       }
     }
 
-    if (!isGetCurrentUserRequest(err)) {
+    const handledByCaller =
+      err.response != null && (err.config?.silentStatuses ?? []).includes(err.response.status);
+
+    if (!isGetCurrentUserRequest(err) && !handledByCaller) {
       toast.error(message);
     }
 

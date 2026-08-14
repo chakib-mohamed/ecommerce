@@ -100,7 +100,7 @@ class OutboxRelayBreakTest {
     private UUID insertUnpublished(String topic, UUID aggregateId) {
         OutboxEvent event = new OutboxEvent();
         event.setAggregateType("product");
-        event.setAggregateId(aggregateId);
+        event.setAggregateId(aggregateId.toString());
         event.setEventType(topic);
         event.setTopic(topic);
         event.setPayload("{\"product\":{\"uuid\":\"" + aggregateId + "\"}}");

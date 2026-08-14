@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The changelog the tests run: everything production runs, then a fixture only they need.
+
+  It is a separate changelog, in test resources, rather than an extra changeset in the master one
+  guarded by a context. A context does not guard anything on its own: Liquibase applies every
+  changeset when no contexts are given at runtime, and the Compose stack gives none - so a
+  `context:test` fixture went straight into the real catalogue, which is how this was found. Living
+  in test resources, it cannot reach a packaged application at all, whatever anyone configures.
+
+  The master changelog is included rather than copied, so schema changes are picked up here
+  automatically and there is only ever one definition of the schema.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <include file="db/changelog/db.changelog-master.xml"/>
+
+    <include file="db/changelog/changes/900-test-fixture.sql"/>
+
+</databaseChangeLog>

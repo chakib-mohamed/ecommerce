@@ -1,5 +1,6 @@
 package the.chak.ecommerce.products.boundary;
 
+import java.math.BigDecimal;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -60,7 +61,7 @@ class FeaturedProductsResourceTest {
             product.setTitle("Featured Product " + i);
             product.setDescription("Desc " + i);
             product.setImage("img-" + i);
-            product.setPrice(10.0 + i);
+            product.setPrice(BigDecimal.valueOf(10.0 + i));
             product.setCategories(List.of());
             product.setPromotions(List.of());
             productMongoRepository.persist(product);
@@ -89,7 +90,7 @@ class FeaturedProductsResourceTest {
             product.setTitle("Product " + i);
             product.setDescription("Desc " + i);
             product.setImage("img-" + i);
-            product.setPrice(20.0 + i);
+            product.setPrice(BigDecimal.valueOf(20.0 + i));
             product.setCategories(List.of());
             product.setPromotions(List.of());
             productMongoRepository.persist(product);
@@ -118,7 +119,7 @@ class FeaturedProductsResourceTest {
             product.setTitle("Item " + i);
             product.setDescription("Desc " + i);
             product.setImage("img-" + i);
-            product.setPrice(30.0 + i);
+            product.setPrice(BigDecimal.valueOf(30.0 + i));
             product.setCategories(List.of());
             product.setPromotions(List.of());
             productMongoRepository.persist(product);
@@ -148,7 +149,7 @@ class FeaturedProductsResourceTest {
         product.setTitle("Complete Product");
         product.setDescription("Full data test");
         product.setImage("complete-img");
-        product.setPrice(99.99);
+        product.setPrice(BigDecimal.valueOf(99.99));
 
         EmbeddedCategory cat = new EmbeddedCategory();
         cat.setId(1L);

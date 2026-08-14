@@ -1,5 +1,6 @@
 package the.chak.ecommerce.pricing.control;
 
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -48,6 +49,19 @@ class PricingServiceTest {
     }
 
     @Test
+    @DisplayName("Throws InvalidOrderException when the order carries no product list at all")
+    void calculate_nullProducts_throwsInvalidOrderException() {
+        // given - distinct from an empty list: the field was never populated
+        OrderDTO order = new OrderDTO();
+        order.setProducts(null);
+        PriceCalculationRequest request = new PriceCalculationRequest();
+        request.setOrder(order);
+
+        // when / then
+        assertThrows(InvalidOrderException.class, () -> pricingService.calculate(request));
+    }
+
+    @Test
     @DisplayName("Throws InvalidOrderException when the order has no products")
     void calculate_emptyProducts_throwsInvalidOrderException() {
         // given
@@ -70,7 +84,8 @@ class PricingServiceTest {
         PriceCalculationResponse response = pricingService.calculate(request);
 
         // then
-        assertEquals(100.0, response.getOrder().getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(100.0).compareTo(response.getOrder().getPrice()),
+                "expected 100.0, was " + response.getOrder().getPrice());
     }
 
     @Test
@@ -83,7 +98,8 @@ class PricingServiceTest {
         PriceCalculationResponse response = pricingService.calculate(request);
 
         // then
-        assertEquals(160.0, response.getOrder().getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(160.0).compareTo(response.getOrder().getPrice()),
+                "expected 160.0, was " + response.getOrder().getPrice());
     }
 
     @Test
@@ -97,7 +113,8 @@ class PricingServiceTest {
         PriceCalculationResponse response = pricingService.calculate(request);
 
         // then
-        assertEquals(57.0, response.getOrder().getPrice(), 0.001);
+        assertEquals(0, BigDecimal.valueOf(57.0).compareTo(response.getOrder().getPrice()),
+                "expected 57.0, was " + response.getOrder().getPrice());
     }
 
     @Test
@@ -159,7 +176,7 @@ class PricingServiceTest {
         ProductVO p = new ProductVO();
         p.setProductID(id);
         p.setQty(qty);
-        p.setPrice(price);
+        p.setPrice(BigDecimal.valueOf(price));
         p.setPercentageOff(percentageOff);
         return p;
     }

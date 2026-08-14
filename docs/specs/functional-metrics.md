@@ -68,6 +68,16 @@ the exact control method (and failure branch) verified against the current code.
 | orders | `order_value_amount` | summary | — | `OrderService.saveOrder` — records `order.getPrice()` (set from the pricing call) |
 | orders | `orders_confirmed_total` | counter | — | `OrderService.confirmOrder` |
 | orders | `checkouts_total` | counter | `outcome=success\|failure` | `CartService.checkout` — failure = `CartNotFoundException` / `CartEmptyException` |
+| orders | `orders_cancelled_total` | counter | — | `OrderService.cancelOrder`, and `SagaService` on a stock refusal or a failed charge |
+| orders | `orders_reserved_total` | counter | — | `SagaService.onStockReserved` |
+| orders | `orders_paid_total` | counter | — | `SagaService.onPaymentCaptured` — this, not confirmation, is revenue |
+| orders | `orders_shipped_total` | counter | — | `OrderService.shipOrder` — the gap from `orders_paid_total` is the fulfilment backlog |
+| orders | `orders_delivered_total` | counter | — | `OrderService.deliverOrder` |
+| orders | `orders_sagas_timed_out_total` | counter | — | `SagaDeadlineSweep.abandon` — **alerted on**; each one held stock |
+| payment | `payments_captured_total` | counter | — | `PaymentService.record` on the captured branch |
+| payment | `payments_declined_total` | counter | — | `PaymentService.record` on the refused branch |
+| payment | `payments_gateway_faults_total` | counter | — | `PaymentService.capture` — **alerted on**; the provider gave no usable answer |
+| payment | `payments_redelivered_total` | counter | — | `PaymentService.capture` — answered from the local record, charged nothing |
 | price | `pricing_calculations_total` | counter | `outcome=success\|failure` | `PricingService.calculate` — failure = `InvalidOrderException` |
 | price | `pricing_discount_amount` | summary | — | `ApplyPromotionsService.applyPromotion` — recorded per applied discount |
 | price | `pricing_price_updates_total` | counter | `outcome=success\|failure` | `PriceService.update` — failure = `InvalidPriceException` |
@@ -103,6 +113,58 @@ the exact control method (and failure branch) verified against the current code.
   Prometheus-native; no HTTP JSON is involved.
 
 ---
+
+## Alerting
+
+Rules live in `observability/rules/*.rules.yml`, mounted into Prometheus and evaluated every 30s.
+They are visible on Prometheus's Alerts page and in Grafana.
+
+### Delivery
+
+Prometheus hands firing alerts to **Alertmanager** (`observability/alertmanager.yml`), which decides
+what happens to them next. Three things it does that Prometheus alone does not:
+
+- **Grouping** by `alertname` + `job`, so one broken service produces one notification rather than
+  one per instance, batched on a 30s wait and a 5m interval.
+- **Severity routing.** `severity: critical` takes its own receiver and repeats hourly; everything
+  else repeats every four hours. The label on the rule is what selects the route — a rule that sets
+  no severity silently takes the default path, which is why every rule above sets one.
+- **Inhibition.** A `ServiceNotScraped` suppresses the other alerts for that same `job`, because a
+  service that is not being scraped makes every rule reading its metrics meaningless, and the
+  symptoms otherwise bury the cause. This matches on `job`, so it covers `SagaStepTimedOut`,
+  `PaymentGatewayFault` and `CapturesRepeatedlyRedelivered` — the rules whose expressions keep the
+  label. It cannot cover `OrdersConfirmedButNonePaid` or `PaymentsMostlyDeclined`, which aggregate
+  with `sum()` and drop every label including `job`. That is a property of those expressions.
+
+**Where alerts go is still parametrized, and that is the remaining decision.** The default receiver
+posts the full payload to a local `alert-sink` container, so the path is verifiable —
+`docker compose logs alert-sink` shows exactly what was delivered. That default exists because a
+receiver that quietly discards its alerts is indistinguishable from a working one, which was the
+failure this replaced.
+
+Pointing them at a real destination is one receiver block in `observability/alertmanager.yml`; the
+Slack and email forms are written out there, commented, ready to uncomment. Both read their
+credential from a file mounted at `/etc/alertmanager/secrets/` rather than an inline value — a
+webhook URL or SMTP password committed to this repository is a credential handed to everyone who
+can read it.
+
+Both halves are validated in CI by the `observability-config` job: `amtool check-config` parses the
+Alertmanager config, and a cross-check asserts that the Alertmanager `prometheus.yml` points at is
+actually a service in `docker-compose.yml`. Neither tool checks that seam on its own, and a
+misspelled hostname there produces a stack where every rule evaluates, the Alerts page looks
+healthy, and nothing is ever delivered.
+
+| Alert | Fires on | Why it is worth waking up for |
+|---|---|---|
+| `SagaStepTimedOut` | any `orders_sagas_timed_out_total` increase | Each abandoned step held stock out of sale, and the buyer was told their order was cancelled for a timeout that was nobody's fault |
+| `OrdersConfirmedButNonePaid` | confirmations flowing, payments at zero for 15m | The saga is broken past `RESERVED`; every order is reserving stock and none complete |
+| `PaymentGatewayFault` | any `payments_gateway_faults_total` increase | The worst case in `payment.md` §8 — the money may have moved and the order was cancelled anyway. Only reconciliation recovers it |
+| `PaymentsMostlyDeclined` | >80% declines over 15m, min 10 declines | A wrong or expired provider key looks exactly like this |
+| `CapturesRepeatedlyRedelivered` | >5 redeliveries in 15m | The charge is safe, but a reply is not getting through and orders are waiting |
+| `ServiceNotScraped` | `up == 0` for 5m | Every alert above is silent while its service is unscraped, and silence reads as health |
+
+Two rules deliberately do **not** alert on volume being unusual. A busy day and a broken provider
+must not look the same, or the alerts get muted — and a muted alert protects nothing.
 
 ## Verification
 

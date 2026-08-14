@@ -1,5 +1,6 @@
 package the.chak.ecommerce.orders.boundary;
 
+import java.math.BigDecimal;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.empty;
@@ -47,6 +48,9 @@ import the.chak.ecommerce.products.boundary.dto.ProductDto;
 @Tag("integration")
 class OrdersResourceTest {
 
+    /** Confirming requires a payment method reference; its value is never meaningful here. */
+    private static final String CONFIRM_BODY = "{\"payment_method\":\"pm_card_visa\"}";
+
     @InjectMock
     ProductsApiClient productsApiClient;
 
@@ -73,7 +77,7 @@ class OrdersResourceTest {
         order.setCreationDate(originalCreationDate);
         order.setStatus(OrderStatus.INITIATED);
         order.setUserID("original_user");
-        order.setPrice(100.0);
+        order.setPrice(BigDecimal.valueOf(100.0));
         order.setProducts(new ArrayList<>());
         orderRepository.persist(order);
 
@@ -94,7 +98,8 @@ class OrdersResourceTest {
         Order updated = orderRepository.findById(order.id);
         assertEquals(OrderStatus.INITIATED, updated.getStatus());
         assertEquals("original_user", updated.getUserID());
-        assertEquals(100.0, updated.getPrice());
+        assertEquals(0, BigDecimal.valueOf(100.0).compareTo(updated.getPrice()),
+                "expected 100.00, was " + updated.getPrice());
         assertEquals(
                 originalCreationDate.truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
                 updated.getCreationDate().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
@@ -110,11 +115,11 @@ class OrdersResourceTest {
         // given
         ProductDto mockProduct = new ProductDto();
         mockProduct.setTitle("Mock Product");
-        mockProduct.setPrice(50.0);
+        mockProduct.setPrice(BigDecimal.valueOf(50.0));
         when(productsApiClient.getProduct(any())).thenReturn(mockProduct);
 
         PricingResult.PricingResultOrder mockResultOrder = new PricingResult.PricingResultOrder();
-        mockResultOrder.setPrice(100.0);
+        mockResultOrder.setPrice(BigDecimal.valueOf(100.0));
         PricingResult mockPricingResult = new PricingResult();
         mockPricingResult.setOrder(mockResultOrder);
         mockPricingResult.setId("process123");
@@ -197,7 +202,7 @@ class OrdersResourceTest {
         String orderId = order.id.toString();
 
         // when
-        var response = given().when().post("/orders/" + orderId + "/confirm");
+        var response = given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + orderId + "/confirm");
 
         // then
         response.then().statusCode(200).body("status", is(OrderStatus.CONFIRMED.name()));
@@ -280,6 +285,88 @@ class OrdersResourceTest {
     @Test
     @TestSecurity(user = "test_user")
     @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns only the orders in the requested states when searching with a status filter")
+    void searchOrders_withStatuses_returnsOnlyOrdersInThoseStates() {
+        // given - the same buyer, the same product, one paid for and one abandoned before payment
+        Order paid = orderContaining("prod_filtered", "user_status_filter", OrderStatus.PAID);
+        orderRepository.persist(paid);
+        Order neverPaid =
+                orderContaining("prod_filtered", "user_status_filter", OrderStatus.INITIATED);
+        orderRepository.persist(neverPaid);
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_status_filter\",\"product_id\":\"prod_filtered\","
+                        + "\"statuses\":[\"PAID\",\"SHIPPED\",\"DELIVERED\"]}")
+                .when().post("/orders/search");
+
+        // then - the abandoned one must not be counted. This is what stands between "placed an
+        // order" and "bought it": an unconfirmed order costs nothing and can be made at will, so
+        // anything trusting this count is trusting something anyone can mint.
+        response.then().statusCode(200)
+                .body("x", is(1))
+                .body("y.size()", is(1))
+                .body("y[0].status", is("PAID"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns orders in every state when searching without a status filter")
+    void searchOrders_withoutStatuses_returnsEveryState() {
+        // given
+        orderRepository.persist(orderContaining("prod_unfiltered", "user_no_filter",
+                OrderStatus.PAID));
+        orderRepository.persist(orderContaining("prod_unfiltered", "user_no_filter",
+                OrderStatus.INITIATED));
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_no_filter\"}")
+                .when().post("/orders/search");
+
+        // then - order history shows a buyer everything they placed, so the filter has to be
+        // opt-in. This passes today and is here to stay passing.
+        response.then().statusCode(200)
+                .body("x", is(2));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Applies the status filter when searching without a product id")
+    void searchOrders_statusesWithoutProductId_stillFilters() {
+        // given - the filters are assembled by string concatenation, so each one has to compose
+        // with whichever others are present; this is the combination the other tests do not cover
+        orderRepository.persist(orderContaining("prod_a", "user_status_only", OrderStatus.PAID));
+        orderRepository.persist(
+                orderContaining("prod_b", "user_status_only", OrderStatus.CANCELLED));
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_status_only\",\"statuses\":[\"PAID\"]}")
+                .when().post("/orders/search");
+
+        // then
+        response.then().statusCode(200)
+                .body("x", is(1))
+                .body("y[0].status", is("PAID"));
+    }
+
+    private static Order orderContaining(String productId, String userId, OrderStatus status) {
+        the.chak.ecommerce.orders.entity.ProductVO product =
+                new the.chak.ecommerce.orders.entity.ProductVO();
+        product.setProductID(productId);
+        Order order = new Order();
+        order.setUserID(userId);
+        order.setStatus(status);
+        order.setProducts(List.of(product));
+        return order;
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
     @DisplayName("Returns 400 with VALIDATION_ERROR when searching with a blank user id")
     void searchOrders_blankUserId_returns400() {
         // given
@@ -292,5 +379,224 @@ class OrdersResourceTest {
         response.then().statusCode(400)
                 .body("type", is("FUNCTIONAL"))
                 .body("error_code", is("VALIDATION_ERROR"));
+    }
+
+    // --ownership and lifecycle guards ---------------------------------------
+    // Each order operation refuses in three ways: the order does not exist, it belongs to someone
+    // else, or it has moved past the point where the operation still makes sense.
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 404 when updating an order that does not exist")
+    void updateOrder_unknownOrder_returns404() {
+        String body = String.format(
+                "{\"id\":\"%s\",\"products\":[{\"product_id\":\"p\",\"qty\":1,\"price\":1.0}]}",
+                new ObjectId());
+
+        given().contentType(ContentType.JSON).body(body)
+                .when().put("/orders")
+                .then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "intruder")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "intruder") })
+    @DisplayName("Returns 403 when updating an order belonging to someone else")
+    void updateOrder_otherUsersOrder_returns403() {
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+        String body = String.format(
+                "{\"id\":\"%s\",\"products\":[{\"product_id\":\"p\",\"qty\":1,\"price\":1.0}]}", order.id);
+
+        given().contentType(ContentType.JSON).body(body)
+                .when().put("/orders")
+                .then().statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 409 when updating an order that has already been confirmed")
+    void updateOrder_confirmedOrder_returns409() {
+        Order order = persistedOrder("owner", OrderStatus.CONFIRMED);
+        String body = String.format(
+                "{\"id\":\"%s\",\"products\":[{\"product_id\":\"p\",\"qty\":1,\"price\":1.0}]}", order.id);
+
+        given().contentType(ContentType.JSON).body(body)
+                .when().put("/orders")
+                .then().statusCode(409)
+                .body("error_code", is("ORDER_NOT_MUTABLE"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 404 when deleting an order that does not exist")
+    void deleteOrder_unknownOrder_returns404() {
+        given().when().delete("/orders/" + new ObjectId()).then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "intruder")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "intruder") })
+    @DisplayName("Returns 403 when deleting an order belonging to someone else")
+    void deleteOrder_otherUsersOrder_returns403() {
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+
+        given().when().delete("/orders/" + order.id).then().statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 409 when deleting an order that has already been confirmed")
+    void deleteOrder_confirmedOrder_returns409() {
+        Order order = persistedOrder("owner", OrderStatus.CONFIRMED);
+
+        given().when().delete("/orders/" + order.id)
+                .then().statusCode(409)
+                .body("error_code", is("ORDER_NOT_MUTABLE"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 404 when confirming an order that does not exist")
+    void confirmOrder_unknownOrder_returns404() {
+        given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + new ObjectId() + "/confirm").then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "intruder")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "intruder") })
+    @DisplayName("Returns 403 when confirming an order belonging to someone else")
+    void confirmOrder_otherUsersOrder_returns403() {
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+
+        given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + order.id + "/confirm").then().statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 409 when confirming an order that is already confirmed")
+    void confirmOrder_alreadyConfirmed_returns409() {
+        Order order = persistedOrder("owner", OrderStatus.CONFIRMED);
+
+        given().contentType("application/json").body(CONFIRM_BODY).when().post("/orders/" + order.id + "/confirm")
+                .then().statusCode(409)
+                .body("error_code", is("ILLEGAL_ORDER_TRANSITION"));
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 400 when confirming an order with no payment method")
+    void confirmOrder_withoutABody_returns400() {
+        // given - a confirm sent with no body at all, which reaches the resource as a null request
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+
+        // when / then - accepted, this order would reserve stock and only fail at the charge,
+        // holding inventory for a payment that was never possible
+        given().contentType("application/json").when().post("/orders/" + order.id + "/confirm")
+                .then().statusCode(400)
+                .body("error_code", is("MISSING_PAYMENT_METHOD"));
+    }
+
+    // --cancel ---------------------------------------------------------------
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 200 with CANCELLED status when cancelling a confirmed order")
+    void cancelOrder_confirmedOrder_returns200() {
+        Order order = persistedOrder("owner", OrderStatus.CONFIRMED);
+
+        given().when().post("/orders/" + order.id + "/cancel")
+                .then().statusCode(200)
+                .body("status", is(OrderStatus.CANCELLED.name()));
+
+        assertEquals(OrderStatus.CANCELLED, orderRepository.findById(order.id).getStatus());
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns 404 when cancelling an order that does not exist")
+    void cancelOrder_unknownOrder_returns404() {
+        given().when().post("/orders/" + new ObjectId() + "/cancel").then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "intruder")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "intruder") })
+    @DisplayName("Returns 403 when cancelling an order belonging to someone else")
+    void cancelOrder_otherUsersOrder_returns403() {
+        Order order = persistedOrder("owner", OrderStatus.INITIATED);
+
+        given().when().post("/orders/" + order.id + "/cancel").then().statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "owner")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "owner") })
+    @DisplayName("Returns 409 when cancelling an order that has already been cancelled")
+    void cancelOrder_alreadyCancelled_returns409() {
+        Order order = persistedOrder("owner", OrderStatus.CANCELLED);
+
+        given().when().post("/orders/" + order.id + "/cancel")
+                .then().statusCode(409)
+                .body("error_code", is("ILLEGAL_ORDER_TRANSITION"));
+    }
+
+    @Test
+    @TestSecurity(user = "test_user")
+    @JwtSecurity(claims = { @Claim(key = "sub", value = "test_user") })
+    @DisplayName("Returns a buyer's orders newest first when searching")
+    void searchOrders_returnsNewestFirst() {
+        // given - persisted oldest first, so insertion order and the expected order disagree. A
+        // search with no sort returns natural order, which here means insertion order, so this
+        // fails on exactly the query that has no sort rather than passing by luck.
+        Order oldest = new Order();
+        oldest.setUserID("user_ordering");
+        oldest.setStatus(OrderStatus.INITIATED);
+        oldest.setCreationDate(LocalDateTime.now().minusDays(2));
+        orderRepository.persist(oldest);
+
+        Order middle = new Order();
+        middle.setUserID("user_ordering");
+        middle.setStatus(OrderStatus.INITIATED);
+        middle.setCreationDate(LocalDateTime.now().minusDays(1));
+        orderRepository.persist(middle);
+
+        Order newest = new Order();
+        newest.setUserID("user_ordering");
+        newest.setStatus(OrderStatus.INITIATED);
+        newest.setCreationDate(LocalDateTime.now());
+        orderRepository.persist(newest);
+
+        // when
+        var response = given().contentType(ContentType.JSON)
+                .body("{\"user_id\":\"user_ordering\"}")
+                .when().post("/orders/search");
+
+        // then - and the ordering matters beyond presentation: the history is paged, and paging an
+        // unordered result can show one order on two pages and another on none.
+        response.then().statusCode(200)
+                .body("x", is(3))
+                .body("y[0].id", is(newest.id.toString()))
+                .body("y[1].id", is(middle.id.toString()))
+                .body("y[2].id", is(oldest.id.toString()));
+    }
+
+    private Order persistedOrder(String userId, OrderStatus status) {
+        Order order = new Order();
+        order.setCreationDate(LocalDateTime.now());
+        order.setStatus(status);
+        order.setUserID(userId);
+        order.setPrice(BigDecimal.valueOf(10.0));
+        order.setProducts(new ArrayList<>());
+        orderRepository.persist(order);
+        return order;
     }
 }

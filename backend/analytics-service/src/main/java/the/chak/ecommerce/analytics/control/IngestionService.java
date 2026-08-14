@@ -1,5 +1,7 @@
 package the.chak.ecommerce.analytics.control;
 
+import the.chak.ecommerce.orders.boundary.dto.Money;
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -26,7 +28,7 @@ public class IngestionService {
 
     private static final Logger LOG = Logger.getLogger(IngestionService.class);
     private static final DateTimeFormatter MONTH_BUCKET = DateTimeFormatter.ofPattern("yyyy-MM");
-    private static final double FULL_PRICE = 100d;
+    private static final BigDecimal FULL_PRICE = BigDecimal.valueOf(100);
 
     @Inject
     FactSalesLineRepository factRepository;
@@ -70,9 +72,13 @@ public class IngestionService {
      * Revenue is resolved from the price and discount frozen onto the order, so the figure stays
      * put when the product's live price later moves.
      */
-    private double lineRevenue(ProductVO line) {
-        double discount = line.getPercentageOff() == null ? 0d : line.getPercentageOff();
-        return line.getQty() * line.getPrice() * ((FULL_PRICE - discount) / FULL_PRICE);
+    private BigDecimal lineRevenue(ProductVO line) {
+        BigDecimal discount = line.getPercentageOff() == null ? BigDecimal.ZERO
+                : BigDecimal.valueOf(line.getPercentageOff());
+        BigDecimal discountedUnitPrice = line.getPrice()
+                .multiply(FULL_PRICE.subtract(discount))
+                .divide(FULL_PRICE, Money.SCALE, Money.ROUNDING);
+        return discountedUnitPrice.multiply(BigDecimal.valueOf(line.getQty()));
     }
 
     /** Creates or refreshes a product's dimension row. */

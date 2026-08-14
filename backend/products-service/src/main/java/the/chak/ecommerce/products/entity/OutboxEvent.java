@@ -24,7 +24,9 @@ public class OutboxEvent implements OutboxRecord {
 
     private String aggregateType;
 
-    private UUID aggregateId;
+    /** Identity of the aggregate this message concerns; the Kafka key. A product uuid for catalog
+     *  events, an order id for saga replies - so a string, not a uuid. */
+    private String aggregateId;
 
     private String eventType;
 
@@ -68,6 +70,6 @@ public class OutboxEvent implements OutboxRecord {
 
     @Override
     public String aggregateKey() {
-        return aggregateId.toString();
+        return aggregateId;
     }
 }

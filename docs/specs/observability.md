@@ -187,6 +187,23 @@ local stack.
 
 ---
 
+## Alerting lives elsewhere
+
+**This spec covers traces, metrics and logs — it does not cover alerting.** Prometheus does not only
+scrape here: it evaluates rules in `observability/rules/`, and Alertmanager groups, routes and
+delivers what fires.
+
+That is specified in **`docs/specs/functional-metrics.md`**, which owns the alert rules, the severity
+routing, and the deliberately-unset push destination — the default receiver posts to a local sink so
+the delivery path is verifiable, because a receiver that quietly discards its alerts is
+indistinguishable from a working one.
+
+The split is by subject rather than by stack: this document is about being able to *see* what
+happened, that one is about being *told*. Anyone changing the scrape config, adding a service, or
+touching the Compose observability profile needs both.
+
+---
+
 ## New HTTP surface
 
 | Endpoint | Service | Purpose |

@@ -1,5 +1,6 @@
 package the.chak.ecommerce.analytics.boundary;
 
+import java.math.BigDecimal;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -64,7 +65,7 @@ class AnalyticsResourceTest {
         line.setProductID(PRODUCT_UUID.toString());
         line.setTitle("Desk lamp");
         line.setQty(2);
-        line.setPrice(100d);
+        line.setPrice(BigDecimal.valueOf(100));
         line.setPercentageOff(10d);
 
         OrderDTO order = new OrderDTO();

@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { waitForApiCall } from '../fixtures/api';
-import { RETAIL_USER } from '../fixtures/test-users';
+import { specUser, storageStateFor } from '../fixtures/test-users';
 
-test.use({ storageState: RETAIL_USER.storageStatePath });
+test.use({ storageState: storageStateFor('checkout') });
 
 /**
  * Add to cart -> checkout -> place a real order
@@ -18,11 +18,16 @@ test('adds a product to cart, completes checkout, and lands on /confirm with a r
   await page.getByRole('button', { name: 'Add to cart' }).first().click({ force: true });
 
   await page.goto('/checkout');
-  await page.getByPlaceholder('you@email.com').fill(RETAIL_USER.email);
+  await page.getByPlaceholder('you@email.com').fill(specUser('checkout').email);
   await page.getByPlaceholder('Your name').fill('E2E Test Buyer');
   await page.getByPlaceholder('Street address').fill('123 Test Street');
   await page.getByPlaceholder('City').fill('Springfield');
   await page.getByPlaceholder('ZIP').fill('12345');
+
+  // Committing the order asks for payment in the same step, so a method has to be chosen before
+  // the button is live. Without this the order can never be placed, and the assertion below is
+  // what says so - it is how this spec caught the payment step being made mandatory.
+  await page.getByRole('radio', { name: 'Visa' }).check();
 
   const placeOrderButton = page.getByRole('button', { name: /Place order/ });
   await expect(placeOrderButton).toBeEnabled();
