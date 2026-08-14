@@ -30,6 +30,28 @@ quarkus.jackson.write-dates-as-timestamps=false
 quarkus.jackson.fail-on-unknown-properties=false
 ```
 
+## Every service states its own wire naming
+
+**A shared module must not carry an `application.properties`.** Quarkus merges configuration out of
+dependency jars, so a settings file in a DTO module governs every service that depends on it for
+types — including services that never knew the file existed.
+
+`products-api` carried four Jackson settings, and they decided the wire behaviour of
+`analytics-service` and `featured-products-service`, both of which leave their Kafka channel
+serializers unset and therefore run on generated Jackson serdes. Neither service contained anything
+saying what its own format was.
+
+**The failure mode is silent in the worst way.** Without snake_case, every underscore-named field on
+an incoming event binds to nothing and reads as null. No error, no dead letter, no failed
+deserialization — just an empty warehouse and a dashboard reporting no sales. Reorganising a shared
+DTO module would have been enough to cause it.
+
+So: each service declares the settings it depends on, in its own `application.properties`, even when
+that means the same four lines appear in several services. The duplication is the point — it is what
+makes a service's wire format visible in the service, and what makes a sabotage test meaningful. A
+test that flips one service's setting must fail that service's own ingestion; if it passes, the
+setting being tested is not the one in force.
+
 ## Kafka events
 
 `JsonbSerializer` and `JsonbDeserializer` (used in all Kafka channels) resolve the **CDI-managed
